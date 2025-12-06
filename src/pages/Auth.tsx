@@ -95,6 +95,8 @@ export default function Auth() {
     if (error) {
       if (error.message.includes('already registered')) {
         toast.error('An account with this email already exists');
+      } else if (error.message.includes('duplicate key') || error.message.includes('profiles_username_key') || error.message.includes('Database error')) {
+        toast.error('Username already exists. Please choose a different one.');
       } else {
         toast.error(error.message);
       }
