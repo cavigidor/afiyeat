@@ -6,6 +6,8 @@ import { Navbar } from '@/components/layout/Navbar';
 import { RestaurantCard } from '@/components/restaurants/RestaurantCard';
 import { AddRestaurantDialog } from '@/components/restaurants/AddRestaurantDialog';
 import { FolderList } from '@/components/folders/FolderList';
+import { RestaurantSearch } from '@/components/restaurants/RestaurantSearch';
+import { AIAssistant } from '@/components/ai/AIAssistant';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, MapPin, Clock, Check, Loader2 } from 'lucide-react';
@@ -176,12 +178,21 @@ export default function Dashboard() {
 
           {/* Main Content */}
           <div className="flex-1">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
               <h1 className="text-3xl font-bold">My Restaurants</h1>
-              <Button onClick={() => setAddDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Restaurant
-              </Button>
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <RestaurantSearch
+                  restaurants={restaurants}
+                  onSelect={(r) => {
+                    setSelectedFolder(r.folder_id || null);
+                    setActiveTab(r.status === 'went_to' ? 'went_to' : 'to_go');
+                  }}
+                />
+                <Button onClick={() => setAddDialogOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add
+                </Button>
+              </div>
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
@@ -238,6 +249,8 @@ export default function Dashboard() {
         folders={folders}
         onSuccess={fetchRestaurants}
       />
+
+      <AIAssistant restaurants={restaurants} />
     </div>
   );
 }
