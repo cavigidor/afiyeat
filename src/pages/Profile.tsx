@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import {
   Form,
   FormControl,
@@ -16,16 +18,24 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Camera, Save, LogOut } from 'lucide-react';
+import { Loader2, Camera, Save, LogOut, Lock, Check, X, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 
 const profileSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters').max(20),
   display_name: z.string().max(50).optional(),
   bio: z.string().max(160).optional(),
+  is_private: z.boolean(),
 });
 
 type ProfileValues = z.infer<typeof profileSchema>;
@@ -36,6 +46,21 @@ interface ProfileData {
   display_name: string | null;
   avatar_url: string | null;
   bio: string | null;
+  is_private: boolean;
+}
+
+interface FollowUser {
+  id: string;
+  user_id: string;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+}
+
+interface PendingRequest {
+  id: string;
+  follower_id: string;
+  profile: FollowUser;
 }
 
 export default function Profile() {
@@ -46,6 +71,13 @@ export default function Profile() {
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [stats, setStats] = useState({ restaurants: 0, following: 0, followers: 0 });
+  const [followersDialogOpen, setFollowersDialogOpen] = useState(false);
+  const [followingDialogOpen, setFollowingDialogOpen] = useState(false);
+  const [requestsDialogOpen, setRequestsDialogOpen] = useState(false);
+  const [followers, setFollowers] = useState<FollowUser[]>([]);
+  const [following, setFollowing] = useState<FollowUser[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
+  const [loadingList, setLoadingList] = useState(false);
 
   const form = useForm<ProfileValues>({
     resolver: zodResolver(profileSchema),
@@ -53,6 +85,7 @@ export default function Profile() {
       username: '',
       display_name: '',
       bio: '',
+      is_private: false,
     },
   });
 
@@ -79,6 +112,7 @@ export default function Profile() {
         username: data.username || '',
         display_name: data.display_name || '',
         bio: data.bio || '',
+        is_private: data.is_private || false,
       });
     }
     setLoading(false);
@@ -87,10 +121,11 @@ export default function Profile() {
   const fetchStats = async () => {
     if (!user) return;
 
-    const [restaurantsRes, followingRes, followersRes] = await Promise.all([
+    const [restaurantsRes, followingRes, followersRes, pendingRes] = await Promise.all([
       supabase.from('restaurants').select('id', { count: 'exact' }).eq('user_id', user.id),
-      supabase.from('follows').select('id', { count: 'exact' }).eq('follower_id', user.id),
-      supabase.from('follows').select('id', { count: 'exact' }).eq('following_id', user.id),
+      supabase.from('follows').select('id', { count: 'exact' }).eq('follower_id', user.id).eq('status', 'accepted'),
+      supabase.from('follows').select('id', { count: 'exact' }).eq('following_id', user.id).eq('status', 'accepted'),
+      supabase.from('follows').select('id', { count: 'exact' }).eq('following_id', user.id).eq('status', 'pending'),
     ]);
 
     setStats({
@@ -98,6 +133,104 @@ export default function Profile() {
       following: followingRes.count || 0,
       followers: followersRes.count || 0,
     });
+
+    // Fetch pending requests if any
+    if ((pendingRes.count || 0) > 0) {
+      fetchPendingRequests();
+    }
+  };
+
+  const fetchPendingRequests = async () => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('follows')
+      .select('id, follower_id')
+      .eq('following_id', user.id)
+      .eq('status', 'pending');
+
+    if (error) {
+      console.error('Error fetching pending requests:', error);
+      return;
+    }
+
+    if (data && data.length > 0) {
+      const followerIds = data.map(f => f.follower_id);
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, user_id, username, display_name, avatar_url')
+        .in('user_id', followerIds);
+
+      const requests = data.map(follow => ({
+        id: follow.id,
+        follower_id: follow.follower_id,
+        profile: profiles?.find(p => p.user_id === follow.follower_id) as FollowUser,
+      })).filter(r => r.profile);
+
+      setPendingRequests(requests);
+    } else {
+      setPendingRequests([]);
+    }
+  };
+
+  const fetchFollowers = async () => {
+    if (!user) return;
+    setLoadingList(true);
+
+    const { data: followsData, error } = await supabase
+      .from('follows')
+      .select('follower_id')
+      .eq('following_id', user.id)
+      .eq('status', 'accepted');
+
+    if (error) {
+      console.error('Error fetching followers:', error);
+      setLoadingList(false);
+      return;
+    }
+
+    if (followsData && followsData.length > 0) {
+      const followerIds = followsData.map(f => f.follower_id);
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, user_id, username, display_name, avatar_url')
+        .in('user_id', followerIds);
+
+      setFollowers(profiles || []);
+    } else {
+      setFollowers([]);
+    }
+    setLoadingList(false);
+  };
+
+  const fetchFollowing = async () => {
+    if (!user) return;
+    setLoadingList(true);
+
+    const { data: followsData, error } = await supabase
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', user.id)
+      .eq('status', 'accepted');
+
+    if (error) {
+      console.error('Error fetching following:', error);
+      setLoadingList(false);
+      return;
+    }
+
+    if (followsData && followsData.length > 0) {
+      const followingIds = followsData.map(f => f.following_id);
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, user_id, username, display_name, avatar_url')
+        .in('user_id', followingIds);
+
+      setFollowing(profiles || []);
+    } else {
+      setFollowing([]);
+    }
+    setLoadingList(false);
   };
 
   useEffect(() => {
@@ -152,6 +285,7 @@ export default function Profile() {
         username: values.username,
         display_name: values.display_name || null,
         bio: values.bio || null,
+        is_private: values.is_private,
       })
       .eq('id', profile.id);
 
@@ -162,9 +296,75 @@ export default function Profile() {
         toast.error(error.message || 'Failed to update profile');
       }
     } else {
+      setProfile({ ...profile, is_private: values.is_private });
       toast.success('Profile updated!');
     }
     setSaving(false);
+  };
+
+  const handleAcceptRequest = async (requestId: string) => {
+    const { error } = await supabase
+      .from('follows')
+      .update({ status: 'accepted' })
+      .eq('id', requestId);
+
+    if (error) {
+      toast.error('Failed to accept request');
+    } else {
+      toast.success('Request accepted!');
+      fetchPendingRequests();
+      fetchStats();
+    }
+  };
+
+  const handleRejectRequest = async (requestId: string) => {
+    const { error } = await supabase
+      .from('follows')
+      .delete()
+      .eq('id', requestId);
+
+    if (error) {
+      toast.error('Failed to reject request');
+    } else {
+      toast.success('Request rejected');
+      fetchPendingRequests();
+    }
+  };
+
+  const handleRemoveFollower = async (followerUserId: string) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('follows')
+      .delete()
+      .eq('follower_id', followerUserId)
+      .eq('following_id', user.id);
+
+    if (error) {
+      toast.error('Failed to remove follower');
+    } else {
+      toast.success('Follower removed');
+      fetchFollowers();
+      fetchStats();
+    }
+  };
+
+  const handleUnfollow = async (followingUserId: string) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('follows')
+      .delete()
+      .eq('follower_id', user.id)
+      .eq('following_id', followingUserId);
+
+    if (error) {
+      toast.error('Failed to unfollow');
+    } else {
+      toast.success('Unfollowed');
+      fetchFollowing();
+      fetchStats();
+    }
   };
 
   if (authLoading || loading) {
@@ -181,6 +381,25 @@ export default function Profile() {
 
       <main className="container py-8 max-w-2xl">
         <h1 className="text-3xl font-bold mb-6">Profile</h1>
+
+        {/* Pending Requests Banner */}
+        {pendingRequests.length > 0 && (
+          <Card className="mb-6 border-primary">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <UserPlus className="h-5 w-5 text-primary" />
+                  <span className="font-medium">
+                    {pendingRequests.length} pending follow request{pendingRequests.length > 1 ? 's' : ''}
+                  </span>
+                </div>
+                <Button size="sm" onClick={() => setRequestsDialogOpen(true)}>
+                  Review
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="mb-6">
           <CardContent className="pt-6">
@@ -212,14 +431,26 @@ export default function Profile() {
                   <div className="text-2xl font-bold">{stats.restaurants}</div>
                   <div className="text-sm text-muted-foreground">Restaurants</div>
                 </div>
-                <div className="text-center">
+                <button
+                  className="text-center hover:opacity-80 transition-opacity"
+                  onClick={() => {
+                    fetchFollowing();
+                    setFollowingDialogOpen(true);
+                  }}
+                >
                   <div className="text-2xl font-bold">{stats.following}</div>
                   <div className="text-sm text-muted-foreground">Following</div>
-                </div>
-                <div className="text-center">
+                </button>
+                <button
+                  className="text-center hover:opacity-80 transition-opacity"
+                  onClick={() => {
+                    fetchFollowers();
+                    setFollowersDialogOpen(true);
+                  }}
+                >
                   <div className="text-2xl font-bold">{stats.followers}</div>
                   <div className="text-sm text-muted-foreground">Followers</div>
-                </div>
+                </button>
               </div>
             </div>
 
@@ -268,6 +499,29 @@ export default function Profile() {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="is_private"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base flex items-center gap-2">
+                          <Lock className="h-4 w-4" />
+                          Private Profile
+                        </FormLabel>
+                        <FormDescription>
+                          When enabled, people must request to follow you
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
                 <div className="flex gap-3">
                   <Button type="submit" disabled={saving}>
                     {saving ? (
@@ -294,6 +548,145 @@ export default function Profile() {
           </CardContent>
         </Card>
       </main>
+
+      {/* Followers Dialog */}
+      <Dialog open={followersDialogOpen} onOpenChange={setFollowersDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Followers</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[400px] overflow-y-auto">
+            {loadingList ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : followers.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground">No followers yet</p>
+            ) : (
+              <div className="space-y-3">
+                {followers.map((follower) => (
+                  <div key={follower.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={follower.avatar_url || ''} />
+                        <AvatarFallback className="bg-primary text-primary-foreground">
+                          {(follower.username || follower.display_name || 'U')[0].toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">{follower.display_name || follower.username}</p>
+                        {follower.username && <p className="text-sm text-muted-foreground">@{follower.username}</p>}
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleRemoveFollower(follower.user_id)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Following Dialog */}
+      <Dialog open={followingDialogOpen} onOpenChange={setFollowingDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Following</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[400px] overflow-y-auto">
+            {loadingList ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : following.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground">Not following anyone yet</p>
+            ) : (
+              <div className="space-y-3">
+                {following.map((followedUser) => (
+                  <div key={followedUser.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={followedUser.avatar_url || ''} />
+                        <AvatarFallback className="bg-primary text-primary-foreground">
+                          {(followedUser.username || followedUser.display_name || 'U')[0].toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">{followedUser.display_name || followedUser.username}</p>
+                        {followedUser.username && <p className="text-sm text-muted-foreground">@{followedUser.username}</p>}
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleUnfollow(followedUser.user_id)}
+                    >
+                      Unfollow
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pending Requests Dialog */}
+      <Dialog open={requestsDialogOpen} onOpenChange={setRequestsDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Follow Requests</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[400px] overflow-y-auto">
+            {pendingRequests.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground">No pending requests</p>
+            ) : (
+              <div className="space-y-3">
+                {pendingRequests.map((request) => (
+                  <div key={request.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={request.profile.avatar_url || ''} />
+                        <AvatarFallback className="bg-primary text-primary-foreground">
+                          {(request.profile.username || request.profile.display_name || 'U')[0].toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">{request.profile.display_name || request.profile.username}</p>
+                        {request.profile.username && <p className="text-sm text-muted-foreground">@{request.profile.username}</p>}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8"
+                        onClick={() => handleAcceptRequest(request.id)}
+                      >
+                        <Check className="h-4 w-4 text-green-600" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8"
+                        onClick={() => handleRejectRequest(request.id)}
+                      >
+                        <X className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
