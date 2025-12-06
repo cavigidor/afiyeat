@@ -12,6 +12,7 @@ import { MapPin, Search, Users, LogOut, User, Menu } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useState } from 'react';
+import logo from '@/assets/logo.png';
 
 export function Navbar() {
   const { user, signOut } = useAuth();
@@ -56,9 +57,7 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
       <div className="container flex h-16 items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
-            <span className="text-lg">🍽️</span>
-          </div>
+          <img src={logo} alt="Afiyeat" className="h-10 w-10 rounded-full object-cover" />
           <span className="font-semibold text-xl">Afiyeat</span>
         </Link>
 
