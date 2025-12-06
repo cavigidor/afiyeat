@@ -1,10 +1,13 @@
 project_id = "dmlkjpjubneqhbqoxlct"
 
 [functions.place-search]
-verify_jwt = false
+verify_jwt = true
 
 [functions.place-retrieve]
-verify_jwt = false
+verify_jwt = true
 
 [functions.get-mapbox-token]
-verify_jwt = false
+verify_jwt = true
+
+[functions.ai-assistant]
+verify_jwt = true
