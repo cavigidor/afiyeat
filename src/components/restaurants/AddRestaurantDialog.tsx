@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { ImagePlus, Loader2, X } from 'lucide-react';
+import { ImagePlus, Loader2, X, MapPin, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -35,6 +35,8 @@ import { toast } from 'sonner';
 const formSchema = z.object({
   name: z.string().min(1, 'Restaurant name is required'),
   address: z.string().optional(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
   notes: z.string().optional(),
   status: z.enum(['to_go', 'went_to']),
   folder_id: z.string().optional(),
@@ -43,6 +45,15 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
+
+interface PlaceResult {
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  category: string | null;
+}
 
 interface AddRestaurantDialogProps {
   open: boolean;
@@ -61,12 +72,18 @@ export function AddRestaurantDialog({
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<PlaceResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
       address: '',
+      latitude: undefined,
+      longitude: undefined,
       notes: '',
       status: 'to_go',
       folder_id: undefined,
@@ -74,6 +91,43 @@ export function AddRestaurantDialog({
       price_level: undefined,
     },
   });
+
+  // Debounced search
+  useEffect(() => {
+    if (searchQuery.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('place-search', {
+          body: { query: searchQuery },
+        });
+
+        if (error) throw error;
+        setSearchResults(data.results || []);
+        setShowResults(true);
+      } catch (error) {
+        console.error('Search error:', error);
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  const selectPlace = (place: PlaceResult) => {
+    form.setValue('name', place.name);
+    form.setValue('address', place.address);
+    form.setValue('latitude', place.latitude);
+    form.setValue('longitude', place.longitude);
+    setSearchQuery(place.name);
+    setShowResults(false);
+    setSearchResults([]);
+  };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -104,6 +158,8 @@ export function AddRestaurantDialog({
           user_id: user.id,
           name: values.name,
           address: values.address || null,
+          latitude: values.latitude || null,
+          longitude: values.longitude || null,
           notes: values.notes || null,
           status: values.status,
           folder_id: values.folder_id || null,
@@ -145,6 +201,7 @@ export function AddRestaurantDialog({
       form.reset();
       setImages([]);
       setImagePreviews([]);
+      setSearchQuery('');
       onOpenChange(false);
       onSuccess();
     } catch (error: any) {
@@ -154,6 +211,17 @@ export function AddRestaurantDialog({
     }
   };
 
+  // Reset form when dialog closes
+  useEffect(() => {
+    if (!open) {
+      form.reset();
+      setImages([]);
+      setImagePreviews([]);
+      setSearchQuery('');
+      setSearchResults([]);
+    }
+  }, [open, form]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
@@ -162,6 +230,50 @@ export function AddRestaurantDialog({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Place Search */}
+            <div className="space-y-2">
+              <FormLabel>Search Restaurant</FormLabel>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search for a restaurant..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setShowResults(true);
+                  }}
+                  onFocus={() => searchResults.length > 0 && setShowResults(true)}
+                  className="pl-10"
+                />
+                {searching && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
+              
+              {/* Search Results Dropdown */}
+              {showResults && searchResults.length > 0 && (
+                <div className="absolute z-50 w-full max-w-[468px] bg-popover border rounded-md shadow-lg mt-1 max-h-[200px] overflow-y-auto">
+                  {searchResults.map((place) => (
+                    <button
+                      key={place.id}
+                      type="button"
+                      className="w-full text-left px-4 py-3 hover:bg-accent transition-colors border-b last:border-b-0"
+                      onClick={() => selectPlace(place)}
+                    >
+                      <div className="font-medium">{place.name}</div>
+                      <div className="text-sm text-muted-foreground flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
+                        {place.address}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Search for a place or enter details manually below
+              </p>
+            </div>
+
             <FormField
               control={form.control}
               name="name"
@@ -295,7 +407,7 @@ export function AddRestaurantDialog({
                   <FormLabel>Notes</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="What do you want to try?"
+                      placeholder="What do you want to try? Add your thoughts..."
                       className="resize-none"
                       {...field}
                     />
