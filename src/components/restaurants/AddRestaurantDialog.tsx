@@ -64,42 +64,46 @@ interface AddRestaurantDialogProps {
 }
 
 const FOOD_EMOJIS = ['🍕', '🍔', '🍣', '🌮', '🍜', '🥗', '🍰', '🍝', '🥘', '🍱'];
+const PRICE_LABELS = ['<$30', '<$50', '<$100', '$100+'];
 
 function EmojiSlider({ 
   value, 
   onChange, 
   min, 
   max, 
-  emojiIndex 
+  emojiIndex,
+  labels,
 }: { 
   value: number; 
   onChange: (v: number) => void; 
   min: number; 
   max: number;
   emojiIndex: number;
+  labels?: string[];
 }) {
   const percentage = ((value - min) / (max - min)) * 100;
   const emoji = FOOD_EMOJIS[emojiIndex % FOOD_EMOJIS.length];
+  const count = max - min + 1;
   
   return (
     <div className="relative pt-2 pb-6">
-      {/* Track background with numbers */}
+      {/* Track background with numbers/labels */}
       <div className="relative h-8 bg-muted rounded-full overflow-hidden">
         {/* Filled portion */}
         <div 
           className="absolute h-full bg-primary/30 transition-all duration-150"
           style={{ width: `${percentage}%` }}
         />
-        {/* Number markers */}
+        {/* Number/label markers */}
         <div className="absolute inset-0 flex items-center justify-between px-2">
-          {Array.from({ length: max - min + 1 }, (_, i) => (
+          {Array.from({ length: count }, (_, i) => (
             <span 
               key={i} 
               className={`text-xs font-medium transition-colors ${
                 i + min <= value ? 'text-primary' : 'text-muted-foreground'
               }`}
             >
-              {i + min}
+              {labels ? labels[i] : i + min}
             </span>
           ))}
         </div>
@@ -551,7 +555,7 @@ export function AddRestaurantDialog({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        Price Level: {'$'.repeat(field.value || 0) || 'Not set'}
+                        Price Level: {'$'.repeat(field.value || 0)} {field.value ? `(${PRICE_LABELS[field.value - 1]})` : 'Not set'}
                       </FormLabel>
                       <FormControl>
                         <EmojiSlider
@@ -560,6 +564,7 @@ export function AddRestaurantDialog({
                           min={1}
                           max={4}
                           emojiIndex={emojiIndices.price}
+                          labels={PRICE_LABELS}
                         />
                       </FormControl>
                       <FormMessage />
