@@ -50,9 +50,10 @@ interface PlaceResult {
   id: string;
   name: string;
   address: string;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   category: string | null;
+  mapboxId?: string;
 }
 
 interface AddRestaurantDialogProps {
@@ -77,6 +78,7 @@ export function AddRestaurantDialog({
   const [searching, setSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [sessionToken] = useState(() => crypto.randomUUID());
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -126,6 +128,7 @@ export function AddRestaurantDialog({
             query: searchQuery,
             latitude: userLocation?.lat,
             longitude: userLocation?.lng,
+            sessionToken,
           },
         });
 
@@ -142,14 +145,37 @@ export function AddRestaurantDialog({
     return () => clearTimeout(timeoutId);
   }, [searchQuery, userLocation]);
 
-  const selectPlace = (place: PlaceResult) => {
-    form.setValue('name', place.name);
-    form.setValue('address', place.address);
-    form.setValue('latitude', place.latitude);
-    form.setValue('longitude', place.longitude);
+  const selectPlace = async (place: PlaceResult) => {
     setSearchQuery(place.name);
     setShowResults(false);
     setSearchResults([]);
+    
+    // If we need to retrieve coordinates, call the retrieve endpoint
+    if (place.mapboxId && (place.latitude === null || place.longitude === null)) {
+      try {
+        const { data, error } = await supabase.functions.invoke('place-retrieve', {
+          body: { mapboxId: place.mapboxId, sessionToken },
+        });
+        
+        if (error) throw error;
+        
+        const result = data.result;
+        form.setValue('name', result.name);
+        form.setValue('address', result.address);
+        form.setValue('latitude', result.latitude);
+        form.setValue('longitude', result.longitude);
+      } catch (error) {
+        console.error('Retrieve error:', error);
+        // Fall back to basic info
+        form.setValue('name', place.name);
+        form.setValue('address', place.address);
+      }
+    } else {
+      form.setValue('name', place.name);
+      form.setValue('address', place.address);
+      form.setValue('latitude', place.latitude || undefined);
+      form.setValue('longitude', place.longitude || undefined);
+    }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {

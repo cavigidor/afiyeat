@@ -1,1 +1,7 @@
 project_id = "dmlkjpjubneqhbqoxlct"
+
+[functions.place-search]
+verify_jwt = false
+
+[functions.place-retrieve]
+verify_jwt = false
