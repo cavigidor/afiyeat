@@ -57,7 +57,7 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
       <div className="container flex h-16 items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <img src={logo} alt="Afiyeat" className="h-10 w-10 rounded-full object-cover" />
+          <img src={logo} alt="Afiyeat" className="h-12 w-12 object-contain" />
           <span className="font-semibold text-xl">Afiyeat</span>
         </Link>
 
