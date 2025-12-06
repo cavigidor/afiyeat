@@ -65,7 +65,14 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
       <div className="container flex h-16 items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <img src={logo} alt="Afiyeat" className="h-12 w-12 object-contain" />
+          <div 
+            className="h-14 w-14 flex items-center justify-center rounded-full"
+            style={{
+              background: 'radial-gradient(circle, #F5F5DC 50%, transparent 100%)'
+            }}
+          >
+            <img src={logo} alt="Afiyeat" className="h-12 w-12 object-contain" />
+          </div>
           <span className="font-semibold text-xl">Afiyeat</span>
         </Link>
 
