@@ -50,7 +50,9 @@ export default function Explore() {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'map' | 'list'>('list');
-  const [mapboxToken, setMapboxToken] = useState('');
+  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
+  const [mapboxLoading, setMapboxLoading] = useState(false);
+  const [mapboxError, setMapboxError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [minRating, setMinRating] = useState<string>('all');
@@ -120,6 +122,39 @@ export default function Explore() {
       fetchData();
     }
   }, [user]);
+
+  // Fetch Mapbox token when switching to map view
+  useEffect(() => {
+    const fetchMapboxToken = async () => {
+      if (view !== 'map' || mapboxToken) return;
+      
+      setMapboxLoading(true);
+      setMapboxError(null);
+      
+      try {
+        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
+        
+        if (error) {
+          console.error('Error fetching Mapbox token:', error);
+          setMapboxError('Failed to load map configuration');
+          return;
+        }
+        
+        if (data?.token) {
+          setMapboxToken(data.token);
+        } else {
+          setMapboxError('Map token not configured');
+        }
+      } catch (err) {
+        console.error('Error fetching Mapbox token:', err);
+        setMapboxError('Failed to load map');
+      } finally {
+        setMapboxLoading(false);
+      }
+    };
+
+    fetchMapboxToken();
+  }, [view, mapboxToken]);
 
   const toggleKeyword = (keyword: string) => {
     setSelectedKeywords(prev => 
@@ -351,37 +386,22 @@ export default function Explore() {
             </CardContent>
           </Card>
 
-          {view === 'map' && !mapboxToken ? (
-            <Card className="mb-6">
-              <CardContent className="p-6">
-                <h3 className="font-medium mb-2">Enter your Mapbox Token</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  To view the interactive map, you need a Mapbox public token. Get one free at{' '}
-                  <a
-                    href="https://mapbox.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary underline"
-                  >
-                    mapbox.com
-                  </a>
-                </p>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="pk.eyJ1..."
-                    value={mapboxToken}
-                    onChange={(e) => setMapboxToken(e.target.value)}
-                  />
-                  <Button disabled={!mapboxToken}>
-                    Save
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : view === 'map' && mapboxToken ? (
-            <div className="relative w-full h-[600px] rounded-xl overflow-hidden bg-card">
-              <MapComponent token={mapboxToken} restaurants={filteredNearbyRestaurants} />
-            </div>
+          {view === 'map' ? (
+            mapboxLoading ? (
+              <div className="flex items-center justify-center py-12 bg-card rounded-xl h-[600px]">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : mapboxError ? (
+              <div className="text-center py-12 bg-card rounded-xl h-[600px] flex flex-col items-center justify-center">
+                <Map className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                <h3 className="text-lg font-medium mb-2">Map Unavailable</h3>
+                <p className="text-muted-foreground">{mapboxError}</p>
+              </div>
+            ) : mapboxToken ? (
+              <div className="relative w-full h-[600px] rounded-xl overflow-hidden bg-card">
+                <MapComponent token={mapboxToken} restaurants={filteredNearbyRestaurants} />
+              </div>
+            ) : null
           ) : (
             <div className="space-y-4">
               {loading ? (
