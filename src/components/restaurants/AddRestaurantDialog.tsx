@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -26,8 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
-import { ImagePlus, Loader2, X, MapPin, Search } from 'lucide-react';
+import { ImagePlus, Loader2, X, MapPin, Search, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -40,7 +39,7 @@ const formSchema = z.object({
   notes: z.string().optional(),
   status: z.enum(['to_go', 'went_to']),
   folder_id: z.string().optional(),
-  rating: z.number().min(1).max(5).optional(),
+  rating: z.number().min(0).max(10).optional(),
   price_level: z.number().min(1).max(4).optional(),
 });
 
@@ -61,6 +60,70 @@ interface AddRestaurantDialogProps {
   onOpenChange: (open: boolean) => void;
   folders: { id: string; name: string; color: string }[];
   onSuccess: () => void;
+  onCreateType?: () => void;
+}
+
+const FOOD_EMOJIS = ['🍕', '🍔', '🍣', '🌮', '🍜', '🥗', '🍰', '🍝', '🥘', '🍱'];
+
+function EmojiSlider({ 
+  value, 
+  onChange, 
+  min, 
+  max, 
+  emojiIndex 
+}: { 
+  value: number; 
+  onChange: (v: number) => void; 
+  min: number; 
+  max: number;
+  emojiIndex: number;
+}) {
+  const percentage = ((value - min) / (max - min)) * 100;
+  const emoji = FOOD_EMOJIS[emojiIndex % FOOD_EMOJIS.length];
+  
+  return (
+    <div className="relative pt-2 pb-6">
+      {/* Track background with numbers */}
+      <div className="relative h-8 bg-muted rounded-full overflow-hidden">
+        {/* Filled portion */}
+        <div 
+          className="absolute h-full bg-primary/30 transition-all duration-150"
+          style={{ width: `${percentage}%` }}
+        />
+        {/* Number markers */}
+        <div className="absolute inset-0 flex items-center justify-between px-2">
+          {Array.from({ length: max - min + 1 }, (_, i) => (
+            <span 
+              key={i} 
+              className={`text-xs font-medium transition-colors ${
+                i + min <= value ? 'text-primary' : 'text-muted-foreground'
+              }`}
+            >
+              {i + min}
+            </span>
+          ))}
+        </div>
+      </div>
+      
+      {/* Emoji thumb */}
+      <div 
+        className="absolute top-0 -translate-x-1/2 cursor-grab active:cursor-grabbing select-none text-2xl transition-all duration-150"
+        style={{ left: `${percentage}%` }}
+      >
+        {emoji}
+      </div>
+      
+      {/* Hidden range input for interaction */}
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="absolute inset-0 w-full h-8 opacity-0 cursor-pointer"
+      />
+    </div>
+  );
 }
 
 export function AddRestaurantDialog({
@@ -68,6 +131,7 @@ export function AddRestaurantDialog({
   onOpenChange,
   folders,
   onSuccess,
+  onCreateType,
 }: AddRestaurantDialogProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -79,6 +143,12 @@ export function AddRestaurantDialog({
   const [showResults, setShowResults] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [sessionToken] = useState(() => crypto.randomUUID());
+  
+  // Random emoji indices for this session
+  const emojiIndices = useMemo(() => ({
+    rating: Math.floor(Math.random() * FOOD_EMOJIS.length),
+    price: Math.floor(Math.random() * FOOD_EMOJIS.length),
+  }), [open]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -95,6 +165,9 @@ export function AddRestaurantDialog({
     },
   });
 
+  const watchStatus = form.watch('status');
+  const isToGo = watchStatus === 'to_go';
+
   // Get user's location when dialog opens
   useEffect(() => {
     if (open && !userLocation) {
@@ -107,7 +180,6 @@ export function AddRestaurantDialog({
         },
         (error) => {
           console.log('Location not available:', error.message);
-          // Default to a central location if geolocation fails
         }
       );
     }
@@ -150,7 +222,6 @@ export function AddRestaurantDialog({
     setShowResults(false);
     setSearchResults([]);
     
-    // If we need to retrieve coordinates, call the retrieve endpoint
     if (place.mapboxId && (place.latitude === null || place.longitude === null)) {
       try {
         const { data, error } = await supabase.functions.invoke('place-retrieve', {
@@ -166,7 +237,6 @@ export function AddRestaurantDialog({
         form.setValue('longitude', result.longitude);
       } catch (error) {
         console.error('Retrieve error:', error);
-        // Fall back to basic info
         form.setValue('name', place.name);
         form.setValue('address', place.address);
       }
@@ -201,27 +271,33 @@ export function AddRestaurantDialog({
     
     setLoading(true);
     try {
+      // Clear rating and price_level for to_go status
+      const submitValues = {
+        ...values,
+        rating: isToGo ? null : values.rating || null,
+        price_level: isToGo ? null : values.price_level || null,
+      };
+
       const { data: restaurant, error: restaurantError } = await supabase
         .from('restaurants')
         .insert({
           user_id: user.id,
-          name: values.name,
-          address: values.address || null,
-          latitude: values.latitude || null,
-          longitude: values.longitude || null,
-          notes: values.notes || null,
-          status: values.status,
-          folder_id: values.folder_id || null,
-          rating: values.rating || null,
-          price_level: values.price_level || null,
-          visited_at: values.status === 'went_to' ? new Date().toISOString() : null,
+          name: submitValues.name,
+          address: submitValues.address || null,
+          latitude: submitValues.latitude || null,
+          longitude: submitValues.longitude || null,
+          notes: submitValues.notes || null,
+          status: submitValues.status,
+          folder_id: submitValues.folder_id || null,
+          rating: submitValues.rating,
+          price_level: submitValues.price_level,
+          visited_at: submitValues.status === 'went_to' ? new Date().toISOString() : null,
         })
         .select()
         .single();
 
       if (restaurantError) throw restaurantError;
 
-      // Upload images
       for (const image of images) {
         const fileExt = image.name.split('.').pop();
         const fileName = `${user.id}/${restaurant.id}/${crypto.randomUUID()}.${fileExt}`;
@@ -379,25 +455,65 @@ export function AddRestaurantDialog({
                 name="folder_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Folder</FormLabel>
+                    <FormLabel>Type</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select folder" />
+                          <SelectValue placeholder="Select type" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {folders.map((folder) => (
-                          <SelectItem key={folder.id} value={folder.id}>
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: folder.color }}
-                              />
-                              {folder.name}
-                            </div>
-                          </SelectItem>
-                        ))}
+                        {folders.length === 0 ? (
+                          <div className="p-2">
+                            <p className="text-sm text-muted-foreground mb-2">No types yet</p>
+                            {onCreateType && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="w-full"
+                                onClick={() => {
+                                  onOpenChange(false);
+                                  onCreateType();
+                                }}
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Create New Type
+                              </Button>
+                            )}
+                          </div>
+                        ) : (
+                          <>
+                            {folders.map((folder) => (
+                              <SelectItem key={folder.id} value={folder.id}>
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ backgroundColor: folder.color }}
+                                  />
+                                  {folder.name}
+                                </div>
+                              </SelectItem>
+                            ))}
+                            {onCreateType && (
+                              <div className="border-t mt-1 pt-1">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="w-full justify-start"
+                                  onClick={() => {
+                                    onOpenChange(false);
+                                    onCreateType();
+                                  }}
+                                >
+                                  <Plus className="h-4 w-4 mr-2" />
+                                  Create New Type
+                                </Button>
+                              </div>
+                            )}
+                          </>
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -406,47 +522,52 @@ export function AddRestaurantDialog({
               />
             </div>
 
-            <FormField
-              control={form.control}
-              name="rating"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Rating: {field.value || 'Not rated'}</FormLabel>
-                  <FormControl>
-                    <Slider
-                      min={1}
-                      max={5}
-                      step={1}
-                      value={field.value ? [field.value] : [3]}
-                      onValueChange={(v) => field.onChange(v[0])}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Only show rating and price for "went_to" status */}
+            {!isToGo && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="rating"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Rating: {field.value ?? 'Not rated'}/10</FormLabel>
+                      <FormControl>
+                        <EmojiSlider
+                          value={field.value ?? 5}
+                          onChange={field.onChange}
+                          min={0}
+                          max={10}
+                          emojiIndex={emojiIndices.rating}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <FormField
-              control={form.control}
-              name="price_level"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Price Level: {'$'.repeat(field.value || 0) || 'Not set'}
-                  </FormLabel>
-                  <FormControl>
-                    <Slider
-                      min={1}
-                      max={4}
-                      step={1}
-                      value={field.value ? [field.value] : [2]}
-                      onValueChange={(v) => field.onChange(v[0])}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="price_level"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Price Level: {'$'.repeat(field.value || 0) || 'Not set'}
+                      </FormLabel>
+                      <FormControl>
+                        <EmojiSlider
+                          value={field.value ?? 2}
+                          onChange={field.onChange}
+                          min={1}
+                          max={4}
+                          emojiIndex={emojiIndices.price}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
 
             <FormField
               control={form.control}
