@@ -91,7 +91,7 @@ function EmojiSlider({
       <div className="relative h-8 bg-muted rounded-full overflow-hidden">
         {/* Filled portion */}
         <div 
-          className="absolute h-full bg-primary/30 transition-all duration-150"
+          className="absolute left-0 h-full bg-primary/30 rounded-l-full transition-all duration-150"
           style={{ width: `${percentage}%` }}
         />
         {/* Number/label markers */}
@@ -99,7 +99,7 @@ function EmojiSlider({
           {Array.from({ length: count }, (_, i) => (
             <span 
               key={i} 
-              className={`text-xs font-medium transition-colors ${
+              className={`text-xs font-medium transition-colors z-10 ${
                 i + min <= value ? 'text-primary' : 'text-muted-foreground'
               }`}
             >

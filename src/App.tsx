@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import Friends from "./pages/Friends";
 import Search from "./pages/Search";
 import Explore from "./pages/Explore";
+import MyList from "./pages/MyList";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/friends" element={<Friends />} />
             <Route path="/search" element={<Search />} />
             <Route path="/explore" element={<Explore />} />
+            <Route path="/my-list" element={<MyList />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/form';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Camera, Save } from 'lucide-react';
+import { Loader2, Camera, Save, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 
 const profileSchema = z.object({
@@ -39,7 +39,7 @@ interface ProfileData {
 }
 
 export default function Profile() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -268,14 +268,27 @@ export default function Profile() {
                     </FormItem>
                   )}
                 />
-                <Button type="submit" disabled={saving}>
-                  {saving ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4 mr-2" />
-                  )}
-                  Save Changes
-                </Button>
+                <div className="flex gap-3">
+                  <Button type="submit" disabled={saving}>
+                    {saving ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    Save Changes
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={async () => {
+                      await signOut();
+                      navigate('/');
+                    }}
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Log Out
+                  </Button>
+                </div>
               </form>
             </Form>
           </CardContent>
