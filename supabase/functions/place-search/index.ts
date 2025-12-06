@@ -11,8 +11,8 @@ serve(async (req) => {
   }
 
   try {
-    const { query } = await req.json();
-    console.log("Search query received:", query);
+    const { query, latitude, longitude } = await req.json();
+    console.log("Search query:", query, "Location:", latitude, longitude);
     
     if (!query || query.length < 2) {
       return new Response(
@@ -27,18 +27,27 @@ serve(async (req) => {
       throw new Error("MAPBOX_TOKEN not configured");
     }
 
-    // Search for places using Mapbox Geocoding API - include poi, address, and place types
-    const searchUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxToken}&types=poi,address,place&limit=8`;
+    // Build search URL with proximity bias for nearby results
+    let searchUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxToken}&types=poi,address&limit=10`;
     
-    console.log("Calling Mapbox API with URL:", searchUrl.replace(mapboxToken, "TOKEN_HIDDEN"));
+    // Add proximity bias if location is provided - this prioritizes nearby results
+    if (latitude && longitude) {
+      searchUrl += `&proximity=${longitude},${latitude}`;
+    }
+    
+    // Add fuzzy matching for better results
+    searchUrl += `&fuzzyMatch=true`;
+
+    console.log("Mapbox URL:", searchUrl.replace(mapboxToken, "***"));
     const response = await fetch(searchUrl);
     const data = await response.json();
-    console.log("Mapbox response:", JSON.stringify(data).substring(0, 500));
 
     if (!response.ok || data.message) {
       console.error("Mapbox API error:", data.message || data);
       throw new Error(data.message || "Mapbox API error");
     }
+
+    console.log("Found", data.features?.length || 0, "results");
 
     const results = (data.features || []).map((feature: any) => ({
       id: feature.id,
@@ -49,7 +58,6 @@ serve(async (req) => {
       category: feature.properties?.category || feature.place_type?.[0] || null,
     }));
 
-    console.log("Returning results:", results.length);
     return new Response(
       JSON.stringify({ results }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

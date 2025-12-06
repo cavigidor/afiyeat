@@ -76,6 +76,7 @@ export function AddRestaurantDialog({
   const [searchResults, setSearchResults] = useState<PlaceResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -92,7 +93,25 @@ export function AddRestaurantDialog({
     },
   });
 
-  // Debounced search
+  // Get user's location when dialog opens
+  useEffect(() => {
+    if (open && !userLocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        (error) => {
+          console.log('Location not available:', error.message);
+          // Default to a central location if geolocation fails
+        }
+      );
+    }
+  }, [open, userLocation]);
+
+  // Debounced search with location bias
   useEffect(() => {
     if (searchQuery.length < 2) {
       setSearchResults([]);
@@ -103,7 +122,11 @@ export function AddRestaurantDialog({
       setSearching(true);
       try {
         const { data, error } = await supabase.functions.invoke('place-search', {
-          body: { query: searchQuery },
+          body: { 
+            query: searchQuery,
+            latitude: userLocation?.lat,
+            longitude: userLocation?.lng,
+          },
         });
 
         if (error) throw error;
@@ -117,7 +140,7 @@ export function AddRestaurantDialog({
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+  }, [searchQuery, userLocation]);
 
   const selectPlace = (place: PlaceResult) => {
     form.setValue('name', place.name);
