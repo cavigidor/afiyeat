@@ -10,6 +10,7 @@ import { MapPin, Loader2, Map, List, Plus, Check, Clock } from 'lucide-react';
 import { RestaurantCard } from '@/components/restaurants/RestaurantCard';
 import { AddRestaurantDialog } from '@/components/restaurants/AddRestaurantDialog';
 import { EditRestaurantDialog } from '@/components/restaurants/EditRestaurantDialog';
+import { FolderList } from '@/components/folders/FolderList';
 import { toast } from 'sonner';
 
 interface Restaurant {
@@ -48,6 +49,7 @@ export default function MyList() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [activeTab, setActiveTab] = useState<'to_go' | 'went_to'>('to_go');
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -109,8 +111,11 @@ export default function MyList() {
     fetchMapboxToken();
   }, [view, mapboxToken]);
 
-  const toGoList = restaurants.filter(r => r.status === 'to_go');
-  const wentToList = restaurants.filter(r => r.status === 'went_to');
+  const filteredRestaurants = selectedFolder 
+    ? restaurants.filter(r => r.folder_id === selectedFolder)
+    : restaurants;
+  const toGoList = filteredRestaurants.filter(r => r.status === 'to_go');
+  const wentToList = filteredRestaurants.filter(r => r.status === 'went_to');
   const currentList = activeTab === 'to_go' ? toGoList : wentToList;
 
   const handleMarkVisited = async (restaurantId: string) => {
@@ -185,88 +190,107 @@ export default function MyList() {
           </div>
         </div>
 
-        {view === 'list' ? (
-          <Card>
-            <CardContent className="p-4">
-              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'to_go' | 'went_to')}>
-                <TabsList className="mb-4">
-                  <TabsTrigger value="to_go" className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    To Go ({toGoList.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="went_to" className="flex items-center gap-2">
-                    <Check className="h-4 w-4" />
-                    Been There ({wentToList.length})
-                  </TabsTrigger>
-                </TabsList>
+        <div className="flex gap-6">
+          {/* Sidebar with folders */}
+          <aside className="w-64 shrink-0">
+            <Card>
+              <CardContent className="p-4">
+                <FolderList
+                  folders={folders}
+                  selectedFolder={selectedFolder}
+                  onSelectFolder={setSelectedFolder}
+                  onFoldersChange={fetchData}
+                />
+              </CardContent>
+            </Card>
+          </aside>
 
-                <TabsContent value="to_go">
-                  {loading ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                    </div>
-                  ) : toGoList.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p>No restaurants on your to-go list yet</p>
-                    </div>
-                  ) : (
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                      {toGoList.map((restaurant) => (
-                        <RestaurantCard
-                          key={restaurant.id}
-                          restaurant={restaurant}
-                          onMarkVisited={() => handleMarkVisited(restaurant.id)}
-                          onEdit={() => handleEdit(restaurant)}
-                          onDelete={() => handleDelete(restaurant.id)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
+          {/* Main content */}
+          <div className="flex-1">
+            {view === 'list' ? (
+              <Card>
+                <CardContent className="p-4">
+                  <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'to_go' | 'went_to')}>
+                    <TabsList className="mb-4">
+                      <TabsTrigger value="to_go" className="flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        To Go ({toGoList.length})
+                      </TabsTrigger>
+                      <TabsTrigger value="went_to" className="flex items-center gap-2">
+                        <Check className="h-4 w-4" />
+                        Been There ({wentToList.length})
+                      </TabsTrigger>
+                    </TabsList>
 
-                <TabsContent value="went_to">
-                  {loading ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                    </div>
-                  ) : wentToList.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Check className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p>You haven't visited any restaurants yet</p>
-                    </div>
-                  ) : (
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                      {wentToList.map((restaurant) => (
-                        <RestaurantCard
-                          key={restaurant.id}
-                          restaurant={restaurant}
-                          onEdit={() => handleEdit(restaurant)}
-                          onDelete={() => handleDelete(restaurant.id)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="relative w-full h-[600px] rounded-xl overflow-hidden bg-card">
-            {mapboxLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : mapboxToken ? (
-              <MapComponent token={mapboxToken} restaurants={currentList} />
+                    <TabsContent value="to_go">
+                      {loading ? (
+                        <div className="flex justify-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        </div>
+                      ) : toGoList.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p>No restaurants on your to-go list yet</p>
+                        </div>
+                      ) : (
+                        <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
+                          {toGoList.map((restaurant) => (
+                            <RestaurantCard
+                              key={restaurant.id}
+                              restaurant={restaurant}
+                              onMarkVisited={() => handleMarkVisited(restaurant.id)}
+                              onEdit={() => handleEdit(restaurant)}
+                              onDelete={() => handleDelete(restaurant.id)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="went_to">
+                      {loading ? (
+                        <div className="flex justify-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        </div>
+                      ) : wentToList.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Check className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p>You haven't visited any restaurants yet</p>
+                        </div>
+                      ) : (
+                        <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
+                          {wentToList.map((restaurant) => (
+                            <RestaurantCard
+                              key={restaurant.id}
+                              restaurant={restaurant}
+                              onEdit={() => handleEdit(restaurant)}
+                              onDelete={() => handleDelete(restaurant.id)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                <Map className="h-12 w-12 mb-4 opacity-50" />
-                <p>Map unavailable</p>
+              <div className="relative w-full h-[600px] rounded-xl overflow-hidden bg-card">
+                {mapboxLoading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : mapboxToken ? (
+                  <MapComponent token={mapboxToken} restaurants={currentList} />
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                    <Map className="h-12 w-12 mb-4 opacity-50" />
+                    <p>Map unavailable</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
+        </div>
       </main>
 
       <AddRestaurantDialog
