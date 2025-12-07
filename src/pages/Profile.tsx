@@ -183,6 +183,8 @@ export default function Profile() {
       .eq('following_id', user.id)
       .eq('status', 'accepted');
 
+    console.log('fetchFollowers - followsData:', followsData, 'error:', error);
+
     if (error) {
       console.error('Error fetching followers:', error);
       setLoadingList(false);
@@ -191,11 +193,14 @@ export default function Profile() {
 
     if (followsData && followsData.length > 0) {
       const followerIds = followsData.map(f => f.follower_id);
-      const { data: profiles } = await supabase
+      console.log('fetchFollowers - followerIds:', followerIds);
+      
+      const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, user_id, username, display_name, avatar_url')
         .in('user_id', followerIds);
 
+      console.log('fetchFollowers - profiles:', profiles, 'profilesError:', profilesError);
       setFollowers(profiles || []);
     } else {
       setFollowers([]);
@@ -213,6 +218,8 @@ export default function Profile() {
       .eq('follower_id', user.id)
       .eq('status', 'accepted');
 
+    console.log('fetchFollowing - followsData:', followsData, 'error:', error);
+
     if (error) {
       console.error('Error fetching following:', error);
       setLoadingList(false);
@@ -221,11 +228,14 @@ export default function Profile() {
 
     if (followsData && followsData.length > 0) {
       const followingIds = followsData.map(f => f.following_id);
-      const { data: profiles } = await supabase
+      console.log('fetchFollowing - followingIds:', followingIds);
+      
+      const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, user_id, username, display_name, avatar_url')
         .in('user_id', followingIds);
 
+      console.log('fetchFollowing - profiles:', profiles, 'profilesError:', profilesError);
       setFollowing(profiles || []);
     } else {
       setFollowing([]);
