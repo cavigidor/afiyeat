@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/button';
@@ -9,8 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RestaurantCard } from '@/components/restaurants/RestaurantCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, UserPlus, UserMinus, Loader2, Users, Sparkles } from 'lucide-react';
+import { Search, UserPlus, UserMinus, Loader2, Users, Sparkles, Map } from 'lucide-react';
 import { toast } from 'sonner';
+import { useMapCenter } from '@/hooks/useMapCenter';
 
 interface Profile {
   id: string;
@@ -42,6 +43,10 @@ export default function Friends() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [suggested, setSuggested] = useState<SuggestedProfile[]>([]);
   const [suggestedLoading, setSuggestedLoading] = useState(true);
+  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
+  const [mapboxLoading, setMapboxLoading] = useState(true);
+  const [focusedRestaurantId, setFocusedRestaurantId] = useState<string | null>(null);
+  const mapFlyToRef = useRef<((lat: number, lng: number, restaurantId: string) => void) | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -133,6 +138,33 @@ export default function Friends() {
       fetchSuggested();
     }
   }, [user]);
+
+  useEffect(() => {
+    const fetchMapboxToken = async () => {
+      if (mapboxToken) return;
+      
+      try {
+        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
+        if (!error && data?.token) {
+          setMapboxToken(data.token);
+        }
+      } catch (err) {
+        console.error('Error fetching Mapbox token:', err);
+      } finally {
+        setMapboxLoading(false);
+      }
+    };
+    fetchMapboxToken();
+  }, [mapboxToken]);
+
+  const handleRestaurantClick = (restaurant: any) => {
+    if (restaurant.latitude && restaurant.longitude) {
+      setFocusedRestaurantId(restaurant.id);
+      setTimeout(() => {
+        mapFlyToRef.current?.(restaurant.latitude!, restaurant.longitude!, restaurant.id);
+      }, 100);
+    }
+  };
 
   const handleSearch = async () => {
     if (!searchQuery.trim() || !user) return;
@@ -470,10 +502,49 @@ export default function Friends() {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {userRestaurants.map((restaurant) => (
-                      <RestaurantCard key={restaurant.id} restaurant={restaurant} />
-                    ))}
+                  <div className="space-y-6">
+                    {/* Map */}
+                    <Card className="overflow-hidden">
+                      <CardContent className="p-0">
+                        <div className="h-[300px] lg:h-[400px] relative">
+                          {mapboxLoading ? (
+                            <div className="flex items-center justify-center h-full">
+                              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            </div>
+                          ) : mapboxToken ? (
+                            <FriendsMapComponent 
+                              token={mapboxToken} 
+                              restaurants={userRestaurants} 
+                              focusedRestaurantId={focusedRestaurantId}
+                              onFocusRestaurant={setFocusedRestaurantId}
+                              flyToRef={mapFlyToRef}
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                              <Map className="h-12 w-12 mb-4 opacity-50" />
+                              <p>Map unavailable</p>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Restaurant list */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {userRestaurants.map((restaurant) => (
+                        <div 
+                          key={restaurant.id} 
+                          onClick={() => handleRestaurantClick(restaurant)}
+                          className={`cursor-pointer transition-all ${
+                            focusedRestaurantId === restaurant.id 
+                              ? 'ring-2 ring-primary rounded-xl' 
+                              : ''
+                          }`}
+                        >
+                          <RestaurantCard restaurant={restaurant} />
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </>
@@ -491,4 +562,136 @@ export default function Friends() {
       </main>
     </div>
   );
+}
+
+interface FriendsMapComponentProps {
+  token: string;
+  restaurants: any[];
+  focusedRestaurantId: string | null;
+  onFocusRestaurant: (id: string | null) => void;
+  flyToRef: React.MutableRefObject<((lat: number, lng: number, restaurantId: string) => void) | null>;
+}
+
+function FriendsMapComponent({ token, restaurants, focusedRestaurantId, onFocusRestaurant, flyToRef }: FriendsMapComponentProps) {
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
+  const markersRef = useRef<globalThis.Map<string, any>>(new globalThis.Map());
+  const { center } = useMapCenter(restaurants);
+
+  useEffect(() => {
+    if (!mapContainer.current || !token) return;
+
+    const loadMapbox = async () => {
+      const mapboxgl = (await import('mapbox-gl')).default;
+      await import('mapbox-gl/dist/mapbox-gl.css');
+
+      mapboxgl.accessToken = token;
+
+      if (mapRef.current) {
+        mapRef.current.remove();
+      }
+
+      mapRef.current = new mapboxgl.Map({
+        container: mapContainer.current!,
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [center.lng, center.lat],
+        zoom: 11,
+      });
+
+      mapRef.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+      flyToRef.current = (lat: number, lng: number, restaurantId: string) => {
+        if (mapRef.current) {
+          mapRef.current.flyTo({
+            center: [lng, lat],
+            zoom: 16,
+            duration: 1500,
+            essential: true
+          });
+          const marker = markersRef.current.get(restaurantId);
+          if (marker) {
+            marker.togglePopup();
+          }
+        }
+      };
+    };
+
+    loadMapbox();
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+      flyToRef.current = null;
+    };
+  }, [token, flyToRef, center]);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current.clear();
+
+    const restaurantsWithLocation = restaurants.filter(r => r.latitude && r.longitude);
+
+    if (restaurantsWithLocation.length === 0) return;
+
+    const loadMarkers = async () => {
+      const mapboxgl = (await import('mapbox-gl')).default;
+
+      restaurantsWithLocation.forEach(restaurant => {
+        const isFocused = focusedRestaurantId === restaurant.id;
+        
+        const el = document.createElement('div');
+        el.className = `flex items-center justify-center shadow-lg cursor-pointer transition-all duration-300 ${
+          isFocused 
+            ? 'w-12 h-12 bg-primary rounded-full ring-4 ring-primary/30 scale-110' 
+            : 'w-8 h-8 bg-primary rounded-full hover:scale-110'
+        }`;
+        el.innerHTML = `<svg class="${isFocused ? 'w-6 h-6' : 'w-4 h-4'}" fill="white" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`;
+
+        const safeName = restaurant.name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const safeAddress = restaurant.address?.replace(/</g, '&lt;').replace(/>/g, '&gt;') || '';
+
+        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
+          <div class="p-2">
+            <h3 class="font-semibold">${safeName}</h3>
+            ${safeAddress ? `<p class="text-sm text-gray-600">${safeAddress}</p>` : ''}
+            ${restaurant.rating ? `<p class="text-sm">Rating: ${restaurant.rating}/10</p>` : ''}
+          </div>
+        `);
+
+        const marker = new mapboxgl.Marker(el)
+          .setLngLat([restaurant.longitude!, restaurant.latitude!])
+          .setPopup(popup)
+          .addTo(mapRef.current);
+
+        el.addEventListener('click', () => {
+          onFocusRestaurant(restaurant.id);
+        });
+
+        markersRef.current.set(restaurant.id, marker);
+      });
+
+      if (restaurantsWithLocation.length > 0 && !focusedRestaurantId) {
+        const bounds = new mapboxgl.LngLatBounds();
+        restaurantsWithLocation.forEach(r => {
+          bounds.extend([r.longitude!, r.latitude!]);
+        });
+        mapRef.current.fitBounds(bounds, { padding: 50, maxZoom: 14 });
+      }
+    };
+
+    const checkMap = setInterval(() => {
+      if (mapRef.current?.loaded()) {
+        clearInterval(checkMap);
+        loadMarkers();
+      }
+    }, 100);
+
+    return () => clearInterval(checkMap);
+  }, [restaurants, focusedRestaurantId, onFocusRestaurant]);
+
+  return <div ref={mapContainer} className="w-full h-full" />;
 }
