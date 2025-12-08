@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useMapCenter } from '@/hooks/useMapCenter';
 import { useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/button';
@@ -351,6 +352,7 @@ function MapComponent({ token, restaurants }: { token: string; restaurants: Rest
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const { center } = useMapCenter(restaurants);
 
   useEffect(() => {
     if (!mapContainer.current || !token) return;
@@ -366,7 +368,7 @@ function MapComponent({ token, restaurants }: { token: string; restaurants: Rest
       mapRef.current = new mapboxgl.Map({
         container: mapContainer.current!,
         style: 'mapbox://styles/mapbox/streets-v12',
-        center: [-74.006, 40.7128],
+        center: [center.lng, center.lat],
         zoom: 11,
       });
 
