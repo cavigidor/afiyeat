@@ -106,7 +106,12 @@ export default function Index() {
       {/* Footer */}
       <footer className="py-8 border-t border-border">
         <div className="container text-center text-muted-foreground">
-          <p>© 2024 TableList. All rights reserved.</p>
+          <p>© 2025 Afiyeat. All rights reserved.</p>
+          <div className="flex justify-center gap-4 mt-2 text-sm">
+            <a href="/terms" className="hover:text-foreground transition-colors">Terms of Service</a>
+            <span>·</span>
+            <a href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</a>
+          </div>
         </div>
       </footer>
     </div>
