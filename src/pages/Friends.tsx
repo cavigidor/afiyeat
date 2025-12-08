@@ -46,20 +46,34 @@ export default function Friends() {
   const fetchFollowing = async () => {
     if (!user) return;
 
-    const { data, error } = await supabase
+    // Get follows with accepted status
+    const { data: followsData, error: followsError } = await supabase
       .from('follows')
-      .select(`
-        id,
-        following_id,
-        profiles:following_id(id, user_id, username, display_name, avatar_url)
-      `)
-      .eq('follower_id', user.id);
+      .select('following_id')
+      .eq('follower_id', user.id)
+      .eq('status', 'accepted');
 
-    if (error) {
-      console.error('Error fetching following:', error);
+    if (followsError) {
+      console.error('Error fetching follows:', followsError);
+      return;
+    }
+
+    if (!followsData || followsData.length === 0) {
+      setFollowing([]);
+      return;
+    }
+
+    // Get profiles for followed users
+    const followingIds = followsData.map((f) => f.following_id);
+    const { data: profilesData, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, user_id, username, display_name, avatar_url')
+      .in('user_id', followingIds);
+
+    if (profilesError) {
+      console.error('Error fetching profiles:', profilesError);
     } else {
-      const profiles = data?.map((f: any) => f.profiles).filter(Boolean) || [];
-      setFollowing(profiles);
+      setFollowing(profilesData || []);
     }
   };
 
