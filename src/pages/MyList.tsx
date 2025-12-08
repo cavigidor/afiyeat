@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { MapPin, Loader2, Map, List, Plus, Check, Clock } from 'lucide-react';
+import { MapPin, Loader2, Map, Plus, Check, Clock } from 'lucide-react';
 import { RestaurantCard } from '@/components/restaurants/RestaurantCard';
 import { AddRestaurantDialog } from '@/components/restaurants/AddRestaurantDialog';
 import { EditRestaurantDialog } from '@/components/restaurants/EditRestaurantDialog';
@@ -43,9 +43,8 @@ export default function MyList() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'list' | 'map'>('list');
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
-  const [mapboxLoading, setMapboxLoading] = useState(false);
+  const [mapboxLoading, setMapboxLoading] = useState(true);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
@@ -97,9 +96,8 @@ export default function MyList() {
 
   useEffect(() => {
     const fetchMapboxToken = async () => {
-      if (view !== 'map' || mapboxToken) return;
+      if (mapboxToken) return;
       
-      setMapboxLoading(true);
       try {
         const { data, error } = await supabase.functions.invoke('get-mapbox-token');
         if (!error && data?.token) {
@@ -112,7 +110,7 @@ export default function MyList() {
       }
     };
     fetchMapboxToken();
-  }, [view, mapboxToken]);
+  }, [mapboxToken]);
 
   const filteredRestaurants = selectedFolder 
     ? restaurants.filter(r => r.folder_id === selectedFolder)
@@ -157,9 +155,6 @@ export default function MyList() {
   const handleRestaurantClick = (restaurant: Restaurant) => {
     if (restaurant.latitude && restaurant.longitude) {
       setFocusedRestaurantId(restaurant.id);
-      if (view === 'list') {
-        setView('map');
-      }
       // Small delay to ensure map is rendered before flying
       setTimeout(() => {
         mapFlyToRef.current?.(restaurant.latitude!, restaurant.longitude!, restaurant.id);
@@ -182,33 +177,15 @@ export default function MyList() {
       <main className="container py-8 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">My List</h1>
-          <div className="flex items-center gap-2">
-            <Button
-              variant={view === 'list' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setView('list')}
-            >
-              <List className="h-4 w-4 mr-1" />
-              List
-            </Button>
-            <Button
-              variant={view === 'map' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setView('map')}
-            >
-              <Map className="h-4 w-4 mr-1" />
-              Map
-            </Button>
-            <Button onClick={() => setAddDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Restaurant
-            </Button>
-          </div>
+          <Button onClick={() => setAddDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Restaurant
+          </Button>
         </div>
 
-        <div className="flex gap-6">
-          {/* Sidebar with folders */}
-          <aside className="w-64 shrink-0">
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Sidebar with folders - hidden on mobile */}
+          <aside className="hidden lg:block w-64 shrink-0">
             <Card>
               <CardContent className="p-4">
                 <FolderList
@@ -222,141 +199,88 @@ export default function MyList() {
           </aside>
 
           {/* Main content */}
-          <div className="flex-1">
-            {view === 'list' ? (
-              <Card>
-                <CardContent className="p-4">
-                  <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'to_go' | 'went_to')}>
-                    <TabsList className="mb-4">
-                      <TabsTrigger value="to_go" className="flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        To Go ({toGoList.length})
-                      </TabsTrigger>
-                      <TabsTrigger value="went_to" className="flex items-center gap-2">
-                        <Check className="h-4 w-4" />
-                        Been There ({wentToList.length})
-                      </TabsTrigger>
-                    </TabsList>
+          <div className="flex-1 flex flex-col gap-6">
+            {/* Restaurant list */}
+            <Card>
+              <CardContent className="p-4">
+                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'to_go' | 'went_to')}>
+                  <TabsList className="mb-4">
+                    <TabsTrigger value="to_go" className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      To Go ({toGoList.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="went_to" className="flex items-center gap-2">
+                      <Check className="h-4 w-4" />
+                      Been There ({wentToList.length})
+                    </TabsTrigger>
+                  </TabsList>
 
-                    <TabsContent value="to_go">
-                      {loading ? (
-                        <div className="flex justify-center py-8">
-                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                        </div>
-                      ) : toGoList.length === 0 ? (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                          <p>No restaurants on your to-go list yet</p>
-                        </div>
-                      ) : (
-                        <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
-                          {toGoList.map((restaurant) => (
-                            <div 
-                              key={restaurant.id} 
-                              onClick={() => handleRestaurantClick(restaurant)}
-                              className="cursor-pointer"
-                            >
-                              <RestaurantCard
-                                restaurant={restaurant}
-                                onMarkVisited={() => handleMarkVisited(restaurant.id)}
-                                onEdit={() => handleEdit(restaurant)}
-                                onDelete={() => handleDelete(restaurant.id)}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </TabsContent>
-
-                    <TabsContent value="went_to">
-                      {loading ? (
-                        <div className="flex justify-center py-8">
-                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                        </div>
-                      ) : wentToList.length === 0 ? (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <Check className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                          <p>You haven't visited any restaurants yet</p>
-                        </div>
-                      ) : (
-                        <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
-                          {wentToList.map((restaurant) => (
-                            <div 
-                              key={restaurant.id} 
-                              onClick={() => handleRestaurantClick(restaurant)}
-                              className="cursor-pointer"
-                            >
-                              <RestaurantCard
-                                restaurant={restaurant}
-                                onEdit={() => handleEdit(restaurant)}
-                                onDelete={() => handleDelete(restaurant.id)}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </TabsContent>
-                  </Tabs>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="flex gap-4 h-[600px]">
-                {/* Restaurant list sidebar in map view */}
-                <div className="w-80 shrink-0 overflow-y-auto space-y-2 pr-2">
-                  <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'to_go' | 'went_to')}>
-                    <TabsList className="w-full mb-3">
-                      <TabsTrigger value="to_go" className="flex-1 text-xs">
-                        <Clock className="h-3 w-3 mr-1" />
-                        To Go ({toGoList.length})
-                      </TabsTrigger>
-                      <TabsTrigger value="went_to" className="flex-1 text-xs">
-                        <Check className="h-3 w-3 mr-1" />
-                        Been There ({wentToList.length})
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                  {currentList.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <MapPin className="h-6 w-6 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">No restaurants in this list</p>
-                    </div>
-                  ) : (
-                    currentList.map((restaurant) => (
-                      <Card 
-                        key={restaurant.id}
-                        className={`cursor-pointer transition-all hover:ring-2 hover:ring-primary/50 ${
-                          focusedRestaurantId === restaurant.id ? 'ring-2 ring-primary' : ''
-                        }`}
-                        onClick={() => handleRestaurantClick(restaurant)}
-                      >
-                        <CardContent className="p-3">
-                          <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                              <MapPin className="h-5 w-5 text-primary" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <h4 className="font-medium text-sm truncate">{restaurant.name}</h4>
-                              {restaurant.address && (
-                                <p className="text-xs text-muted-foreground truncate">{restaurant.address}</p>
-                              )}
-                              {restaurant.folder && (
-                                <span 
-                                  className="inline-block mt-1 px-1.5 py-0.5 text-xs rounded"
-                                  style={{ backgroundColor: restaurant.folder.color + '20', color: restaurant.folder.color }}
-                                >
-                                  {restaurant.folder.name}
-                                </span>
-                              )}
-                            </div>
+                  <TabsContent value="to_go">
+                    {loading ? (
+                      <div className="flex justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      </div>
+                    ) : toGoList.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p>No restaurants on your to-go list yet</p>
+                      </div>
+                    ) : (
+                      <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
+                        {toGoList.map((restaurant) => (
+                          <div 
+                            key={restaurant.id} 
+                            onClick={() => handleRestaurantClick(restaurant)}
+                            className="cursor-pointer"
+                          >
+                            <RestaurantCard
+                              restaurant={restaurant}
+                              onMarkVisited={() => handleMarkVisited(restaurant.id)}
+                              onEdit={() => handleEdit(restaurant)}
+                              onDelete={() => handleDelete(restaurant.id)}
+                            />
                           </div>
-                        </CardContent>
-                      </Card>
-                    ))
-                  )}
-                </div>
-                
-                {/* Map */}
-                <div className="flex-1 relative rounded-xl overflow-hidden bg-card">
+                        ))}
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="went_to">
+                    {loading ? (
+                      <div className="flex justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      </div>
+                    ) : wentToList.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Check className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p>You haven't visited any restaurants yet</p>
+                      </div>
+                    ) : (
+                      <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
+                        {wentToList.map((restaurant) => (
+                          <div 
+                            key={restaurant.id} 
+                            onClick={() => handleRestaurantClick(restaurant)}
+                            className="cursor-pointer"
+                          >
+                            <RestaurantCard
+                              restaurant={restaurant}
+                              onEdit={() => handleEdit(restaurant)}
+                              onDelete={() => handleDelete(restaurant.id)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+            
+            {/* Map - always visible */}
+            <Card className="overflow-hidden">
+              <CardContent className="p-0">
+                <div className="h-[400px] lg:h-[500px] relative">
                   {mapboxLoading ? (
                     <div className="flex items-center justify-center h-full">
                       <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -376,8 +300,8 @@ export default function MyList() {
                     </div>
                   )}
                 </div>
-              </div>
-            )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </main>
