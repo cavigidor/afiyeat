@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RestaurantCard } from '@/components/restaurants/RestaurantCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, UserPlus, UserMinus, Loader2, Users } from 'lucide-react';
+import { Search, UserPlus, UserMinus, Loader2, Users, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Profile {
@@ -18,6 +18,10 @@ interface Profile {
   username: string | null;
   display_name: string | null;
   avatar_url: string | null;
+}
+
+interface SuggestedProfile extends Profile {
+  follower_count: number;
 }
 
 interface Follow {
@@ -36,6 +40,8 @@ export default function Friends() {
   const [userRestaurants, setUserRestaurants] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [suggested, setSuggested] = useState<SuggestedProfile[]>([]);
+  const [suggestedLoading, setSuggestedLoading] = useState(true);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -77,9 +83,54 @@ export default function Friends() {
     }
   };
 
+  const fetchSuggested = async () => {
+    if (!user) return;
+    setSuggestedLoading(true);
+
+    // Get public profiles
+    const { data: publicProfiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, user_id, username, display_name, avatar_url')
+      .eq('is_private', false)
+      .neq('user_id', user.id);
+
+    if (profilesError) {
+      console.error('Error fetching public profiles:', profilesError);
+      setSuggestedLoading(false);
+      return;
+    }
+
+    if (!publicProfiles || publicProfiles.length === 0) {
+      setSuggested([]);
+      setSuggestedLoading(false);
+      return;
+    }
+
+    // Get follower counts for each profile
+    const profilesWithCounts: SuggestedProfile[] = [];
+    for (const profile of publicProfiles) {
+      const { count } = await supabase
+        .from('follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('following_id', profile.user_id)
+        .eq('status', 'accepted');
+
+      profilesWithCounts.push({
+        ...profile,
+        follower_count: count || 0,
+      });
+    }
+
+    // Sort by follower count and take top 5
+    profilesWithCounts.sort((a, b) => b.follower_count - a.follower_count);
+    setSuggested(profilesWithCounts.slice(0, 5));
+    setSuggestedLoading(false);
+  };
+
   useEffect(() => {
     if (user) {
       fetchFollowing();
+      fetchSuggested();
     }
   }, [user]);
 
@@ -252,6 +303,66 @@ export default function Friends() {
                         )}
                       </div>
                     ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Suggested Users */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Sparkles className="h-5 w-5" />
+                  Suggested
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {suggestedLoading ? (
+                  <div className="flex justify-center py-4">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : suggested.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-4">
+                    No suggestions available
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {suggested
+                      .filter((p) => !isFollowing(p.user_id))
+                      .map((profile) => (
+                        <div
+                          key={profile.id}
+                          className="flex items-center justify-between p-2 rounded-lg hover:bg-muted"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage src={profile.avatar_url || ''} />
+                              <AvatarFallback className="bg-primary text-primary-foreground">
+                                {(profile.username || profile.display_name || 'U')[0].toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium">
+                                {profile.display_name || profile.username}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {profile.follower_count} follower{profile.follower_count !== 1 ? 's' : ''}
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              handleFollow(profile.user_id);
+                              setSuggested((prev) =>
+                                prev.filter((p) => p.user_id !== profile.user_id)
+                              );
+                            }}
+                          >
+                            <UserPlus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
                   </div>
                 )}
               </CardContent>
