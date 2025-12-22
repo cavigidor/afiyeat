@@ -7,7 +7,7 @@ import { RestaurantCard } from '@/components/restaurants/RestaurantCard';
 import { AddRestaurantDialog } from '@/components/restaurants/AddRestaurantDialog';
 import { FolderList } from '@/components/folders/FolderList';
 import { RestaurantSearch } from '@/components/restaurants/RestaurantSearch';
-import { AIAssistant } from '@/components/ai/AIAssistant';
+
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, MapPin, Clock, Check, Loader2 } from 'lucide-react';
@@ -250,7 +250,6 @@ export default function Dashboard() {
         onSuccess={fetchRestaurants}
       />
 
-      <AIAssistant restaurants={restaurants} />
     </div>
   );
 }
