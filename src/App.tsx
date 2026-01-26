@@ -12,6 +12,7 @@ import Search from "./pages/Search";
 import Explore from "./pages/Explore";
 import MyList from "./pages/MyList";
 import Profile from "./pages/Profile";
+import Recipes from "./pages/Recipes";
 import NotFound from "./pages/NotFound";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/explore" element={<Explore />} />
             <Route path="/my-list" element={<MyList />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/recipes" element={<Recipes />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="*" element={<NotFound />} />

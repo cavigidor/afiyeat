@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MapPin, Search, Users, LogOut, User, Menu, List } from 'lucide-react';
+import { MapPin, Search, Users, LogOut, User, Menu, List, ChefHat } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useState } from 'react';
@@ -57,6 +57,14 @@ export function Navbar() {
       >
         <Users className="h-4 w-4" />
         <span>Friends</span>
+      </Link>
+      <Link
+        to="/recipes"
+        className="flex items-center gap-2 text-foreground/80 hover:text-foreground transition-colors"
+        onClick={() => setOpen(false)}
+      >
+        <ChefHat className="h-4 w-4" />
+        <span>Recipes</span>
       </Link>
     </>
   );
