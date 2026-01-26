@@ -101,6 +101,66 @@ export type Database = {
         }
         Relationships: []
       }
+      recipes: {
+        Row: {
+          cook_temp: number | null
+          cook_temp_unit: string | null
+          cook_time_minutes: number | null
+          created_at: string
+          description: string | null
+          difficulty: string | null
+          id: string
+          image_url: string | null
+          ingredients: Json | null
+          instructions: Json | null
+          is_public: boolean
+          prep_time_minutes: number | null
+          servings: number | null
+          tags: string[] | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cook_temp?: number | null
+          cook_temp_unit?: string | null
+          cook_time_minutes?: number | null
+          created_at?: string
+          description?: string | null
+          difficulty?: string | null
+          id?: string
+          image_url?: string | null
+          ingredients?: Json | null
+          instructions?: Json | null
+          is_public?: boolean
+          prep_time_minutes?: number | null
+          servings?: number | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cook_temp?: number | null
+          cook_temp_unit?: string | null
+          cook_time_minutes?: number | null
+          created_at?: string
+          description?: string | null
+          difficulty?: string | null
+          id?: string
+          image_url?: string | null
+          ingredients?: Json | null
+          instructions?: Json | null
+          is_public?: boolean
+          prep_time_minutes?: number | null
+          servings?: number | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       restaurant_images: {
         Row: {
           caption: string | null
