@@ -18,6 +18,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
+import { OTPVerification } from '@/components/auth/OTPVerification';
+import { supabase } from '@/integrations/supabase/client';
 import logo from '@/assets/logo.png';
 
 const signInSchema = z.object({
@@ -38,14 +40,22 @@ const signUpSchema = z.object({
 type SignInValues = z.infer<typeof signInSchema>;
 type SignUpValues = z.infer<typeof signUpSchema>;
 
+interface PendingSignUp {
+  email: string;
+  password: string;
+  username: string;
+}
+
 export default function Auth() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, signIn, signUp } = useAuth();
+  const { user, signUp } = useAuth();
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(
     searchParams.get('mode') === 'signup' ? 'signup' : 'signin'
   );
+  const [showOTPVerification, setShowOTPVerification] = useState(false);
+  const [pendingSignUp, setPendingSignUp] = useState<PendingSignUp | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -73,7 +83,10 @@ export default function Auth() {
 
   const handleSignIn = async (values: SignInValues) => {
     setLoading(true);
-    const { error } = await signIn(values.email, values.password);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: values.email,
+      password: values.password,
+    });
     setLoading(false);
 
     if (error) {
@@ -88,24 +101,134 @@ export default function Auth() {
     }
   };
 
-  const handleSignUp = async (values: SignUpValues) => {
-    setLoading(true);
-    const { error } = await signUp(values.email, values.password, values.username);
-    setLoading(false);
+  const sendOTP = async (email: string) => {
+    const { data, error } = await supabase.functions.invoke('send-otp', {
+      body: { email },
+    });
 
     if (error) {
-      if (error.message.includes('already registered')) {
-        toast.error('An account with this email already exists');
-      } else if (error.message.includes('duplicate key') || error.message.includes('profiles_username_key') || error.message.includes('Database error')) {
-        toast.error('Username already exists. Please choose a different one.');
-      } else {
-        toast.error(error.message);
-      }
-    } else {
-      toast.success('Account created! Welcome to TableList!');
-      navigate('/dashboard');
+      throw new Error(error.message || 'Failed to send verification code');
+    }
+
+    if (data?.error) {
+      throw new Error(data.error);
+    }
+
+    return data;
+  };
+
+  const handleSignUpSubmit = async (values: SignUpValues) => {
+    setLoading(true);
+    try {
+      // Send OTP to email
+      await sendOTP(values.email);
+      
+      // Store pending signup data
+      setPendingSignUp({
+        email: values.email,
+        password: values.password,
+        username: values.username,
+      });
+      
+      // Show OTP verification screen
+      setShowOTPVerification(true);
+      toast.success('Verification code sent to your email');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to send verification code');
+    } finally {
+      setLoading(false);
     }
   };
+
+  const handleVerifyOTP = async (code: string) => {
+    if (!pendingSignUp) return;
+
+    setLoading(true);
+    try {
+      // Verify the OTP
+      const { data, error } = await supabase.functions.invoke('verify-otp', {
+        body: { email: pendingSignUp.email, code },
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Verification failed');
+      }
+
+      if (!data?.valid) {
+        toast.error(data?.error || 'Invalid verification code');
+        setLoading(false);
+        return;
+      }
+
+      // OTP verified, create the account
+      const { error: signUpError } = await signUp(
+        pendingSignUp.email,
+        pendingSignUp.password,
+        pendingSignUp.username
+      );
+
+      if (signUpError) {
+        if (signUpError.message.includes('already registered')) {
+          toast.error('An account with this email already exists');
+        } else if (
+          signUpError.message.includes('duplicate key') ||
+          signUpError.message.includes('profiles_username_key') ||
+          signUpError.message.includes('Database error')
+        ) {
+          toast.error('Username already exists. Please choose a different one.');
+        } else {
+          toast.error(signUpError.message);
+        }
+      } else {
+        toast.success('Account created! Welcome to Afiyeat!');
+        navigate('/dashboard');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Verification failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    if (!pendingSignUp) return;
+
+    try {
+      await sendOTP(pendingSignUp.email);
+      toast.success('New verification code sent');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to resend code');
+    }
+  };
+
+  const handleBackToSignUp = () => {
+    setShowOTPVerification(false);
+    setPendingSignUp(null);
+  };
+
+  if (showOTPVerification && pendingSignUp) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-accent/20 to-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <img src={logo} alt="Afiyeat" className="h-20 w-20 object-contain" />
+            </div>
+            <CardTitle className="text-2xl">Afiyeat</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <OTPVerification
+              email={pendingSignUp.email}
+              onVerify={handleVerifyOTP}
+              onResend={handleResendOTP}
+              onBack={handleBackToSignUp}
+              loading={loading}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-accent/20 to-background p-4">
@@ -165,7 +288,7 @@ export default function Auth() {
 
             <TabsContent value="signup" className="mt-6">
               <Form {...signUpForm}>
-                <form onSubmit={signUpForm.handleSubmit(handleSignUp)} className="space-y-4">
+                <form onSubmit={signUpForm.handleSubmit(handleSignUpSubmit)} className="space-y-4">
                   <FormField
                     control={signUpForm.control}
                     name="username"
@@ -220,7 +343,7 @@ export default function Auth() {
                   />
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Create Account
+                    Continue
                   </Button>
                 </form>
               </Form>
