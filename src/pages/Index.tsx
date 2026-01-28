@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Navbar } from '@/components/layout/Navbar';
 import { useAuth } from '@/contexts/AuthContext';
-import { MapPin, Users, FolderOpen, Camera, ArrowRight } from 'lucide-react';
+import { MapPin, Users, ChefHat, Camera, ArrowRight } from 'lucide-react';
 
 export default function Index() {
   const { user, loading } = useAuth();
@@ -17,9 +17,9 @@ export default function Index() {
 
   const features = [
     {
-      icon: FolderOpen,
-      title: 'Organize with Folders',
-      description: 'Create custom folders like Cafes, Brunch, Fine Dining, or Budget-Friendly to keep your lists organized.',
+      icon: ChefHat,
+      title: 'Share Recipes',
+      description: 'Add your favorite recipes and discover dishes shared by friends or the community.',
     },
     {
       icon: MapPin,
