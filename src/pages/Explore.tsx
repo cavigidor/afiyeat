@@ -404,10 +404,14 @@ function MapComponent({ token, restaurants }: { token: string; restaurants: Rest
         el.className = 'w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground shadow-lg cursor-pointer';
         el.innerHTML = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>';
 
+        // Sanitize HTML to prevent XSS
+        const safeName = restaurant.name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const safeAddress = restaurant.address?.replace(/</g, '&lt;').replace(/>/g, '&gt;') || '';
+
         const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
           <div class="p-2">
-            <h3 class="font-semibold">${restaurant.name}</h3>
-            ${restaurant.address ? `<p class="text-sm text-gray-600">${restaurant.address}</p>` : ''}
+            <h3 class="font-semibold">${safeName}</h3>
+            ${safeAddress ? `<p class="text-sm text-gray-600">${safeAddress}</p>` : ''}
           </div>
         `);
 
