@@ -51,7 +51,7 @@ export default function Index() {
               Track Your Culinary Journey
             </h1>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Save restaurants you want to try, mark places you've visited, organize them into folders, and discover new spots through friends.
+              Save restaurants you want to try, mark places you've visited, discover new spots through friends, and share your favorite recipes with the community.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button size="lg" onClick={() => navigate('/auth?mode=signup')} className="text-lg px-8">
