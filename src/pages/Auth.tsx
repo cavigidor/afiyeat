@@ -114,7 +114,7 @@ export default function Auth() {
           <div className="flex justify-center mb-4">
             <img src={logo} alt="Afiyeat" className="h-20 w-20 object-contain" />
           </div>
-          <CardTitle className="text-2xl">TableList</CardTitle>
+          <CardTitle className="text-2xl">Afiyeat</CardTitle>
           <CardDescription>
             Track your favorite restaurants and discover new ones with friends
           </CardDescription>
