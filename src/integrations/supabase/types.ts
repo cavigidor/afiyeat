@@ -21,6 +21,8 @@ export type Database = {
           email: string
           expires_at: string
           id: string
+          locked_until: string | null
+          verification_attempts: number | null
           verified: boolean
         }
         Insert: {
@@ -29,6 +31,8 @@ export type Database = {
           email: string
           expires_at?: string
           id?: string
+          locked_until?: string | null
+          verification_attempts?: number | null
           verified?: boolean
         }
         Update: {
@@ -37,6 +41,8 @@ export type Database = {
           email?: string
           expires_at?: string
           id?: string
+          locked_until?: string | null
+          verification_attempts?: number | null
           verified?: boolean
         }
         Relationships: []
@@ -89,6 +95,30 @@ export type Database = {
           following_id?: string
           id?: string
           status?: string
+        }
+        Relationships: []
+      }
+      otp_rate_limits: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          request_count: number | null
+          window_start: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          request_count?: number | null
+          window_start?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          request_count?: number | null
+          window_start?: string | null
         }
         Relationships: []
       }
