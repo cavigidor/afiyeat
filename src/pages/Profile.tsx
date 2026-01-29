@@ -30,6 +30,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Camera, Save, LogOut, Lock, Check, X, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
+import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 
 const profileSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters').max(20),
@@ -78,6 +79,9 @@ export default function Profile() {
   const [following, setFollowing] = useState<FollowUser[]>([]);
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
   const [loadingList, setLoadingList] = useState(false);
+  
+  // Use signed URL for avatar
+  const { signedUrl: avatarSignedUrl } = useSignedImageUrl(profile?.avatar_url);
 
   const form = useForm<ProfileValues>({
     resolver: zodResolver(profileSchema),
@@ -255,18 +259,18 @@ export default function Profile() {
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('restaurant-images')
-        .getPublicUrl(fileName);
+      // Store the storage path instead of public URL
+      // The signed URL will be generated when displaying
+      const storagePath = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/restaurant-images/${fileName}`;
 
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ avatar_url: publicUrl })
+        .update({ avatar_url: storagePath })
         .eq('id', profile.id);
 
       if (updateError) throw updateError;
 
-      setProfile({ ...profile, avatar_url: publicUrl });
+      setProfile({ ...profile, avatar_url: storagePath });
       toast.success('Avatar updated!');
     } catch (error: any) {
       toast.error(error.message || 'Failed to upload avatar');
@@ -406,7 +410,7 @@ export default function Profile() {
             <div className="flex items-center gap-6 mb-6">
               <div className="relative">
                 <Avatar className="h-24 w-24">
-                  <AvatarImage src={profile?.avatar_url || ''} />
+                  <AvatarImage src={avatarSignedUrl || ''} />
                   <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
                     {(profile?.username || profile?.display_name || user?.email || 'U')[0].toUpperCase()}
                   </AvatarFallback>

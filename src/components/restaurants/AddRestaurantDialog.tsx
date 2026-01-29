@@ -315,14 +315,13 @@ export function AddRestaurantDialog({
           continue;
         }
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('restaurant-images')
-          .getPublicUrl(fileName);
+        // Store the path as a URL format for consistency (will be converted to signed URL on display)
+        const storagePath = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/restaurant-images/${fileName}`;
 
         await supabase.from('restaurant_images').insert({
           restaurant_id: restaurant.id,
           user_id: user.id,
-          image_url: publicUrl,
+          image_url: storagePath,
         });
       }
 

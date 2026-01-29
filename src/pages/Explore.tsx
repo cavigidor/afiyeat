@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { MapPin, Star, DollarSign, Loader2, Map, List, Search, Filter, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 
 interface Restaurant {
   id: string;
@@ -277,67 +278,7 @@ export default function Explore() {
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filteredNearbyRestaurants.map((restaurant) => (
-                  <Card key={restaurant.id} className="overflow-hidden">
-                    <div className="relative aspect-video bg-muted overflow-hidden">
-                      {restaurant.images?.[0]?.image_url ? (
-                        <img
-                          src={restaurant.images[0].image_url}
-                          alt={restaurant.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20">
-                          <MapPin className="h-12 w-12 text-muted-foreground/50" />
-                        </div>
-                      )}
-                      {restaurant.folder && (
-                        <Badge
-                          className="absolute top-3 left-3"
-                          style={{ backgroundColor: restaurant.folder.color }}
-                        >
-                          {restaurant.folder.name}
-                        </Badge>
-                      )}
-                    </div>
-                    <CardContent className="p-4">
-                      <h3 className="font-semibold text-lg truncate">{restaurant.name}</h3>
-                      {restaurant.address && (
-                        <p className="text-sm text-muted-foreground truncate flex items-center gap-1 mt-1">
-                          <MapPin className="h-3 w-3 flex-shrink-0" />
-                          {restaurant.address}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-4 mt-2">
-                        {restaurant.rating && (
-                          <div className="flex items-center gap-1">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <Star
-                                key={i}
-                                className={`h-4 w-4 ${
-                                  i < Math.round(restaurant.rating! / 2) ? 'text-yellow-500 fill-yellow-500' : 'text-muted'
-                                }`}
-                              />
-                            ))}
-                          </div>
-                        )}
-                        {restaurant.price_level && (
-                          <div className="flex items-center">
-                            {Array.from({ length: 4 }).map((_, i) => (
-                              <DollarSign
-                                key={i}
-                                className={`h-4 w-4 -ml-1 first:ml-0 ${
-                                  i < restaurant.price_level! ? 'text-primary' : 'text-muted'
-                                }`}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      {restaurant.notes && (
-                        <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{restaurant.notes}</p>
-                      )}
-                    </CardContent>
-                  </Card>
+                  <ExploreRestaurantCard key={restaurant.id} restaurant={restaurant} />
                 ))}
               </div>
             )}
@@ -345,6 +286,80 @@ export default function Explore() {
         )}
       </main>
     </div>
+  );
+}
+
+// Restaurant card component with signed URL support
+function ExploreRestaurantCard({ restaurant }: { restaurant: Restaurant }) {
+  const imageUrl = restaurant.images?.[0]?.image_url;
+  const { signedUrl, loading: imageLoading } = useSignedImageUrl(imageUrl);
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="relative aspect-video bg-muted overflow-hidden">
+        {imageLoading ? (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground/50" />
+          </div>
+        ) : signedUrl ? (
+          <img
+            src={signedUrl}
+            alt={restaurant.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20">
+            <MapPin className="h-12 w-12 text-muted-foreground/50" />
+          </div>
+        )}
+        {restaurant.folder && (
+          <Badge
+            className="absolute top-3 left-3"
+            style={{ backgroundColor: restaurant.folder.color }}
+          >
+            {restaurant.folder.name}
+          </Badge>
+        )}
+      </div>
+      <CardContent className="p-4">
+        <h3 className="font-semibold text-lg truncate">{restaurant.name}</h3>
+        {restaurant.address && (
+          <p className="text-sm text-muted-foreground truncate flex items-center gap-1 mt-1">
+            <MapPin className="h-3 w-3 flex-shrink-0" />
+            {restaurant.address}
+          </p>
+        )}
+        <div className="flex items-center gap-4 mt-2">
+          {restaurant.rating && (
+            <div className="flex items-center gap-1">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star
+                  key={i}
+                  className={`h-4 w-4 ${
+                    i < Math.round(restaurant.rating! / 2) ? 'text-yellow-500 fill-yellow-500' : 'text-muted'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+          {restaurant.price_level && (
+            <div className="flex items-center">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <DollarSign
+                  key={i}
+                  className={`h-4 w-4 -ml-1 first:ml-0 ${
+                    i < restaurant.price_level! ? 'text-primary' : 'text-muted'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+        {restaurant.notes && (
+          <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{restaurant.notes}</p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

@@ -1,8 +1,9 @@
-import { Clock, Users, Thermometer, Trash2, ChefHat } from 'lucide-react';
+import { Clock, Users, Thermometer, Trash2, ChefHat, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import type { Recipe } from '@/pages/Recipes';
 
 interface RecipeCardProps {
@@ -14,6 +15,7 @@ interface RecipeCardProps {
 
 export function RecipeCard({ recipe, isOwner, onDelete, onClick }: RecipeCardProps) {
   const totalTime = (recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0);
+  const { signedUrl: imageUrl, loading: imageLoading } = useSignedImageUrl(recipe.image_url);
 
   const getDifficultyColor = (difficulty: string | null) => {
     switch (difficulty) {
@@ -34,9 +36,13 @@ export function RecipeCard({ recipe, isOwner, onDelete, onClick }: RecipeCardPro
       onClick={onClick}
     >
       <div className="relative aspect-video bg-muted">
-        {recipe.image_url ? (
+        {imageLoading ? (
+          <div className="w-full h-full flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground/30" />
+          </div>
+        ) : imageUrl ? (
           <img
-            src={recipe.image_url}
+            src={imageUrl}
             alt={recipe.title}
             className="w-full h-full object-cover"
           />
