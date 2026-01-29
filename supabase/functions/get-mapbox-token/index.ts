@@ -29,11 +29,10 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    // Verify the JWT token
-    const token = authHeader.replace('Bearer ', '');
-    const { data, error: authError } = await supabaseClient.auth.getClaims(token);
+    // Verify the user is authenticated
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
     
-    if (authError || !data?.claims) {
+    if (authError || !user) {
       console.error('Invalid authentication:', authError?.message);
       return new Response(
         JSON.stringify({ error: 'Invalid authentication' }),
@@ -51,7 +50,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('Successfully retrieved Mapbox token for user:', data.claims.sub);
+    console.log('Successfully retrieved Mapbox token for user:', user.id);
     return new Response(
       JSON.stringify({ token: mapboxToken }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
