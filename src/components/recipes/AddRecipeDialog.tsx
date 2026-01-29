@@ -79,11 +79,9 @@ export function AddRecipeDialog({ open, onOpenChange, onSuccess }: AddRecipeDial
 
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
-        .from('restaurant-images')
-        .getPublicUrl(fileName);
-
-      setImageUrl(urlData.publicUrl);
+      // Store the path as a URL format (will be converted to signed URL on display)
+      const storagePath = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/restaurant-images/${fileName}`;
+      setImageUrl(storagePath);
     } catch (error) {
       console.error('Error uploading image:', error);
       toast.error('Failed to upload image');

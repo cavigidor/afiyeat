@@ -1,13 +1,14 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MapPin, Star, DollarSign, MoreHorizontal, Check, Clock } from 'lucide-react';
+import { MapPin, Star, DollarSign, MoreHorizontal, Check, Clock, Loader2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 
 interface RestaurantCardProps {
   restaurant: {
@@ -27,12 +28,17 @@ interface RestaurantCardProps {
 }
 
 export function RestaurantCard({ restaurant, onEdit, onDelete, onMarkVisited }: RestaurantCardProps) {
-  const firstImage = restaurant.images?.[0]?.image_url;
+  const firstImageUrl = restaurant.images?.[0]?.image_url;
+  const { signedUrl: firstImage, loading: imageLoading } = useSignedImageUrl(firstImageUrl);
 
   return (
     <Card className="group overflow-hidden transition-all hover:shadow-lg">
       <div className="relative aspect-video bg-muted overflow-hidden">
-        {firstImage ? (
+        {imageLoading ? (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground/50" />
+          </div>
+        ) : firstImage ? (
           <img
             src={firstImage}
             alt={restaurant.name}

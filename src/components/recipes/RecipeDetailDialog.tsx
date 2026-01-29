@@ -15,10 +15,12 @@ import {
   Trash2,
   ChefHat,
   Edit,
+  Loader2,
 } from 'lucide-react';
 import type { Recipe } from '@/pages/Recipes';
 import { useState } from 'react';
 import { EditRecipeDialog } from './EditRecipeDialog';
+import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 
 interface RecipeDetailDialogProps {
   recipe: Recipe | null;
@@ -38,6 +40,7 @@ export function RecipeDetailDialog({
   onUpdate,
 }: RecipeDetailDialogProps) {
   const [editOpen, setEditOpen] = useState(false);
+  const { signedUrl: imageUrl, loading: imageLoading } = useSignedImageUrl(recipe?.image_url);
 
   if (!recipe) return null;
 
@@ -89,9 +92,13 @@ export function RecipeDetailDialog({
             <div className="space-y-6">
               {/* Image */}
               <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
-                {recipe.image_url ? (
+                {imageLoading ? (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Loader2 className="h-12 w-12 animate-spin text-muted-foreground/30" />
+                  </div>
+                ) : imageUrl ? (
                   <img
-                    src={recipe.image_url}
+                    src={imageUrl}
                     alt={recipe.title}
                     className="w-full h-full object-cover"
                   />
