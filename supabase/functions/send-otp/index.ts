@@ -10,6 +10,10 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Rate limit configuration
+const MAX_REQUESTS_PER_WINDOW = 3; // Max 3 OTP requests per email
+const RATE_LIMIT_WINDOW_MINUTES = 15; // 15 minute window
+
 function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
@@ -30,9 +34,61 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Email is required");
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      throw new Error("Invalid email format");
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Check rate limit
+    const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60 * 1000).toISOString();
+    
+    const { data: rateLimitData, error: rateLimitError } = await supabase
+      .from("otp_rate_limits")
+      .select("*")
+      .eq("email", email)
+      .gte("window_start", windowStart)
+      .order("window_start", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (rateLimitError) {
+      console.error("Rate limit check error:", rateLimitError);
+    }
+
+    if (rateLimitData) {
+      if (rateLimitData.request_count >= MAX_REQUESTS_PER_WINDOW) {
+        const waitTime = Math.ceil(
+          (new Date(rateLimitData.window_start).getTime() + RATE_LIMIT_WINDOW_MINUTES * 60 * 1000 - Date.now()) / 60000
+        );
+        return new Response(
+          JSON.stringify({ 
+            error: `Too many verification requests. Please try again in ${waitTime} minutes.` 
+          }),
+          {
+            status: 429,
+            headers: { "Content-Type": "application/json", ...corsHeaders },
+          }
+        );
+      }
+
+      // Update request count
+      await supabase
+        .from("otp_rate_limits")
+        .update({ request_count: rateLimitData.request_count + 1 })
+        .eq("id", rateLimitData.id);
+    } else {
+      // Create new rate limit entry
+      await supabase.from("otp_rate_limits").insert({
+        email,
+        request_count: 1,
+        window_start: new Date().toISOString(),
+      });
+    }
 
     // Generate OTP code
     const code = generateOTP();
@@ -40,11 +96,13 @@ const handler = async (req: Request): Promise<Response> => {
     // Delete any existing OTP for this email
     await supabase.from("email_otp").delete().eq("email", email);
 
-    // Store the new OTP
+    // Store the new OTP with verification attempts reset
     const { error: insertError } = await supabase.from("email_otp").insert({
       email,
       code,
       expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 minutes
+      verification_attempts: 0,
+      locked_until: null,
     });
 
     if (insertError) {
