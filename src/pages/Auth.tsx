@@ -244,9 +244,10 @@ export default function Auth() {
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="signin">Sign In</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
+              <TabsTrigger value="about">About</TabsTrigger>
             </TabsList>
 
             <TabsContent value="signin" className="mt-6">
@@ -347,6 +348,38 @@ export default function Auth() {
                   </Button>
                 </form>
               </Form>
+            </TabsContent>
+
+            <TabsContent value="about" className="mt-6">
+              <div className="space-y-4 text-sm text-muted-foreground max-h-[400px] overflow-y-auto pr-2">
+                <p className="text-foreground font-medium">
+                  In Turkish, there is a beautiful phrase often shared at the beginning or end of a meal: <span className="italic">"Afiyet olsun."</span> While it is the Turkish equivalent of bon appétit, its literal meaning is much deeper. It translates to "may it be health." It is a wish that the food you consume brings you not just pleasure, but wellness and vitality. That spirit of health, joy, and connection is the heartbeat of this platform.
+                </p>
+
+                <div>
+                  <h4 className="font-semibold text-foreground mb-2">Why I Built This</h4>
+                  <p>
+                    Afiyeat was born out of my own love and hate relationship with dining out. Like many food lovers, I am incredibly indecisive when it comes to choosing where to eat. I would find myself scrolling endlessly through generic reviews, never quite sure what I was in the mood for or if a place was actually worth the trip.
+                  </p>
+                  <p className="mt-2">
+                    I wanted a place where I could keep track of my own food journey visually. I wanted a digital scrapbook of the flavors I have discovered and the places I want to go. More than that, I wanted a way to see what my friends actually like. There is no better recommendation than one from someone you trust, and having a visual dashboard of their favorites makes those "where should we eat?" decisions a whole lot easier.
+                  </p>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-foreground mb-2">More Than Just Restaurants</h4>
+                  <p>
+                    Food is not just about going out. It is about what we create in our own kitchens. I added the Recipe Section because I have always loved the process of trying new things, making my own culinary creations, and sharing them with a community.
+                  </p>
+                  <p className="mt-2">
+                    Whether you are here to document your favorite local hidden gems or to learn a new dish from someone else's kitchen, Afiyeat is a space for us to learn from each other. It is a community built for the curious, the indecisive, and the hungry.
+                  </p>
+                </div>
+
+                <p className="text-foreground font-medium italic text-center pt-2">
+                  So, dive in, explore, and as they say in Turkey: Afiyet olsun!
+                </p>
+              </div>
             </TabsContent>
           </Tabs>
         </CardContent>
