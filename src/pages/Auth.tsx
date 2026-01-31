@@ -211,8 +211,8 @@ export default function Auth() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-accent/20 to-background p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <div className="flex justify-center mb-4">
-              <img src={logo} alt="Afiyeat" className="h-20 w-20 object-contain" />
+          <div className="flex justify-center mb-4">
+              <img src={logo} alt="Afiyeat" className="h-28 w-28 object-contain" />
             </div>
             <CardTitle className="text-2xl">Afiyeat</CardTitle>
           </CardHeader>
@@ -235,7 +235,7 @@ export default function Auth() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <img src={logo} alt="Afiyeat" className="h-20 w-20 object-contain" />
+            <img src={logo} alt="Afiyeat" className="h-28 w-28 object-contain" />
           </div>
           <CardTitle className="text-2xl">Afiyeat</CardTitle>
           <CardDescription>
