@@ -275,7 +275,7 @@ export function EditRestaurantDialog({
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="to_go">To Go</SelectItem>
-                        <SelectItem value="went_to">Went To</SelectItem>
+                        <SelectItem value="went_to">Been There</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

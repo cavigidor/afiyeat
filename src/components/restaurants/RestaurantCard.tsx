@@ -72,7 +72,7 @@ export function RestaurantCard({ restaurant, onEdit, onDelete, onMarkVisited }: 
               {restaurant.status === 'to_go' && onMarkVisited && (
                 <DropdownMenuItem onClick={onMarkVisited}>
                   <Check className="mr-2 h-4 w-4" />
-                  Mark as Visited
+                  Mark as Been There
                 </DropdownMenuItem>
               )}
               {onEdit && (
@@ -100,9 +100,9 @@ export function RestaurantCard({ restaurant, onEdit, onDelete, onMarkVisited }: 
               </p>
             )}
           </div>
-          <Badge variant={restaurant.status === 'went_to' ? 'default' : 'secondary'}>
+        <Badge variant={restaurant.status === 'went_to' ? 'default' : 'secondary'}>
             {restaurant.status === 'went_to' ? (
-              <><Check className="h-3 w-3 mr-1" /> Visited</>
+              <><Check className="h-3 w-3 mr-1" /> Been There</>
             ) : (
               <><Clock className="h-3 w-3 mr-1" /> To Go</>
             )}
