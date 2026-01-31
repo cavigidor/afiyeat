@@ -128,7 +128,7 @@ export default function MyList() {
     if (error) {
       toast.error('Failed to update restaurant');
     } else {
-      toast.success('Marked as visited!');
+      toast.success('Marked as been there!');
       fetchData();
     }
   };
@@ -253,7 +253,7 @@ export default function MyList() {
                     ) : wentToList.length === 0 ? (
                       <div className="text-center py-8 text-muted-foreground">
                         <Check className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p>You haven't visited any restaurants yet</p>
+                        <p>You haven't been to any restaurants yet</p>
                       </div>
                     ) : (
                       <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">

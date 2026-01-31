@@ -108,7 +108,7 @@ export default function Dashboard() {
     if (error) {
       toast.error('Failed to update restaurant');
     } else {
-      toast.success('Marked as visited!');
+      toast.success('Marked as been there!');
       fetchRestaurants();
     }
   };
@@ -163,7 +163,7 @@ export default function Dashboard() {
                     <Check className="h-5 w-5" />
                     {visitedCount}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">Visited</p>
+                  <p className="text-xs text-muted-foreground mt-1">Been There</p>
                 </div>
               </div>
 
@@ -206,7 +206,7 @@ export default function Dashboard() {
                 </TabsTrigger>
                 <TabsTrigger value="went_to">
                   <Check className="h-4 w-4 mr-1" />
-                  Visited ({visitedCount})
+                  Been There ({visitedCount})
                 </TabsTrigger>
               </TabsList>
             </Tabs>
