@@ -19,6 +19,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { OTPVerification } from '@/components/auth/OTPVerification';
+import { PasswordRequirements, getPasswordStrength } from '@/components/auth/PasswordRequirements';
 import { supabase } from '@/integrations/supabase/client';
 import logo from '@/assets/logo.png';
 
@@ -118,6 +119,13 @@ export default function Auth() {
   };
 
   const handleSignUpSubmit = async (values: SignUpValues) => {
+    // Check password strength before proceeding
+    const strength = getPasswordStrength(values.password);
+    if (strength.score < 2) {
+      toast.error('Please choose a stronger password');
+      return;
+    }
+
     setLoading(true);
     try {
       // Send OTP to email
@@ -325,6 +333,7 @@ export default function Auth() {
                         <FormControl>
                           <Input type="password" placeholder="••••••••" {...field} />
                         </FormControl>
+                        <PasswordRequirements password={field.value} />
                         <FormMessage />
                       </FormItem>
                     )}
