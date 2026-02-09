@@ -112,7 +112,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send email with OTP
     const emailResponse = await resend.emails.send({
-      from: "Afiyeat <onboarding@resend.dev>",
+      from: "Afiyeat <noreply@afiyeat.com>",
       to: [email],
       subject: "Your Afiyeat verification code",
       html: `
