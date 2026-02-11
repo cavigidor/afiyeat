@@ -96,7 +96,7 @@ export default function MyList() {
 
   useEffect(() => {
     const fetchMapboxToken = async () => {
-      if (mapboxToken) return;
+      if (mapboxToken || !user) return;
       
       try {
         const { data, error } = await supabase.functions.invoke('get-mapbox-token');
@@ -110,7 +110,7 @@ export default function MyList() {
       }
     };
     fetchMapboxToken();
-  }, [mapboxToken]);
+  }, [mapboxToken, user]);
 
   const filteredRestaurants = selectedFolder 
     ? restaurants.filter(r => r.folder_id === selectedFolder)
