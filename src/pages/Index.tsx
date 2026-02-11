@@ -11,7 +11,7 @@ export default function Index() {
 
   useEffect(() => {
     if (!loading && user) {
-      navigate('/dashboard');
+      navigate('/my-list');
     }
   }, [user, loading, navigate]);
 

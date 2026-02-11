@@ -60,7 +60,7 @@ export default function Auth() {
 
   useEffect(() => {
     if (user) {
-      navigate('/dashboard');
+      navigate('/my-list');
     }
   }, [user, navigate]);
 
@@ -98,7 +98,7 @@ export default function Auth() {
       }
     } else {
       toast.success('Welcome back!');
-      navigate('/dashboard');
+      navigate('/my-list');
     }
   };
 
@@ -189,7 +189,7 @@ export default function Auth() {
         }
       } else {
         toast.success('Account created! Welcome to Afiyeat!');
-        navigate('/dashboard');
+        navigate('/my-list');
       }
     } catch (error: any) {
       toast.error(error.message || 'Verification failed');
