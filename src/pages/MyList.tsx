@@ -38,7 +38,7 @@ interface Folder {
 }
 
 export default function MyList() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -96,12 +96,14 @@ export default function MyList() {
 
   useEffect(() => {
     const fetchMapboxToken = async () => {
-      if (mapboxToken || !user) return;
+      if (mapboxToken || !session) return;
       
       try {
         const { data, error } = await supabase.functions.invoke('get-mapbox-token');
         if (!error && data?.token) {
           setMapboxToken(data.token);
+        } else {
+          console.error('Mapbox token fetch error:', error);
         }
       } catch (err) {
         console.error('Error fetching Mapbox token:', err);
@@ -110,7 +112,7 @@ export default function MyList() {
       }
     };
     fetchMapboxToken();
-  }, [mapboxToken, user]);
+  }, [mapboxToken, session]);
 
   const filteredRestaurants = selectedFolder 
     ? restaurants.filter(r => r.folder_id === selectedFolder)
