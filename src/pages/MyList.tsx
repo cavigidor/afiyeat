@@ -53,6 +53,7 @@ export default function MyList() {
   const [selectedPriceLevel, setSelectedPriceLevel] = useState<number | null>(null);
   const [focusedRestaurantId, setFocusedRestaurantId] = useState<string | null>(null);
   const mapFlyToRef = useRef<((lat: number, lng: number, restaurantId: string) => void) | null>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -156,13 +157,15 @@ export default function MyList() {
     setEditDialogOpen(true);
   };
 
-  const handleRestaurantClick = (restaurant: Restaurant) => {
+  const handleRestaurantClick = (restaurant: Restaurant | { id: string; name: string; latitude: number | null; longitude: number | null; folder_id: string | null }) => {
     if (restaurant.latitude && restaurant.longitude) {
       setFocusedRestaurantId(restaurant.id);
+      // Scroll to map
+      mapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       // Small delay to ensure map is rendered before flying
       setTimeout(() => {
         mapFlyToRef.current?.(restaurant.latitude!, restaurant.longitude!, restaurant.id);
-      }, 100);
+      }, 300);
     }
   };
 
@@ -188,18 +191,22 @@ export default function MyList() {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-6">
-          {/* Sidebar with folders - hidden on mobile */}
+          {/* Sidebar with folders - hidden on mobile, sticky */}
           <aside className="hidden lg:block w-64 shrink-0">
-            <Card>
-              <CardContent className="p-4">
-                <FolderList
-                  folders={folders}
-                  selectedFolder={selectedFolder}
-                  onSelectFolder={setSelectedFolder}
-                  onFoldersChange={fetchData}
-                />
-              </CardContent>
-            </Card>
+            <div className="sticky top-8">
+              <Card>
+                <CardContent className="p-4">
+                  <FolderList
+                    folders={folders}
+                    selectedFolder={selectedFolder}
+                    onSelectFolder={setSelectedFolder}
+                    onFoldersChange={fetchData}
+                    restaurants={restaurants}
+                    onRestaurantClick={handleRestaurantClick}
+                  />
+                </CardContent>
+              </Card>
+            </div>
           </aside>
 
           {/* Main content */}
@@ -304,7 +311,7 @@ export default function MyList() {
             </Card>
             
             {/* Map - always visible */}
-            <Card className="overflow-hidden">
+            <Card className="overflow-hidden" ref={mapRef}>
               <CardContent className="p-0">
                 <div className="h-[400px] lg:h-[500px] relative">
                   {mapboxLoading ? (

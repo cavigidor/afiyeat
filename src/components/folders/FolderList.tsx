@@ -2,16 +2,26 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Folder, X, Check, Trash2 } from 'lucide-react';
+import { Plus, Folder, X, Check, Trash2, ChevronDown, ChevronRight, MapPin } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+
+interface Restaurant {
+  id: string;
+  name: string;
+  latitude: number | null;
+  longitude: number | null;
+  folder_id: string | null;
+}
 
 interface FolderListProps {
   folders: { id: string; name: string; color: string }[];
   selectedFolder: string | null;
   onSelectFolder: (id: string | null) => void;
   onFoldersChange: () => void;
+  restaurants?: Restaurant[];
+  onRestaurantClick?: (restaurant: Restaurant) => void;
 }
 
 const FOLDER_COLORS = [
@@ -25,11 +35,14 @@ export function FolderList({
   selectedFolder,
   onSelectFolder,
   onFoldersChange,
+  restaurants = [],
+  onRestaurantClick,
 }: FolderListProps) {
   const { user } = useAuth();
   const [isAdding, setIsAdding] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [selectedColor, setSelectedColor] = useState(FOLDER_COLORS[0]);
+  const [expandedFolder, setExpandedFolder] = useState<string | null>(null);
 
   const handleAddFolder = async () => {
     if (!user || !newFolderName.trim()) return;
@@ -67,11 +80,19 @@ export function FolderList({
     }
   };
 
+  const toggleExpand = (folderId: string) => {
+    setExpandedFolder(expandedFolder === folderId ? null : folderId);
+  };
+
+  const getRestaurantsInFolder = (folderId: string) => {
+    return restaurants.filter(r => r.folder_id === folderId);
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
-          Folders
+          Types
         </h3>
         <Button
           variant="ghost"
@@ -86,7 +107,7 @@ export function FolderList({
       {isAdding && (
         <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
           <Input
-            placeholder="Folder name"
+            placeholder="Type name"
             value={newFolderName}
             onChange={(e) => setNewFolderName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAddFolder()}
@@ -134,35 +155,70 @@ export function FolderList({
           All Restaurants
         </button>
 
-        {folders.map((folder) => (
-          <div
-            key={folder.id}
-            className={`group flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-              selectedFolder === folder.id
-                ? 'bg-primary text-primary-foreground'
-                : 'hover:bg-muted'
-            }`}
-          >
-            <button
-              onClick={() => onSelectFolder(folder.id)}
-              className="flex-1 flex items-center gap-2 text-left"
-            >
+        {folders.map((folder) => {
+          const folderRestaurants = getRestaurantsInFolder(folder.id);
+          const isExpanded = expandedFolder === folder.id;
+          
+          return (
+            <div key={folder.id}>
               <div
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: folder.color }}
-              />
-              <span className="truncate">{folder.name}</span>
-            </button>
-            <button
-              onClick={() => handleDeleteFolder(folder.id)}
-              className={`opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/20 ${
-                selectedFolder === folder.id ? 'hover:bg-primary-foreground/20' : ''
-              }`}
-            >
-              <Trash2 className="h-3 w-3" />
-            </button>
-          </div>
-        ))}
+                className={`group flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                  selectedFolder === folder.id
+                    ? 'bg-primary text-primary-foreground'
+                    : 'hover:bg-muted'
+                }`}
+              >
+                {folderRestaurants.length > 0 && (
+                  <button
+                    onClick={() => toggleExpand(folder.id)}
+                    className="p-0.5 -ml-1"
+                  >
+                    {isExpanded ? (
+                      <ChevronDown className="h-3 w-3" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3" />
+                    )}
+                  </button>
+                )}
+                <button
+                  onClick={() => onSelectFolder(folder.id)}
+                  className="flex-1 flex items-center gap-2 text-left"
+                >
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: folder.color }}
+                  />
+                  <span className="truncate">{folder.name}</span>
+                  <span className="text-xs opacity-60">({folderRestaurants.length})</span>
+                </button>
+                <button
+                  onClick={() => handleDeleteFolder(folder.id)}
+                  className={`opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/20 ${
+                    selectedFolder === folder.id ? 'hover:bg-primary-foreground/20' : ''
+                  }`}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+              
+              {/* Expanded restaurant list */}
+              {isExpanded && folderRestaurants.length > 0 && (
+                <div className="ml-6 mt-1 space-y-0.5">
+                  {folderRestaurants.map((r) => (
+                    <button
+                      key={r.id}
+                      onClick={() => onRestaurantClick?.(r)}
+                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors text-left"
+                    >
+                      <MapPin className="h-3 w-3 flex-shrink-0" />
+                      <span className="truncate">{r.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

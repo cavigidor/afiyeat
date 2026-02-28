@@ -289,14 +289,14 @@ export function EditRestaurantDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Type</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <Select onValueChange={(v) => field.onChange(v === '__none__' ? undefined : v)} value={field.value || '__none__'}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select type" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">No Type</SelectItem>
+                        <SelectItem value="__none__">No Type</SelectItem>
                         {folders.map((folder) => (
                           <SelectItem key={folder.id} value={folder.id}>
                             <div className="flex items-center gap-2">
