@@ -302,27 +302,42 @@ export function AddRestaurantDialog({
 
       if (restaurantError) throw restaurantError;
 
-      for (const image of images) {
-        const fileExt = image.name.split('.').pop();
-        const fileName = `${user.id}/${restaurant.id}/${crypto.randomUUID()}.${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('restaurant-images')
-          .upload(fileName, image);
+      if (images.length > 0) {
+        for (const image of images) {
+          const fileExt = image.name.split('.').pop();
+          const fileName = `${user.id}/${restaurant.id}/${crypto.randomUUID()}.${fileExt}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from('restaurant-images')
+            .upload(fileName, image);
 
-        if (uploadError) {
-          console.error('Image upload error:', uploadError);
-          continue;
+          if (uploadError) {
+            console.error('Image upload error:', uploadError);
+            continue;
+          }
+
+          const storagePath = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/restaurant-images/${fileName}`;
+
+          await supabase.from('restaurant_images').insert({
+            restaurant_id: restaurant.id,
+            user_id: user.id,
+            image_url: storagePath,
+          });
         }
-
-        // Store the path as a URL format for consistency (will be converted to signed URL on display)
-        const storagePath = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/restaurant-images/${fileName}`;
-
-        await supabase.from('restaurant_images').insert({
-          restaurant_id: restaurant.id,
-          user_id: user.id,
-          image_url: storagePath,
-        });
+      } else if (submitValues.latitude && submitValues.longitude) {
+        // Auto-generate map preview image when no photos uploaded
+        try {
+          await supabase.functions.invoke('generate-map-image', {
+            body: {
+              latitude: submitValues.latitude,
+              longitude: submitValues.longitude,
+              restaurantId: restaurant.id,
+            },
+          });
+        } catch (mapError) {
+          console.error('Map image generation failed:', mapError);
+          // Non-blocking - restaurant is still saved
+        }
       }
 
       toast.success('Restaurant added successfully!');
