@@ -10,32 +10,8 @@ import { RestaurantSearch } from '@/components/restaurants/RestaurantSearch';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, MapPin, Clock, Check, Loader2, ImagePlus } from 'lucide-react';
+import { Plus, MapPin, Clock, Check, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-
-const useBackfillMapImages = () => {
-  const [backfilling, setBackfilling] = useState(false);
-
-  const backfill = async (onDone: () => void) => {
-    setBackfilling(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('backfill-map-images');
-      if (error) throw error;
-      if (data.generated > 0) {
-        toast.success(`Generated map images for ${data.generated} restaurant(s)`);
-        onDone();
-      } else {
-        toast.info(data.message || 'All restaurants already have images');
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to generate map images');
-    } finally {
-      setBackfilling(false);
-    }
-  };
-
-  return { backfill, backfilling };
-};
 
 interface Restaurant {
   id: string;
@@ -59,7 +35,6 @@ interface Folder {
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const { backfill, backfilling } = useBackfillMapImages();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
@@ -199,16 +174,6 @@ export default function Dashboard() {
                 onFoldersChange={fetchFolders}
               />
 
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full mt-4"
-                onClick={() => backfill(fetchRestaurants)}
-                disabled={backfilling}
-              >
-                {backfilling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ImagePlus className="h-4 w-4 mr-2" />}
-                {backfilling ? 'Generating...' : 'Add Map Images'}
-              </Button>
             </div>
           </aside>
 
