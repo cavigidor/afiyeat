@@ -275,11 +275,11 @@ export function AddRestaurantDialog({
     
     setLoading(true);
     try {
-      // Clear rating and price_level for to_go status
+      // Clear rating for to_go status, keep price_level for both
       const submitValues = {
         ...values,
         rating: isToGo ? null : values.rating || null,
-        price_level: isToGo ? null : values.price_level || null,
+        price_level: values.price_level || null,
       };
 
       const { data: restaurant, error: restaurantError } = await supabase
@@ -527,52 +527,51 @@ export function AddRestaurantDialog({
               />
             </div>
 
-            {/* Only show rating and price for "went_to" status */}
-            {!isToGo && (
-              <>
-                <FormField
-                  control={form.control}
-                  name="rating"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Rating: {field.value ?? 'Not rated'}/10</FormLabel>
-                      <FormControl>
-                        <EmojiSlider
-                          value={field.value ?? 5}
-                          onChange={field.onChange}
-                          min={0}
-                          max={10}
-                          emojiIndex={emojiIndices.rating}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+            {/* Price level - shown for both statuses */}
+            <FormField
+              control={form.control}
+              name="price_level"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Price Level: {'$'.repeat(field.value || 0)} {field.value ? `(${PRICE_LABELS[field.value - 1]})` : 'Not set'}
+                  </FormLabel>
+                  <FormControl>
+                    <EmojiSlider
+                      value={field.value ?? 2}
+                      onChange={field.onChange}
+                      min={1}
+                      max={4}
+                      emojiIndex={emojiIndices.price}
+                      labels={PRICE_LABELS}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-                <FormField
-                  control={form.control}
-                  name="price_level"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Price Level: {'$'.repeat(field.value || 0)} {field.value ? `(${PRICE_LABELS[field.value - 1]})` : 'Not set'}
-                      </FormLabel>
-                      <FormControl>
-                        <EmojiSlider
-                          value={field.value ?? 2}
-                          onChange={field.onChange}
-                          min={1}
-                          max={4}
-                          emojiIndex={emojiIndices.price}
-                          labels={PRICE_LABELS}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </>
+            {/* Only show rating for "went_to" status */}
+            {!isToGo && (
+              <FormField
+                control={form.control}
+                name="rating"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Rating: {field.value ?? 'Not rated'}/10</FormLabel>
+                    <FormControl>
+                      <EmojiSlider
+                        value={field.value ?? 5}
+                        onChange={field.onChange}
+                        min={0}
+                        max={10}
+                        emojiIndex={emojiIndices.rating}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             )}
 
             <FormField
