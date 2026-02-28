@@ -52,7 +52,6 @@ export default function MyList() {
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [focusedRestaurantId, setFocusedRestaurantId] = useState<string | null>(null);
   const mapFlyToRef = useRef<((lat: number, lng: number, restaurantId: string) => void) | null>(null);
-  const hasBackfilled = useRef(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -95,21 +94,6 @@ export default function MyList() {
     }
   }, [user]);
 
-  // Auto-backfill map images once per session
-  useEffect(() => {
-    if (!user || loading || hasBackfilled.current) return;
-    hasBackfilled.current = true;
-
-    supabase.functions.invoke('backfill-map-images').then(({ data, error }) => {
-      if (error) {
-        console.error('Backfill error:', error);
-        return;
-      }
-      if (data?.generated > 0) {
-        fetchData();
-      }
-    });
-  }, [user, loading]);
 
   useEffect(() => {
     const fetchMapboxToken = async () => {
