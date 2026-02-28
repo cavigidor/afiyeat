@@ -324,6 +324,8 @@ export function AddRestaurantDialog({
             image_url: storagePath,
           });
         }
+      }
+
 
       toast.success('Restaurant added successfully!');
       form.reset();
