@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,6 +28,10 @@ export function AddCellarItemDialog({ open, onOpenChange, onSuccess, drinkType }
   const [rating, setRating] = useState('');
   const [selectedPreset, setSelectedPreset] = useState<BeerPreset | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setMode(drinkType === 'wine' ? 'manual' : 'preset');
+  }, [drinkType]);
 
   const filteredPresets = useMemo(() => {
     if (!search) return beerPresets;
