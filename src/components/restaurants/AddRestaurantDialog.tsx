@@ -324,21 +324,6 @@ export function AddRestaurantDialog({
             image_url: storagePath,
           });
         }
-      } else if (submitValues.latitude && submitValues.longitude) {
-        // Auto-generate map preview image when no photos uploaded
-        try {
-          await supabase.functions.invoke('generate-map-image', {
-            body: {
-              latitude: submitValues.latitude,
-              longitude: submitValues.longitude,
-              restaurantId: restaurant.id,
-            },
-          });
-        } catch (mapError) {
-          console.error('Map image generation failed:', mapError);
-          // Non-blocking - restaurant is still saved
-        }
-      }
 
       toast.success('Restaurant added successfully!');
       form.reset();
