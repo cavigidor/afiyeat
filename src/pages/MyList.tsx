@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { MapPin, Loader2, Map, Plus, Check, Clock } from 'lucide-react';
+import { MapPin, Loader2, Map, Plus, Check, Clock, DollarSign } from 'lucide-react';
 import { RestaurantCard } from '@/components/restaurants/RestaurantCard';
 import { AddRestaurantDialog } from '@/components/restaurants/AddRestaurantDialog';
 import { EditRestaurantDialog } from '@/components/restaurants/EditRestaurantDialog';
@@ -50,6 +50,7 @@ export default function MyList() {
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [activeTab, setActiveTab] = useState<'to_go' | 'went_to'>('to_go');
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+  const [selectedPriceLevel, setSelectedPriceLevel] = useState<number | null>(null);
   const [focusedRestaurantId, setFocusedRestaurantId] = useState<string | null>(null);
   const mapFlyToRef = useRef<((lat: number, lng: number, restaurantId: string) => void) | null>(null);
 
@@ -115,9 +116,9 @@ export default function MyList() {
     fetchMapboxToken();
   }, [mapboxToken, session]);
 
-  const filteredRestaurants = selectedFolder 
-    ? restaurants.filter(r => r.folder_id === selectedFolder)
-    : restaurants;
+  const filteredRestaurants = restaurants
+    .filter(r => !selectedFolder || r.folder_id === selectedFolder)
+    .filter(r => !selectedPriceLevel || r.price_level === selectedPriceLevel);
   const toGoList = filteredRestaurants.filter(r => r.status === 'to_go');
   const wentToList = filteredRestaurants.filter(r => r.status === 'went_to');
   const currentList = activeTab === 'to_go' ? toGoList : wentToList;
@@ -206,6 +207,28 @@ export default function MyList() {
             {/* Restaurant list */}
             <Card>
               <CardContent className="p-4">
+                {/* Price filter */}
+                <div className="flex items-center gap-2 mb-4 flex-wrap">
+                  <span className="text-sm text-muted-foreground">Price:</span>
+                  <Button
+                    variant={selectedPriceLevel === null ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedPriceLevel(null)}
+                  >
+                    All
+                  </Button>
+                  {[1, 2, 3, 4].map((level) => (
+                    <Button
+                      key={level}
+                      variant={selectedPriceLevel === level ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setSelectedPriceLevel(selectedPriceLevel === level ? null : level)}
+                    >
+                      {'$'.repeat(level)}
+                    </Button>
+                  ))}
+                </div>
+
                 <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'to_go' | 'went_to')}>
                   <TabsList className="mb-4">
                     <TabsTrigger value="to_go" className="flex items-center gap-2">
