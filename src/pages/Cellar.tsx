@@ -17,6 +17,7 @@ interface CellarItem {
   description: string | null;
   type: string;
   is_preset: boolean;
+  rating: number | null;
   created_at: string;
 }
 
@@ -148,7 +149,7 @@ export default function Cellar() {
         </Card>
       </main>
 
-      <AddCellarItemDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} onSuccess={fetchItems} />
+      <AddCellarItemDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} onSuccess={fetchItems} drinkType={activeTab} />
     </div>
   );
 }

@@ -1,0 +1,1 @@
+ALTER TABLE public.cellar_items ADD COLUMN rating numeric(3,1) CHECK (rating >= 0 AND rating <= 10);
