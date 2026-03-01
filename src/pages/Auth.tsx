@@ -82,6 +82,28 @@ export default function Auth() {
     },
   });
 
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+
+  const handleForgotPassword = async () => {
+    if (!forgotEmail) {
+      toast.error('Please enter your email address');
+      return;
+    }
+    setForgotLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setForgotLoading(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Password reset link sent! Check your email.');
+      setForgotMode(false);
+    }
+  };
+
   const handleSignIn = async (values: SignInValues) => {
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({
@@ -259,6 +281,29 @@ export default function Auth() {
             </TabsList>
 
             <TabsContent value="signin" className="mt-6">
+              {forgotMode ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Enter your email and we'll send you a link to reset your password.
+                  </p>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Email</label>
+                    <Input
+                      type="email"
+                      placeholder="you@example.com"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                    />
+                  </div>
+                  <Button onClick={handleForgotPassword} className="w-full" disabled={forgotLoading}>
+                    {forgotLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Send Reset Link
+                  </Button>
+                  <Button variant="ghost" className="w-full" onClick={() => setForgotMode(false)}>
+                    Back to Sign In
+                  </Button>
+                </div>
+              ) : (
               <Form {...signInForm}>
                 <form onSubmit={signInForm.handleSubmit(handleSignIn)} className="space-y-4">
                   <FormField
@@ -287,12 +332,23 @@ export default function Auth() {
                       </FormItem>
                     )}
                   />
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="px-0 text-sm text-muted-foreground"
+                      onClick={() => setForgotMode(true)}
+                    >
+                      Forgot password?
+                    </Button>
+                  </div>
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Sign In
                   </Button>
                 </form>
               </Form>
+              )}
             </TabsContent>
 
             <TabsContent value="signup" className="mt-6">
