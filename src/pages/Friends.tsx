@@ -264,10 +264,10 @@ export default function Friends() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <main className="container py-8">
-        <h1 className="text-3xl font-bold mb-6">Friends</h1>
+      <main className="container py-4 sm:py-8 px-4 sm:px-6 lg:px-8">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Friends</h1>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
           {/* Search and Following List */}
           <div className="lg:col-span-1 space-y-6">
             {/* Search */}
@@ -465,25 +465,26 @@ export default function Friends() {
           <div className="lg:col-span-2">
             {selectedUser ? (
               <>
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 sm:mb-6">
                   <div className="flex items-center gap-3">
-                    <Avatar className="h-12 w-12">
+                    <Avatar className="h-10 w-10 sm:h-12 sm:w-12">
                       <AvatarImage src={selectedUser.avatar_url || ''} />
                       <AvatarFallback className="bg-primary text-primary-foreground">
                         {(selectedUser.username || selectedUser.display_name || 'U')[0].toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <h2 className="text-xl font-bold">
+                      <h2 className="text-lg sm:text-xl font-bold">
                         {selectedUser.display_name || selectedUser.username}'s List
                       </h2>
-                      <p className="text-muted-foreground">
+                      <p className="text-sm text-muted-foreground">
                         {userRestaurants.length} restaurants
                       </p>
                     </div>
                   </div>
                   <Button
                     variant="outline"
+                    size="sm"
                     onClick={() => handleUnfollow(selectedUser.user_id)}
                   >
                     <UserMinus className="h-4 w-4 mr-2" />
