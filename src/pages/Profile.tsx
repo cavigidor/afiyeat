@@ -31,6 +31,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Camera, Save, LogOut, Lock, Check, X, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
+import { AvatarCropper } from '@/components/profile/AvatarCropper';
 
 const profileSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters').max(20),
@@ -79,6 +80,8 @@ export default function Profile() {
   const [following, setFollowing] = useState<FollowUser[]>([]);
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
   const [loadingList, setLoadingList] = useState(false);
+  const [cropperFile, setCropperFile] = useState<File | null>(null);
+  const [cropperOpen, setCropperOpen] = useState(false);
   
   // Use signed URL for avatar
   const { signedUrl: avatarSignedUrl } = useSignedImageUrl(profile?.avatar_url);
@@ -244,23 +247,28 @@ export default function Profile() {
     }
   }, [user]);
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user || !profile) return;
+    if (!file) return;
+    setCropperFile(file);
+    setCropperOpen(true);
+    // Reset input so the same file can be re-selected
+    e.target.value = '';
+  };
+
+  const handleCroppedUpload = async (blob: Blob) => {
+    if (!user || !profile) return;
 
     setUploadingAvatar(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/avatar.${fileExt}`;
+      const fileName = `${user.id}/avatar.jpg`;
 
       const { error: uploadError } = await supabase.storage
         .from('restaurant-images')
-        .upload(fileName, file, { upsert: true });
+        .upload(fileName, blob, { upsert: true, contentType: 'image/jpeg' });
 
       if (uploadError) throw uploadError;
 
-      // Store the storage path instead of public URL
-      // The signed URL will be generated when displaying
       const storagePath = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/restaurant-images/${fileName}`;
 
       const { error: updateError } = await supabase
@@ -271,6 +279,7 @@ export default function Profile() {
       if (updateError) throw updateError;
 
       setProfile({ ...profile, avatar_url: storagePath });
+      setCropperOpen(false);
       toast.success('Avatar updated!');
     } catch (error: any) {
       toast.error(error.message || 'Failed to upload avatar');
@@ -419,7 +428,7 @@ export default function Profile() {
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={handleAvatarUpload}
+                    onChange={handleAvatarSelect}
                     className="hidden"
                     disabled={uploadingAvatar}
                   />
@@ -691,6 +700,14 @@ export default function Profile() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AvatarCropper
+        file={cropperFile}
+        open={cropperOpen}
+        onOpenChange={setCropperOpen}
+        onCropComplete={handleCroppedUpload}
+        saving={uploadingAvatar}
+      />
     </div>
   );
 }
