@@ -45,12 +45,12 @@ export default function Index() {
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-accent/20 to-background" />
-        <div className="container relative py-24 md:py-32">
+        <div className="container relative py-12 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center">
-            <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-primary to-accent-foreground bg-clip-text text-transparent">
+            <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-primary to-accent-foreground bg-clip-text text-transparent">
               Track Your Culinary Journey
             </h1>
-            <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+            <p className="text-base sm:text-xl text-muted-foreground mb-6 sm:mb-8 max-w-2xl mx-auto">
               Save restaurants you want to try, mark places you've visited, discover new spots through friends, and share your favorite recipes with the community.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -67,12 +67,12 @@ export default function Index() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 bg-card">
-        <div className="container">
-          <h2 className="text-3xl font-bold text-center mb-12">
+      <section className="py-12 sm:py-20 bg-card">
+        <div className="container px-4 sm:px-6 lg:px-8">
+          <h2 className="text-2xl sm:text-3xl font-bold text-center mb-8 sm:mb-12">
             Everything you need to track your food adventures
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-8">
             {features.map((feature) => (
               <div key={feature.title} className="text-center p-6 rounded-xl bg-background shadow-sm">
                 <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
@@ -87,9 +87,9 @@ export default function Index() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20">
-        <div className="container">
-          <div className="bg-gradient-to-r from-primary to-accent-foreground rounded-2xl p-12 text-center">
+      <section className="py-12 sm:py-20">
+        <div className="container px-4 sm:px-6 lg:px-8">
+          <div className="bg-gradient-to-r from-primary to-accent-foreground rounded-2xl p-6 sm:p-12 text-center">
             <h2 className="text-3xl font-bold text-primary-foreground mb-4">
               Start Your Food Journey Today
             </h2>

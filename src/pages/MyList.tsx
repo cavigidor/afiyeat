@@ -181,12 +181,12 @@ export default function MyList() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <main className="container py-8 space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">My List</h1>
-          <Button onClick={() => setAddDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Restaurant
+      <main className="container py-4 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-4 sm:space-y-6">
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-2xl sm:text-3xl font-bold">My List</h1>
+          <Button onClick={() => setAddDialogOpen(true)} size="sm" className="sm:size-default">
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Add Restaurant</span>
           </Button>
         </div>
 
@@ -259,7 +259,7 @@ export default function MyList() {
                         <p>No restaurants on your to-go list yet</p>
                       </div>
                     ) : (
-                      <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
+                      <div className="grid gap-3 sm:gap-4 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
                         {toGoList.map((restaurant) => (
                           <div 
                             key={restaurant.id} 
@@ -289,7 +289,7 @@ export default function MyList() {
                         <p>You haven't been to any restaurants yet</p>
                       </div>
                     ) : (
-                      <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
+                      <div className="grid gap-3 sm:gap-4 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
                         {wentToList.map((restaurant) => (
                           <div 
                             key={restaurant.id} 
@@ -313,7 +313,7 @@ export default function MyList() {
             {/* Map - always visible */}
             <Card className="overflow-hidden" ref={mapRef}>
               <CardContent className="p-0">
-                <div className="h-[400px] lg:h-[500px] relative">
+                <div className="h-[250px] sm:h-[400px] lg:h-[500px] relative">
                   {mapboxLoading ? (
                     <div className="flex items-center justify-center h-full">
                       <Loader2 className="h-8 w-8 animate-spin text-primary" />

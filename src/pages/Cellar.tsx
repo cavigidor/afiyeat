@@ -81,20 +81,20 @@ export default function Cellar() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <main className="container py-8 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Cellar</h1>
-            <p className="text-muted-foreground mt-1">Track the beers and wines you've tried</p>
+      <main className="container py-4 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-4 sm:space-y-6">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-bold">Cellar</h1>
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">Track the beers and wines you've tried</p>
           </div>
-          <Button onClick={() => setAddDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Drink
+          <Button onClick={() => setAddDialogOpen(true)} size="sm" className="shrink-0">
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Add Drink</span>
           </Button>
         </div>
 
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'beer' | 'wine')}>
               <TabsList className="mb-4">
                 <TabsTrigger value="beer" className="flex items-center gap-2">
