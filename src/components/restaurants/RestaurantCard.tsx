@@ -109,16 +109,25 @@ export function RestaurantCard({ restaurant, onEdit, onDelete, onMarkVisited }: 
           </Badge>
         </div>
         <div className="flex items-center gap-4 mt-3">
-          {restaurant.rating && (
+          {restaurant.rating != null && restaurant.rating > 0 && (
             <div className="flex items-center gap-1">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Star
-                  key={i}
-                  className={`h-4 w-4 ${
-                    i < restaurant.rating! ? 'text-yellow-500 fill-yellow-500' : 'text-muted'
-                  }`}
-                />
-              ))}
+              {Array.from({ length: 5 }).map((_, i) => {
+                const starValue = restaurant.rating! / 2;
+                const filled = i < Math.floor(starValue);
+                const half = !filled && i < starValue;
+                return (
+                  <div key={i} className="relative h-4 w-4">
+                    <Star className="h-4 w-4 text-muted absolute inset-0" />
+                    {filled && <Star className="h-4 w-4 text-yellow-500 fill-yellow-500 absolute inset-0" />}
+                    {half && (
+                      <div className="absolute inset-0 overflow-hidden" style={{ width: '50%' }}>
+                        <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              <span className="text-xs text-muted-foreground ml-1">{restaurant.rating}/10</span>
             </div>
           )}
           {restaurant.price_level && (
