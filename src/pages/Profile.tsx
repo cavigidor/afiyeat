@@ -392,8 +392,8 @@ export default function Profile() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <main className="container py-8 max-w-2xl">
-        <h1 className="text-3xl font-bold mb-6">Profile</h1>
+      <main className="container py-4 sm:py-8 px-4 sm:px-6 lg:px-8 max-w-2xl">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Profile</h1>
 
         {/* Pending Requests Banner */}
         {pendingRequests.length > 0 && (
@@ -416,11 +416,11 @@ export default function Profile() {
 
         <Card className="mb-6">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-6 mb-6">
-              <div className="relative">
-                <Avatar className="h-24 w-24">
+            <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 mb-6">
+              <div className="relative shrink-0">
+                <Avatar className="h-20 w-20 sm:h-24 sm:w-24">
                   <AvatarImage src={avatarSignedUrl || ''} />
-                  <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xl sm:text-2xl">
                     {(profile?.username || profile?.display_name || user?.email || 'U')[0].toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
@@ -439,10 +439,10 @@ export default function Profile() {
                   )}
                 </label>
               </div>
-              <div className="flex gap-8">
+              <div className="flex gap-6 sm:gap-8">
                 <div className="text-center">
-                  <div className="text-2xl font-bold">{stats.restaurants}</div>
-                  <div className="text-sm text-muted-foreground">Restaurants</div>
+                  <div className="text-xl sm:text-2xl font-bold">{stats.restaurants}</div>
+                  <div className="text-xs sm:text-sm text-muted-foreground">Restaurants</div>
                 </div>
                 <button
                   className="text-center hover:opacity-80 transition-opacity"
@@ -451,8 +451,8 @@ export default function Profile() {
                     setFollowingDialogOpen(true);
                   }}
                 >
-                  <div className="text-2xl font-bold">{stats.following}</div>
-                  <div className="text-sm text-muted-foreground">Following</div>
+                  <div className="text-xl sm:text-2xl font-bold">{stats.following}</div>
+                  <div className="text-xs sm:text-sm text-muted-foreground">Following</div>
                 </button>
                 <button
                   className="text-center hover:opacity-80 transition-opacity"
@@ -461,8 +461,8 @@ export default function Profile() {
                     setFollowersDialogOpen(true);
                   }}
                 >
-                  <div className="text-2xl font-bold">{stats.followers}</div>
-                  <div className="text-sm text-muted-foreground">Followers</div>
+                  <div className="text-xl sm:text-2xl font-bold">{stats.followers}</div>
+                  <div className="text-xs sm:text-sm text-muted-foreground">Followers</div>
                 </button>
               </div>
             </div>

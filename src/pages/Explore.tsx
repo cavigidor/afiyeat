@@ -170,29 +170,29 @@ export default function Explore() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <main className="container py-8 space-y-6">
+      <main className="container py-4 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-4 sm:space-y-6">
         {/* Discover Section */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <TrendingUp className="h-8 w-8 text-primary" />
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+            <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
             Discover
           </h1>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <Button
               variant={view === 'list' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setView('list')}
             >
-              <List className="h-4 w-4 mr-1" />
-              List
+              <List className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">List</span>
             </Button>
             <Button
               variant={view === 'map' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setView('map')}
             >
-              <Map className="h-4 w-4 mr-1" />
-              Map
+              <Map className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Map</span>
             </Button>
           </div>
         </div>
@@ -203,9 +203,9 @@ export default function Explore() {
 
         {/* Search and Filters */}
         <Card>
-          <CardContent className="p-4 space-y-4">
-            <div className="flex gap-4 flex-wrap">
-              <div className="relative flex-1 min-w-[200px]">
+          <CardContent className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+              <div className="relative flex-1 min-w-0">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search restaurants, addresses, notes..."
@@ -245,17 +245,17 @@ export default function Explore() {
 
         {view === 'map' ? (
           mapboxLoading ? (
-            <div className="flex items-center justify-center py-12 bg-card rounded-xl h-[600px]">
+            <div className="flex items-center justify-center py-12 bg-card rounded-xl h-[300px] sm:h-[600px]">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : mapboxError ? (
-            <div className="text-center py-12 bg-card rounded-xl h-[600px] flex flex-col items-center justify-center">
+            <div className="text-center py-12 bg-card rounded-xl h-[300px] sm:h-[600px] flex flex-col items-center justify-center">
               <Map className="h-12 w-12 text-muted-foreground/50 mb-4" />
               <h3 className="text-lg font-medium mb-2">Map Unavailable</h3>
               <p className="text-muted-foreground">{mapboxError}</p>
             </div>
           ) : mapboxToken ? (
-            <div className="relative w-full h-[600px] rounded-xl overflow-hidden bg-card">
+            <div className="relative w-full h-[300px] sm:h-[600px] rounded-xl overflow-hidden bg-card">
               <MapComponent token={mapboxToken} restaurants={filteredNearbyRestaurants} />
             </div>
           ) : null
@@ -276,7 +276,7 @@ export default function Explore() {
                 </p>
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filteredNearbyRestaurants.map((restaurant) => (
                   <ExploreRestaurantCard key={restaurant.id} restaurant={restaurant} />
                 ))}

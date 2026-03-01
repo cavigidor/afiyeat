@@ -145,8 +145,8 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background">
       <Navbar />
       
-      <main className="container py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
+      <main className="container py-4 sm:py-8 px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col lg:flex-row gap-4 sm:gap-8">
           {/* Sidebar */}
           <aside className="w-full lg:w-64 space-y-6">
             <div className="bg-card rounded-xl p-4 shadow-sm">
@@ -180,7 +180,7 @@ export default function Dashboard() {
           {/* Main Content */}
           <div className="flex-1">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-              <h1 className="text-3xl font-bold">My Restaurants</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold">My Restaurants</h1>
               <div className="flex items-center gap-3 w-full sm:w-auto">
                 <RestaurantSearch
                   restaurants={restaurants}
@@ -229,7 +229,7 @@ export default function Dashboard() {
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-6">
                 {filteredRestaurants.map((restaurant) => (
                   <RestaurantCard
                     key={restaurant.id}
