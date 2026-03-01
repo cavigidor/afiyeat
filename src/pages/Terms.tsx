@@ -64,7 +64,8 @@ const Terms = () => {
           <section>
             <h2 className="text-xl font-semibold mt-8 mb-4">7. Contact</h2>
             <p className="text-muted-foreground">
-              For questions about these Terms, please contact us at [YOUR EMAIL ADDRESS].
+              For questions about these Terms, please contact us at{" "}
+              <a href="mailto:avigidor@gmail.com" className="text-primary hover:underline">avigidor@gmail.com</a>.
             </p>
           </section>
         </div>
