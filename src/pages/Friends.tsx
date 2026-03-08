@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RestaurantCard } from '@/components/restaurants/RestaurantCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, UserPlus, UserMinus, Loader2, Users, Sparkles, Map } from 'lucide-react';
+import { Search, UserPlus, UserMinus, Loader2, Users, Sparkles, Map, Check, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useMapCenter } from '@/hooks/useMapCenter';
 
