@@ -186,7 +186,7 @@ export default function MyList() {
           <h1 className="text-2xl sm:text-3xl font-bold">My List</h1>
           <Button onClick={() => setAddDialogOpen(true)} size="sm" className="sm:size-default">
             <Plus className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Add Restaurant</span>
+            <span className="hidden sm:inline">Add Place</span>
           </Button>
         </div>
 
