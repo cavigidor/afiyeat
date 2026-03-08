@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RestaurantCard } from '@/components/restaurants/RestaurantCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, UserPlus, UserMinus, Loader2, Users, Sparkles, Map } from 'lucide-react';
+import { Search, UserPlus, UserMinus, Loader2, Users, Sparkles, Map, Check, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useMapCenter } from '@/hooks/useMapCenter';
 
@@ -39,6 +39,7 @@ export default function Friends() {
   const [following, setFollowing] = useState<Profile[]>([]);
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
   const [userRestaurants, setUserRestaurants] = useState<any[]>([]);
+  const [friendStatusFilter, setFriendStatusFilter] = useState<'went_to' | 'to_go'>('went_to');
   const [loading, setLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [suggested, setSuggested] = useState<SuggestedProfile[]>([]);
@@ -504,6 +505,20 @@ export default function Friends() {
                   </div>
                 ) : (
                   <div className="space-y-6">
+                    {/* Status Filter Tabs */}
+                    <Tabs value={friendStatusFilter} onValueChange={(v) => setFriendStatusFilter(v as 'went_to' | 'to_go')}>
+                      <TabsList className="w-full sm:w-auto">
+                        <TabsTrigger value="went_to" className="flex-1 sm:flex-initial gap-1.5">
+                          <Check className="h-3.5 w-3.5" />
+                          Been There
+                        </TabsTrigger>
+                        <TabsTrigger value="to_go" className="flex-1 sm:flex-initial gap-1.5">
+                          <Clock className="h-3.5 w-3.5" />
+                          To Go
+                        </TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+
                     {/* Map */}
                     <Card className="overflow-hidden">
                       <CardContent className="p-0">
@@ -515,7 +530,7 @@ export default function Friends() {
                           ) : mapboxToken ? (
                             <FriendsMapComponent 
                               token={mapboxToken} 
-                              restaurants={userRestaurants} 
+                              restaurants={userRestaurants.filter(r => r.status === friendStatusFilter)} 
                               focusedRestaurantId={focusedRestaurantId}
                               onFocusRestaurant={setFocusedRestaurantId}
                               flyToRef={mapFlyToRef}
@@ -531,21 +546,34 @@ export default function Friends() {
                     </Card>
 
                     {/* Restaurant list */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {userRestaurants.map((restaurant) => (
-                        <div 
-                          key={restaurant.id} 
-                          onClick={() => handleRestaurantClick(restaurant)}
-                          className={`cursor-pointer transition-all ${
-                            focusedRestaurantId === restaurant.id 
-                              ? 'ring-2 ring-primary rounded-xl' 
-                              : ''
-                          }`}
-                        >
-                          <RestaurantCard restaurant={restaurant} />
+                    {(() => {
+                      const filtered = userRestaurants.filter(r => r.status === friendStatusFilter);
+                      return filtered.length === 0 ? (
+                        <div className="text-center py-8 bg-card rounded-xl">
+                          <p className="text-muted-foreground">
+                            {friendStatusFilter === 'went_to' 
+                              ? "No restaurants marked as Been There yet" 
+                              : "No restaurants on their To Go list"}
+                          </p>
                         </div>
-                      ))}
-                    </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {filtered.map((restaurant) => (
+                            <div 
+                              key={restaurant.id} 
+                              onClick={() => handleRestaurantClick(restaurant)}
+                              className={`cursor-pointer transition-all ${
+                                focusedRestaurantId === restaurant.id 
+                                  ? 'ring-2 ring-primary rounded-xl' 
+                                  : ''
+                              }`}
+                            >
+                              <RestaurantCard restaurant={restaurant} />
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </>
