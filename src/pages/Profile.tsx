@@ -30,6 +30,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Camera, Save, LogOut, Lock, Check, X, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
+import { validateImageFile } from '@/lib/imageValidation';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import { AvatarCropper } from '@/components/profile/AvatarCropper';
 

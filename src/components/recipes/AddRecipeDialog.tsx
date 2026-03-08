@@ -21,6 +21,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Loader2, Plus, X, ImagePlus } from 'lucide-react';
 import { toast } from 'sonner';
+import { validateImageFile } from '@/lib/imageValidation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface AddRecipeDialogProps {

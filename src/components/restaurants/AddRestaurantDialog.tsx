@@ -30,6 +30,7 @@ import { ImagePlus, Loader2, X, MapPin, Search, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { validateImageFile } from '@/lib/imageValidation';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Restaurant name is required'),
