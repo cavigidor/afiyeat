@@ -50,7 +50,7 @@ interface PendingSignUp {
 export default function Auth() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, signUp } = useAuth();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(
     searchParams.get('mode') === 'signup' ? 'signup' : 'signin'
