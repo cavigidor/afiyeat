@@ -356,7 +356,7 @@ export function AddRestaurantDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add Restaurant</DialogTitle>
+          <DialogTitle>Add Place</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -626,7 +626,7 @@ export function AddRestaurantDialog({
 
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Add Restaurant
+              Add Place
             </Button>
           </form>
         </Form>
