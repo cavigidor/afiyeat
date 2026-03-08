@@ -21,6 +21,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Loader2, Plus, X, ImagePlus } from 'lucide-react';
 import { toast } from 'sonner';
+import { validateImageFile } from '@/lib/imageValidation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface AddRecipeDialogProps {
@@ -67,6 +68,12 @@ export function AddRecipeDialog({ open, onOpenChange, onSuccess }: AddRecipeDial
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
+
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
 
     setImageLoading(true);
     try {

@@ -30,6 +30,7 @@ import { ImagePlus, Loader2, X, MapPin, Search, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { validateImageFile } from '@/lib/imageValidation';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Restaurant name is required'),
@@ -253,7 +254,15 @@ export function AddRestaurantDialog({
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+    const allFiles = Array.from(e.target.files || []);
+    const files = allFiles.filter((file) => {
+      const error = validateImageFile(file);
+      if (error) {
+        toast.error(`${file.name}: ${error}`);
+        return false;
+      }
+      return true;
+    });
     setImages((prev) => [...prev, ...files]);
     
     files.forEach((file) => {

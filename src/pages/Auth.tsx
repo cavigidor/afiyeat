@@ -50,7 +50,7 @@ interface PendingSignUp {
 export default function Auth() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, signUp } = useAuth();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(
     searchParams.get('mode') === 'signup' ? 'signup' : 'signin'
@@ -175,46 +175,45 @@ export default function Auth() {
 
     setLoading(true);
     try {
-      // Verify the OTP
-      const { data, error } = await supabase.functions.invoke('verify-otp', {
-        body: { email: pendingSignUp.email, code },
+      // Call server-side create-account function that verifies OTP and creates account atomically
+      const { data, error } = await supabase.functions.invoke('create-account', {
+        body: { 
+          email: pendingSignUp.email, 
+          password: pendingSignUp.password,
+          username: pendingSignUp.username,
+          otp_code: code 
+        },
       });
 
       if (error) {
-        throw new Error(error.message || 'Verification failed');
+        throw new Error(error.message || 'Account creation failed');
       }
 
-      if (!data?.valid) {
-        toast.error(data?.error || 'Invalid verification code');
+      if (data?.error) {
+        toast.error(data.error);
         setLoading(false);
         return;
       }
 
-      // OTP verified, create the account
-      const { error: signUpError } = await signUp(
-        pendingSignUp.email,
-        pendingSignUp.password,
-        pendingSignUp.username
-      );
+      if (data?.success) {
+        // Account created server-side, now sign in
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: pendingSignUp.email,
+          password: pendingSignUp.password,
+        });
 
-      if (signUpError) {
-        if (signUpError.message.includes('already registered')) {
-          toast.error('An account with this email already exists');
-        } else if (
-          signUpError.message.includes('duplicate key') ||
-          signUpError.message.includes('profiles_username_key') ||
-          signUpError.message.includes('Database error')
-        ) {
-          toast.error('Username already exists. Please choose a different one.');
+        if (signInError) {
+          toast.error('Account created but sign-in failed. Please sign in manually.');
+          setShowOTPVerification(false);
+          setPendingSignUp(null);
+          setActiveTab('signin');
         } else {
-          toast.error(signUpError.message);
+          toast.success('Account created! Welcome to Afiyeat!');
+          navigate('/my-list');
         }
-      } else {
-        toast.success('Account created! Welcome to Afiyeat!');
-        navigate('/my-list');
       }
     } catch (error: any) {
-      toast.error(error.message || 'Verification failed');
+      toast.error(error.message || 'Account creation failed');
     } finally {
       setLoading(false);
     }

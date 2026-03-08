@@ -30,6 +30,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Camera, Save, LogOut, Lock, Check, X, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
+import { validateImageFile } from '@/lib/imageValidation';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import { AvatarCropper } from '@/components/profile/AvatarCropper';
 
@@ -250,6 +251,12 @@ export default function Profile() {
   const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
     setCropperFile(file);
     setCropperOpen(true);
     // Reset input so the same file can be re-selected
