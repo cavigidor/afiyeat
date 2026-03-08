@@ -77,6 +77,12 @@ export function EditRecipeDialog({
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+
     setImageLoading(true);
     try {
       const fileExt = file.name.split('.').pop();

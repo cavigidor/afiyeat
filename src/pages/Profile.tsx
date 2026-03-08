@@ -250,6 +250,12 @@ export default function Profile() {
   const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
     setCropperFile(file);
     setCropperOpen(true);
     // Reset input so the same file can be re-selected
