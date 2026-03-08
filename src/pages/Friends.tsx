@@ -39,6 +39,7 @@ export default function Friends() {
   const [following, setFollowing] = useState<Profile[]>([]);
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
   const [userRestaurants, setUserRestaurants] = useState<any[]>([]);
+  const [friendStatusFilter, setFriendStatusFilter] = useState<'went_to' | 'to_go'>('went_to');
   const [loading, setLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [suggested, setSuggested] = useState<SuggestedProfile[]>([]);
