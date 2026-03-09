@@ -48,10 +48,10 @@ export default function Index() {
         <div className="container relative py-12 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center">
             <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-primary to-accent-foreground bg-clip-text text-transparent">
-              Track Your Culinary Journey
+              Your Free Restaurant Tracker & Recipe Sharing App
             </h1>
             <p className="text-base sm:text-xl text-muted-foreground mb-6 sm:mb-8 max-w-2xl mx-auto">
-              Save restaurants you want to try, mark places you've visited, discover new spots through friends, and share your favorite recipes with the community.
+              Track restaurants you want to visit, save places you've been, share recipes with friends, and keep a food journal of your culinary adventures — all in one free app.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button size="lg" onClick={() => navigate('/auth?mode=signup')} className="text-lg px-8">
