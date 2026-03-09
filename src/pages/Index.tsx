@@ -66,11 +66,21 @@ export default function Index() {
         </div>
       </section>
 
+      {/* What is Afiyeat Section */}
+      <section className="py-12 sm:py-16 bg-background">
+        <div className="container px-4 sm:px-6 lg:px-8 max-w-3xl mx-auto text-center">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-4">What is Afiyeat?</h2>
+          <p className="text-muted-foreground text-base sm:text-lg">
+            Afiyeat is a free restaurant tracker and recipe sharing app that helps food lovers save restaurants, keep a food journal, and share recipes with friends. Whether you're building a dining wishlist or logging places you've visited, Afiyeat makes it easy to track your culinary journey.
+          </p>
+        </div>
+      </section>
+
       {/* Features Section */}
       <section className="py-12 sm:py-20 bg-card">
         <div className="container px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl sm:text-3xl font-bold text-center mb-8 sm:mb-12">
-            Everything you need to track your food adventures
+            Everything you need to track restaurants and share recipes
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-8">
             {features.map((feature) => (
