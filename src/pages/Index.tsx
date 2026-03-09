@@ -18,23 +18,23 @@ export default function Index() {
   const features = [
     {
       icon: ChefHat,
-      title: 'Share Recipes',
-      description: 'Add your favorite recipes and discover dishes shared by friends or the community.',
+      title: 'Recipe Sharing App',
+      description: 'Add your favorite recipes and discover dishes shared by friends. Build your personal recipe collection and share with the community.',
     },
     {
       icon: MapPin,
-      title: 'Interactive Map',
-      description: 'See all your saved restaurants on an interactive map to plan your next food adventure.',
+      title: 'Restaurant Tracker Map',
+      description: 'Track restaurants on an interactive map. Save places you want to visit and mark spots you\'ve been to plan your next food adventure.',
     },
     {
       icon: Users,
-      title: 'Follow Friends',
-      description: 'Connect with friends and discover their favorite spots. Share and explore together.',
+      title: 'Social Food Discovery',
+      description: 'Follow friends and discover their favorite restaurants and recipes. Share your food journal and explore together.',
     },
     {
       icon: Camera,
-      title: 'Add Photos',
-      description: 'Capture your dining experiences with photos and notes to remember every meal.',
+      title: 'Food Journal & Photos',
+      description: 'Keep a food diary with photos and notes. Capture your dining experiences to remember every meal and track your culinary journey.',
     },
   ];
 
@@ -48,10 +48,10 @@ export default function Index() {
         <div className="container relative py-12 sm:py-24 md:py-32 px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center">
             <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-primary to-accent-foreground bg-clip-text text-transparent">
-              Track Your Culinary Journey
+              Your Free Restaurant Tracker & Recipe Sharing App
             </h1>
             <p className="text-base sm:text-xl text-muted-foreground mb-6 sm:mb-8 max-w-2xl mx-auto">
-              Save restaurants you want to try, mark places you've visited, discover new spots through friends, and share your favorite recipes with the community.
+              Track restaurants you want to visit, save places you've been, share recipes with friends, and keep a food journal of your culinary adventures — all in one free app.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button size="lg" onClick={() => navigate('/auth?mode=signup')} className="text-lg px-8">
@@ -66,11 +66,21 @@ export default function Index() {
         </div>
       </section>
 
+      {/* What is Afiyeat Section */}
+      <section className="py-12 sm:py-16 bg-background">
+        <div className="container px-4 sm:px-6 lg:px-8 max-w-3xl mx-auto text-center">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-4">What is Afiyeat?</h2>
+          <p className="text-muted-foreground text-base sm:text-lg">
+            Afiyeat is a free restaurant tracker and recipe sharing app that helps food lovers save restaurants, keep a food journal, and share recipes with friends. Whether you're building a dining wishlist or logging places you've visited, Afiyeat makes it easy to track your culinary journey.
+          </p>
+        </div>
+      </section>
+
       {/* Features Section */}
       <section className="py-12 sm:py-20 bg-card">
         <div className="container px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl sm:text-3xl font-bold text-center mb-8 sm:mb-12">
-            Everything you need to track your food adventures
+            Everything you need to track restaurants and share recipes
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-8">
             {features.map((feature) => (

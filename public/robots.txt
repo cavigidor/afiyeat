@@ -1,6 +1,8 @@
 User-agent: Googlebot
 Allow: /
-
+User-agent: *
+Allow: /
+Sitemap: https://afiyeat.lovable.app/sitemap.xml
 User-agent: Bingbot
 Allow: /
 
