@@ -1,30 +1,35 @@
 
 
-## Auto-Backfill Map Images on My List Load
+# SEO Keyword Optimization Plan
 
-When the My List page loads, automatically invoke the `backfill-map-images` edge function in the background -- no button needed.
+## Problem
+The site lacks targeted keywords in its metadata and content, making it hard for search engines to associate it with terms like "restaurant tracker", "recipe site", etc.
 
-### Changes
+## Changes
 
-**`src/pages/MyList.tsx`**
-- Add a `useEffect` that runs once after the user is authenticated and restaurants are loaded
-- Call `supabase.functions.invoke('backfill-map-images')` silently in the background
-- On success (if any images were generated), re-fetch the restaurant list to show the new map previews
-- Use a ref to ensure it only runs once per session (avoid repeated calls on re-renders)
-- No loading indicator or button -- completely invisible to the user
+### 1. Update `index.html` meta tags
+- Add keyword-rich `<title>`: "Afiyeat - Restaurant Tracker & Recipe Sharing App | Track Your Favorite Food Spots"
+- Update `meta description` to include target keywords naturally: "Track restaurants you want to visit, save places you've been, share recipes, and discover new food spots with friends. Free restaurant tracker and recipe sharing app."
+- Add `<meta name="keywords">` with relevant terms
+- Update OG title/description to match
 
-**`src/pages/Dashboard.tsx`**
-- Remove the backfill button and `useBackfillMapImages` hook that were added previously, since they are no longer needed
+### 2. Update landing page (`src/pages/Index.tsx`) content
+- Add keyword-rich headings and body text that search engines can crawl (e.g., "Restaurant Tracker", "Recipe Sharing", "Food Journal")
+- Add a short "What is Afiyeat?" section with natural keyword usage
+- Update feature descriptions to include searchable phrases
 
-### Technical Details
+### 3. Add `public/sitemap.xml`
+- Include all public routes (`/`, `/auth`, `/terms`, `/privacy`) so Google can discover and index pages
 
-```text
-Page Load -> Auth check -> Fetch restaurants -> 
-  useEffect fires once -> invoke('backfill-map-images') ->
-    if generated > 0 -> fetchData() to refresh list
-```
+### 4. Add structured data (JSON-LD)
+- Add `WebApplication` schema markup in `index.html` so Google understands what the site is
 
-- A `hasBackfilled` ref prevents duplicate calls
-- Errors are logged to console silently (no user-facing toast)
-- The function already handles auth and only processes restaurants missing images, so it's safe to call on every page load
+## Target Keywords
+- restaurant tracker
+- recipe sharing app
+- food journal
+- track restaurants
+- save restaurants
+- share recipes with friends
+- food adventure app
 
