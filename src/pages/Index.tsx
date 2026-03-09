@@ -18,23 +18,23 @@ export default function Index() {
   const features = [
     {
       icon: ChefHat,
-      title: 'Share Recipes',
-      description: 'Add your favorite recipes and discover dishes shared by friends or the community.',
+      title: 'Recipe Sharing App',
+      description: 'Add your favorite recipes and discover dishes shared by friends. Build your personal recipe collection and share with the community.',
     },
     {
       icon: MapPin,
-      title: 'Interactive Map',
-      description: 'See all your saved restaurants on an interactive map to plan your next food adventure.',
+      title: 'Restaurant Tracker Map',
+      description: 'Track restaurants on an interactive map. Save places you want to visit and mark spots you\'ve been to plan your next food adventure.',
     },
     {
       icon: Users,
-      title: 'Follow Friends',
-      description: 'Connect with friends and discover their favorite spots. Share and explore together.',
+      title: 'Social Food Discovery',
+      description: 'Follow friends and discover their favorite restaurants and recipes. Share your food journal and explore together.',
     },
     {
       icon: Camera,
-      title: 'Add Photos',
-      description: 'Capture your dining experiences with photos and notes to remember every meal.',
+      title: 'Food Journal & Photos',
+      description: 'Keep a food diary with photos and notes. Capture your dining experiences to remember every meal and track your culinary journey.',
     },
   ];
 
