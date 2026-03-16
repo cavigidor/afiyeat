@@ -223,26 +223,32 @@ export default function MyList() {
             {/* Restaurant list */}
             <Card>
               <CardContent className="p-4">
-                {/* Price filter */}
-                <div className="flex items-center gap-2 mb-4 flex-wrap">
-                  <span className="text-sm text-muted-foreground">Price:</span>
-                  <Button
-                    variant={selectedPriceLevel === null ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedPriceLevel(null)}
-                  >
-                    All
-                  </Button>
-                  {[1, 2, 3, 4].map((level) => (
-                    <Button
-                      key={level}
-                      variant={selectedPriceLevel === level ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setSelectedPriceLevel(selectedPriceLevel === level ? null : level)}
-                    >
-                      {'$'.repeat(level)}
-                    </Button>
-                  ))}
+                {/* Search */}
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Search your restaurants..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+
+                {/* Price slider */}
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">Price:</span>
+                  <Slider
+                    value={selectedPriceLevel}
+                    onValueChange={setSelectedPriceLevel}
+                    min={0}
+                    max={4}
+                    step={1}
+                    className="flex-1"
+                  />
+                  <span className="text-sm font-medium w-12 text-right">
+                    {priceFilter === 0 ? 'All' : '$'.repeat(priceFilter)}
+                  </span>
                 </div>
 
                 <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'to_go' | 'went_to')}>
