@@ -194,10 +194,20 @@ export default function MyList() {
       <main className="container py-4 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-4 sm:space-y-6">
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-2xl sm:text-3xl font-bold">My List</h1>
-          <Button onClick={() => setAddDialogOpen(true)} size="sm" className="sm:size-default">
-            <Plus className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Add Place</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportListAsPdf(restaurants, folders)}
+            >
+              <FileDown className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Export PDF</span>
+            </Button>
+            <Button onClick={() => setAddDialogOpen(true)} size="sm" className="sm:size-default">
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Add Place</span>
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-6">
