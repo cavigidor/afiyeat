@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { MapPin, Loader2, Map, Plus, Check, Clock, DollarSign, Search } from 'lucide-react';
+import { Loader2, Map, Plus, Check, Clock, Search } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { RestaurantCard } from '@/components/restaurants/RestaurantCard';
