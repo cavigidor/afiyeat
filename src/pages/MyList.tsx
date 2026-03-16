@@ -7,7 +7,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { MapPin, Loader2, Map, Plus, Check, Clock, DollarSign } from 'lucide-react';
+import { Loader2, Map, Plus, Check, Clock, Search } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { Input } from '@/components/ui/input';
 import { RestaurantCard } from '@/components/restaurants/RestaurantCard';
 import { AddRestaurantDialog } from '@/components/restaurants/AddRestaurantDialog';
 import { EditRestaurantDialog } from '@/components/restaurants/EditRestaurantDialog';
@@ -50,7 +52,8 @@ export default function MyList() {
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [activeTab, setActiveTab] = useState<'to_go' | 'went_to'>('to_go');
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
-  const [selectedPriceLevel, setSelectedPriceLevel] = useState<number | null>(null);
+  const [selectedPriceLevel, setSelectedPriceLevel] = useState<number[]>([0]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [focusedRestaurantId, setFocusedRestaurantId] = useState<string | null>(null);
   const mapFlyToRef = useRef<((lat: number, lng: number, restaurantId: string) => void) | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
@@ -117,9 +120,15 @@ export default function MyList() {
     fetchMapboxToken();
   }, [mapboxToken, session]);
 
+  const priceFilter = selectedPriceLevel[0];
   const filteredRestaurants = restaurants
     .filter(r => !selectedFolder || r.folder_id === selectedFolder)
-    .filter(r => !selectedPriceLevel || r.price_level === selectedPriceLevel);
+    .filter(r => priceFilter === 0 || r.price_level === priceFilter)
+    .filter(r => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return r.name.toLowerCase().includes(q) || r.address?.toLowerCase().includes(q);
+    });
   const toGoList = filteredRestaurants.filter(r => r.status === 'to_go');
   const wentToList = filteredRestaurants.filter(r => r.status === 'went_to');
   const currentList = activeTab === 'to_go' ? toGoList : wentToList;
@@ -214,26 +223,32 @@ export default function MyList() {
             {/* Restaurant list */}
             <Card>
               <CardContent className="p-4">
-                {/* Price filter */}
-                <div className="flex items-center gap-2 mb-4 flex-wrap">
-                  <span className="text-sm text-muted-foreground">Price:</span>
-                  <Button
-                    variant={selectedPriceLevel === null ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedPriceLevel(null)}
-                  >
-                    All
-                  </Button>
-                  {[1, 2, 3, 4].map((level) => (
-                    <Button
-                      key={level}
-                      variant={selectedPriceLevel === level ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setSelectedPriceLevel(selectedPriceLevel === level ? null : level)}
-                    >
-                      {'$'.repeat(level)}
-                    </Button>
-                  ))}
+                {/* Search */}
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Search your restaurants..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+
+                {/* Price slider */}
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">Price:</span>
+                  <Slider
+                    value={selectedPriceLevel}
+                    onValueChange={setSelectedPriceLevel}
+                    min={0}
+                    max={4}
+                    step={1}
+                    className="flex-1"
+                  />
+                  <span className="text-sm font-medium w-12 text-right">
+                    {priceFilter === 0 ? 'All' : '$'.repeat(priceFilter)}
+                  </span>
                 </div>
 
                 <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'to_go' | 'went_to')}>
