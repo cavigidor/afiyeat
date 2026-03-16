@@ -140,6 +140,7 @@ export function exportListAsPdf(
     doc.setFontSize(10);
     sorted.forEach(r => {
       const ratingStr = r.rating !== null ? `${r.rating}/10` : 'No rating';
+      const priceStr = r.price_level ? ' ' + '$'.repeat(r.price_level) : '';
       const notesStr = r.notes ? `: ${r.notes}` : '';
       const statusTag = r.status === 'to_go' ? ' [To Go]' : '';
 
