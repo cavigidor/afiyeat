@@ -52,8 +52,8 @@ export default function MyList() {
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [activeTab, setActiveTab] = useState<'to_go' | 'went_to'>('to_go');
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
-  const [selectedPriceLevel, setSelectedPriceLevel] = useState<number | null>(null);
-  const [focusedRestaurantId, setFocusedRestaurantId] = useState<string | null>(null);
+  const [selectedPriceLevel, setSelectedPriceLevel] = useState<number[]>([0]);
+  const [searchQuery, setSearchQuery] = useState('');
   const mapFlyToRef = useRef<((lat: number, lng: number, restaurantId: string) => void) | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
 
