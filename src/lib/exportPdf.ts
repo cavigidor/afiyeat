@@ -3,6 +3,7 @@ import jsPDF from 'jspdf';
 interface ExportRestaurant {
   name: string;
   rating: number | null;
+  price_level: number | null;
   notes: string | null;
   status: string;
   folder?: { name: string; color: string } | null;
