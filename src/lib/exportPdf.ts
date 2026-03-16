@@ -149,7 +149,7 @@ export function exportListAsPdf(
       const nameWidth = doc.getTextWidth(nameText);
 
       doc.setFont('helvetica', 'normal');
-      const detailText = `${ratingStr}${notesStr}${statusTag}`;
+      const detailText = `${ratingStr}${priceStr}${notesStr}${statusTag}`;
 
       const fullLine = `${nameText}${detailText}`;
       const lines = doc.splitTextToSize(fullLine, contentWidth - 5);
