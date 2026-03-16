@@ -120,9 +120,15 @@ export default function MyList() {
     fetchMapboxToken();
   }, [mapboxToken, session]);
 
+  const priceFilter = selectedPriceLevel[0];
   const filteredRestaurants = restaurants
     .filter(r => !selectedFolder || r.folder_id === selectedFolder)
-    .filter(r => !selectedPriceLevel || r.price_level === selectedPriceLevel);
+    .filter(r => priceFilter === 0 || r.price_level === priceFilter)
+    .filter(r => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return r.name.toLowerCase().includes(q) || r.address?.toLowerCase().includes(q);
+    });
   const toGoList = filteredRestaurants.filter(r => r.status === 'to_go');
   const wentToList = filteredRestaurants.filter(r => r.status === 'went_to');
   const currentList = activeTab === 'to_go' ? toGoList : wentToList;
