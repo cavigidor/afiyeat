@@ -3,6 +3,7 @@ import jsPDF from 'jspdf';
 interface ExportRestaurant {
   name: string;
   rating: number | null;
+  price_level: number | null;
   notes: string | null;
   status: string;
   folder?: { name: string; color: string } | null;
@@ -139,6 +140,7 @@ export function exportListAsPdf(
     doc.setFontSize(10);
     sorted.forEach(r => {
       const ratingStr = r.rating !== null ? `${r.rating}/10` : 'No rating';
+      const priceStr = r.price_level ? ' ' + '$'.repeat(r.price_level) : '';
       const notesStr = r.notes ? `: ${r.notes}` : '';
       const statusTag = r.status === 'to_go' ? ' [To Go]' : '';
 
@@ -147,7 +149,7 @@ export function exportListAsPdf(
       const nameWidth = doc.getTextWidth(nameText);
 
       doc.setFont('helvetica', 'normal');
-      const detailText = `${ratingStr}${notesStr}${statusTag}`;
+      const detailText = `${ratingStr}${priceStr}${notesStr}${statusTag}`;
 
       const fullLine = `${nameText}${detailText}`;
       const lines = doc.splitTextToSize(fullLine, contentWidth - 5);
