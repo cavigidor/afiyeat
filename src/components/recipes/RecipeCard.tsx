@@ -1,10 +1,9 @@
-import { Clock, Users, Thermometer, Trash2, Loader2 } from 'lucide-react';
+import { Clock, Users, Thermometer, Trash2, Loader2, ChefHat } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
-import logo from '@/assets/logo.png';
 import type { Recipe } from '@/pages/Recipes';
 
 interface RecipeCardProps {
@@ -48,8 +47,8 @@ export function RecipeCard({ recipe, isOwner, onDelete, onClick }: RecipeCardPro
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20">
-            <img src={logo} alt={recipe.title} className="h-20 w-20 object-contain opacity-80" />
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 via-secondary/20 to-accent/10">
+            <ChefHat className="h-28 w-28 text-primary/70" strokeWidth={1.5} />
           </div>
         )}
         {recipe.difficulty && (
