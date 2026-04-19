@@ -44,8 +44,7 @@ export default function Explore() {
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [mapboxLoading, setMapboxLoading] = useState(false);
   const [mapboxError, setMapboxError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [minRating, setMinRating] = useState<string>('all');
 
   useEffect(() => {
@@ -199,21 +198,12 @@ export default function Explore() {
           Explore restaurants from people you follow
         </p>
 
-        {/* Search and Filters */}
+        {/* Filters */}
         <Card>
           <CardContent className="p-3 sm:p-4 space-y-3 sm:space-y-4">
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
-              <div className="relative flex-1 min-w-0">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search restaurants, addresses, notes..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
               <Select value={minRating} onValueChange={setMinRating}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full sm:w-[200px]">
                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Filter by rating" />
                 </SelectTrigger>
@@ -226,18 +216,34 @@ export default function Explore() {
               </Select>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              {KEYWORD_TAGS.map((keyword) => (
+            {folderOptions.length > 0 && (
+              <div className="flex flex-wrap gap-2">
                 <Badge
-                  key={keyword}
-                  variant={selectedKeywords.includes(keyword) ? 'default' : 'outline'}
-                  className="cursor-pointer transition-colors"
-                  onClick={() => toggleKeyword(keyword)}
+                  variant={selectedFolder === null ? 'default' : 'outline'}
+                  className="cursor-pointer"
+                  onClick={() => setSelectedFolder(null)}
                 >
-                  {keyword}
+                  All Types
                 </Badge>
-              ))}
-            </div>
+                {folderOptions.map((f) => (
+                  <Badge
+                    key={f.name}
+                    variant={selectedFolder === f.name ? 'default' : 'outline'}
+                    className="cursor-pointer"
+                    style={
+                      selectedFolder === f.name
+                        ? { backgroundColor: f.color, borderColor: f.color }
+                        : undefined
+                    }
+                    onClick={() =>
+                      setSelectedFolder(selectedFolder === f.name ? null : f.name)
+                    }
+                  >
+                    {f.name}
+                  </Badge>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
