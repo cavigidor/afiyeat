@@ -3,14 +3,12 @@ import { useMapCenter } from '@/hooks/useMapCenter';
 import { useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { MapPin, Star, DollarSign, Loader2, Map, List, Search, Filter, TrendingUp } from 'lucide-react';
-import { toast } from 'sonner';
+import { MapPin, Star, DollarSign, Loader2, Map, List, Filter, TrendingUp } from 'lucide-react';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import { getFolderIcon } from '@/lib/folderIcons';
 
@@ -30,11 +28,6 @@ interface Restaurant {
   profile?: { display_name: string | null; username: string | null } | null;
 }
 
-const KEYWORD_TAGS = [
-  'coffee', 'lunch', 'dinner', 'brunch', 'cheap', 'high-end', 
-  'cafe', 'bar', 'pizza', 'sushi', 'italian', 'mexican', 'asian'
-];
-
 export default function Explore() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -44,8 +37,7 @@ export default function Explore() {
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [mapboxLoading, setMapboxLoading] = useState(false);
   const [mapboxError, setMapboxError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [minRating, setMinRating] = useState<string>('all');
 
   useEffect(() => {
@@ -120,32 +112,19 @@ export default function Explore() {
     fetchMapboxToken();
   }, [view, mapboxToken]);
 
-  const toggleKeyword = (keyword: string) => {
-    setSelectedKeywords(prev => 
-      prev.includes(keyword) 
-        ? prev.filter(k => k !== keyword)
-        : [...prev, keyword]
-    );
-  };
+  const folderOptions = useMemo(() => {
+    const map: Record<string, { name: string; color: string }> = {};
+    nearbyRestaurants.forEach(r => {
+      if (r.folder?.name && !map[r.folder.name]) map[r.folder.name] = r.folder;
+    });
+    return Object.values(map);
+  }, [nearbyRestaurants]);
 
   const filteredNearbyRestaurants = useMemo(() => {
     let filtered = [...nearbyRestaurants];
 
-    // Per-word search: every whitespace-separated token must match somewhere
-    // (name, address, notes, or folder/type name)
-    if (searchQuery.trim()) {
-      const tokens = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
-      filtered = filtered.filter(r => {
-        const haystack = `${r.name} ${r.address || ''} ${r.notes || ''} ${r.folder?.name || ''}`.toLowerCase();
-        return tokens.every(t => haystack.includes(t));
-      });
-    }
-
-    if (selectedKeywords.length > 0) {
-      filtered = filtered.filter(r => {
-        const searchText = `${r.name} ${r.address || ''} ${r.notes || ''} ${r.folder?.name || ''}`.toLowerCase();
-        return selectedKeywords.some(kw => searchText.includes(kw));
-      });
+    if (selectedFolder) {
+      filtered = filtered.filter(r => r.folder?.name === selectedFolder);
     }
 
     if (minRating !== 'all') {
@@ -154,7 +133,7 @@ export default function Explore() {
     }
 
     return filtered;
-  }, [nearbyRestaurants, searchQuery, selectedKeywords, minRating]);
+  }, [nearbyRestaurants, selectedFolder, minRating]);
 
   if (authLoading) {
     return (
@@ -199,21 +178,12 @@ export default function Explore() {
           Explore restaurants from people you follow
         </p>
 
-        {/* Search and Filters */}
+        {/* Filters */}
         <Card>
           <CardContent className="p-3 sm:p-4 space-y-3 sm:space-y-4">
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
-              <div className="relative flex-1 min-w-0">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search restaurants, addresses, notes..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
               <Select value={minRating} onValueChange={setMinRating}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full sm:w-[200px]">
                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Filter by rating" />
                 </SelectTrigger>
@@ -226,18 +196,34 @@ export default function Explore() {
               </Select>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              {KEYWORD_TAGS.map((keyword) => (
+            {folderOptions.length > 0 && (
+              <div className="flex flex-wrap gap-2">
                 <Badge
-                  key={keyword}
-                  variant={selectedKeywords.includes(keyword) ? 'default' : 'outline'}
-                  className="cursor-pointer transition-colors"
-                  onClick={() => toggleKeyword(keyword)}
+                  variant={selectedFolder === null ? 'default' : 'outline'}
+                  className="cursor-pointer"
+                  onClick={() => setSelectedFolder(null)}
                 >
-                  {keyword}
+                  All Types
                 </Badge>
-              ))}
-            </div>
+                {folderOptions.map((f) => (
+                  <Badge
+                    key={f.name}
+                    variant={selectedFolder === f.name ? 'default' : 'outline'}
+                    className="cursor-pointer"
+                    style={
+                      selectedFolder === f.name
+                        ? { backgroundColor: f.color, borderColor: f.color }
+                        : undefined
+                    }
+                    onClick={() =>
+                      setSelectedFolder(selectedFolder === f.name ? null : f.name)
+                    }
+                  >
+                    {f.name}
+                  </Badge>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -268,8 +254,8 @@ export default function Explore() {
                 <MapPin className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
                 <h3 className="text-lg font-medium mb-2">No restaurants found</h3>
                 <p className="text-muted-foreground">
-                  {searchQuery || selectedKeywords.length > 0 
-                    ? 'Try adjusting your search or filters' 
+                  {selectedFolder || minRating !== 'all'
+                    ? 'Try adjusting your filters'
                     : 'Follow more people to discover their favorite spots'}
                 </p>
               </div>
