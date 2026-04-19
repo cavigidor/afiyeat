@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
-import logo from '@/assets/logo.png';
+import { getFolderIcon } from '@/lib/folderIcons';
 
 interface RestaurantCardProps {
   restaurant: {
@@ -31,12 +31,13 @@ interface RestaurantCardProps {
 export function RestaurantCard({ restaurant, onEdit, onDelete, onMarkVisited }: RestaurantCardProps) {
   const firstImageUrl = restaurant.images?.[0]?.image_url;
   const { signedUrl: firstImage, loading: imageLoading } = useSignedImageUrl(firstImageUrl);
+  const FallbackIcon = getFolderIcon(restaurant.folder?.name);
 
   return (
     <Card className="group overflow-hidden transition-all hover:shadow-lg">
       <div className="relative aspect-video bg-muted overflow-hidden">
         {imageLoading ? (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20">
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-accent/10">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground/50" />
           </div>
         ) : firstImage ? (
@@ -46,8 +47,8 @@ export function RestaurantCard({ restaurant, onEdit, onDelete, onMarkVisited }: 
             className="w-full h-full object-cover transition-transform group-hover:scale-105"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20">
-            <img src={logo} alt={restaurant.name} className="h-20 w-20 object-contain opacity-80" />
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 via-secondary/20 to-accent/10">
+            <FallbackIcon className="h-28 w-28 text-primary/70" strokeWidth={1.5} />
           </div>
         )}
         {restaurant.folder && (
