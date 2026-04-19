@@ -551,13 +551,13 @@ export default function Friends() {
                     {/* Restaurant list with search + folder filter */}
                     {(() => {
                       const statusFiltered = userRestaurants.filter(r => r.status === friendStatusFilter);
-                      const folderOptions = Array.from(
-                        new Map(
-                          statusFiltered
-                            .filter(r => r.folder?.name)
-                            .map(r => [r.folder.name, r.folder])
-                        ).values()
-                      ) as { name: string; color: string }[];
+                      const folderMap: Record<string, { name: string; color: string }> = {};
+                      statusFiltered.forEach(r => {
+                        if (r.folder?.name && !folderMap[r.folder.name]) {
+                          folderMap[r.folder.name] = r.folder;
+                        }
+                      });
+                      const folderOptions = Object.values(folderMap);
 
                       const tokens = friendListSearch.toLowerCase().split(/\s+/).filter(Boolean);
                       const filtered = statusFiltered.filter(r => {
