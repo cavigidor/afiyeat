@@ -119,32 +119,19 @@ export default function Explore() {
     fetchMapboxToken();
   }, [view, mapboxToken]);
 
-  const toggleKeyword = (keyword: string) => {
-    setSelectedKeywords(prev => 
-      prev.includes(keyword) 
-        ? prev.filter(k => k !== keyword)
-        : [...prev, keyword]
-    );
-  };
+  const folderOptions = useMemo(() => {
+    const map: Record<string, { name: string; color: string }> = {};
+    nearbyRestaurants.forEach(r => {
+      if (r.folder?.name && !map[r.folder.name]) map[r.folder.name] = r.folder;
+    });
+    return Object.values(map);
+  }, [nearbyRestaurants]);
 
   const filteredNearbyRestaurants = useMemo(() => {
     let filtered = [...nearbyRestaurants];
 
-    // Per-word search: every whitespace-separated token must match somewhere
-    // (name, address, notes, or folder/type name)
-    if (searchQuery.trim()) {
-      const tokens = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
-      filtered = filtered.filter(r => {
-        const haystack = `${r.name} ${r.address || ''} ${r.notes || ''} ${r.folder?.name || ''}`.toLowerCase();
-        return tokens.every(t => haystack.includes(t));
-      });
-    }
-
-    if (selectedKeywords.length > 0) {
-      filtered = filtered.filter(r => {
-        const searchText = `${r.name} ${r.address || ''} ${r.notes || ''} ${r.folder?.name || ''}`.toLowerCase();
-        return selectedKeywords.some(kw => searchText.includes(kw));
-      });
+    if (selectedFolder) {
+      filtered = filtered.filter(r => r.folder?.name === selectedFolder);
     }
 
     if (minRating !== 'all') {
@@ -153,7 +140,7 @@ export default function Explore() {
     }
 
     return filtered;
-  }, [nearbyRestaurants, searchQuery, selectedKeywords, minRating]);
+  }, [nearbyRestaurants, selectedFolder, minRating]);
 
   if (authLoading) {
     return (
