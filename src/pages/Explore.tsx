@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { MapPin, Star, DollarSign, Loader2, Map, List, Search, Filter, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
+import { getFolderIcon } from '@/lib/folderIcons';
 
 interface Restaurant {
   id: string;
@@ -293,12 +294,13 @@ export default function Explore() {
 function ExploreRestaurantCard({ restaurant }: { restaurant: Restaurant }) {
   const imageUrl = restaurant.images?.[0]?.image_url;
   const { signedUrl, loading: imageLoading } = useSignedImageUrl(imageUrl);
+  const FallbackIcon = getFolderIcon(restaurant.folder?.name);
 
   return (
     <Card className="overflow-hidden">
       <div className="relative aspect-video bg-muted overflow-hidden">
         {imageLoading ? (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20">
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-accent/10">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground/50" />
           </div>
         ) : signedUrl ? (
@@ -308,8 +310,8 @@ function ExploreRestaurantCard({ restaurant }: { restaurant: Restaurant }) {
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20">
-            <MapPin className="h-12 w-12 text-muted-foreground/50" />
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 via-secondary/20 to-accent/10">
+            <FallbackIcon className="h-28 w-28 text-primary/70" strokeWidth={1.5} />
           </div>
         )}
         {restaurant.folder && (
