@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,7 +32,9 @@ interface RestaurantCardProps {
 export function RestaurantCard({ restaurant, onEdit, onDelete, onMarkVisited }: RestaurantCardProps) {
   const firstImageUrl = restaurant.images?.[0]?.image_url;
   const { signedUrl: firstImage, loading: imageLoading } = useSignedImageUrl(firstImageUrl);
+  const [imgFailed, setImgFailed] = useState(false);
   const FallbackIcon = getFolderIcon(restaurant.folder?.name);
+  const showFallback = !firstImage || imgFailed;
 
   return (
     <Card className="group overflow-hidden transition-all hover:shadow-lg">
@@ -40,10 +43,11 @@ export function RestaurantCard({ restaurant, onEdit, onDelete, onMarkVisited }: 
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-accent/10">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground/50" />
           </div>
-        ) : firstImage ? (
+        ) : !showFallback ? (
           <img
             src={firstImage}
             alt={restaurant.name}
+            onError={() => setImgFailed(true)}
             className="w-full h-full object-cover transition-transform group-hover:scale-105"
           />
         ) : (

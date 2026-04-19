@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RestaurantCard } from '@/components/restaurants/RestaurantCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, UserPlus, UserMinus, Loader2, Users, Sparkles, Map, Check, Clock } from 'lucide-react';
+import { Search, UserPlus, UserMinus, Loader2, Users, Sparkles, Map, Check, Clock, X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useMapCenter } from '@/hooks/useMapCenter';
 
@@ -40,6 +41,8 @@ export default function Friends() {
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
   const [userRestaurants, setUserRestaurants] = useState<any[]>([]);
   const [friendStatusFilter, setFriendStatusFilter] = useState<'went_to' | 'to_go'>('went_to');
+  const [friendListSearch, setFriendListSearch] = useState('');
+  const [friendSelectedFolder, setFriendSelectedFolder] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [suggested, setSuggested] = useState<SuggestedProfile[]>([]);
@@ -545,32 +548,104 @@ export default function Friends() {
                       </CardContent>
                     </Card>
 
-                    {/* Restaurant list */}
+                    {/* Restaurant list with search + folder filter */}
                     {(() => {
-                      const filtered = userRestaurants.filter(r => r.status === friendStatusFilter);
-                      return filtered.length === 0 ? (
-                        <div className="text-center py-8 bg-card rounded-xl">
-                          <p className="text-muted-foreground">
-                            {friendStatusFilter === 'went_to' 
-                              ? "No restaurants marked as Been There yet" 
-                              : "No restaurants on their To Go list"}
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {filtered.map((restaurant) => (
-                            <div 
-                              key={restaurant.id} 
-                              onClick={() => handleRestaurantClick(restaurant)}
-                              className={`cursor-pointer transition-all ${
-                                focusedRestaurantId === restaurant.id 
-                                  ? 'ring-2 ring-primary rounded-xl' 
-                                  : ''
-                              }`}
-                            >
-                              <RestaurantCard restaurant={restaurant} />
+                      const statusFiltered = userRestaurants.filter(r => r.status === friendStatusFilter);
+                      const folderMap: Record<string, { name: string; color: string }> = {};
+                      statusFiltered.forEach(r => {
+                        if (r.folder?.name && !folderMap[r.folder.name]) {
+                          folderMap[r.folder.name] = r.folder;
+                        }
+                      });
+                      const folderOptions = Object.values(folderMap);
+
+                      const tokens = friendListSearch.toLowerCase().split(/\s+/).filter(Boolean);
+                      const filtered = statusFiltered.filter(r => {
+                        if (friendSelectedFolder && r.folder?.name !== friendSelectedFolder) return false;
+                        if (tokens.length === 0) return true;
+                        const hay = `${r.name} ${r.address || ''} ${r.notes || ''} ${r.folder?.name || ''}`.toLowerCase();
+                        return tokens.every(t => hay.includes(t));
+                      });
+
+                      return (
+                        <div className="space-y-3">
+                          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                            <div className="relative flex-1">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                placeholder="Search this list..."
+                                value={friendListSearch}
+                                onChange={(e) => setFriendListSearch(e.target.value)}
+                                className="pl-9"
+                              />
                             </div>
-                          ))}
+                            {(friendListSearch || friendSelectedFolder) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => { setFriendListSearch(''); setFriendSelectedFolder(null); }}
+                              >
+                                <X className="h-4 w-4 mr-1" /> Clear
+                              </Button>
+                            )}
+                          </div>
+
+                          {folderOptions.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              <Badge
+                                variant={friendSelectedFolder === null ? 'default' : 'outline'}
+                                className="cursor-pointer"
+                                onClick={() => setFriendSelectedFolder(null)}
+                              >
+                                All
+                              </Badge>
+                              {folderOptions.map((f) => (
+                                <Badge
+                                  key={f.name}
+                                  variant={friendSelectedFolder === f.name ? 'default' : 'outline'}
+                                  className="cursor-pointer"
+                                  style={
+                                    friendSelectedFolder === f.name
+                                      ? { backgroundColor: f.color, borderColor: f.color }
+                                      : undefined
+                                  }
+                                  onClick={() =>
+                                    setFriendSelectedFolder(friendSelectedFolder === f.name ? null : f.name)
+                                  }
+                                >
+                                  {f.name}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+
+                          {filtered.length === 0 ? (
+                            <div className="text-center py-8 bg-card rounded-xl">
+                              <p className="text-muted-foreground">
+                                {statusFiltered.length === 0
+                                  ? friendStatusFilter === 'went_to'
+                                    ? "No restaurants marked as Been There yet"
+                                    : "No restaurants on their To Go list"
+                                  : 'No restaurants match your filters'}
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {filtered.map((restaurant) => (
+                                <div
+                                  key={restaurant.id}
+                                  onClick={() => handleRestaurantClick(restaurant)}
+                                  className={`cursor-pointer transition-all ${
+                                    focusedRestaurantId === restaurant.id
+                                      ? 'ring-2 ring-primary rounded-xl'
+                                      : ''
+                                  }`}
+                                >
+                                  <RestaurantCard restaurant={restaurant} />
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       );
                     })()}

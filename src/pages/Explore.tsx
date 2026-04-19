@@ -131,18 +131,16 @@ export default function Explore() {
   const filteredNearbyRestaurants = useMemo(() => {
     let filtered = [...nearbyRestaurants];
 
-    // Filter by search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(r => 
-        r.name.toLowerCase().includes(query) ||
-        r.address?.toLowerCase().includes(query) ||
-        r.notes?.toLowerCase().includes(query) ||
-        r.folder?.name.toLowerCase().includes(query)
-      );
+    // Per-word search: every whitespace-separated token must match somewhere
+    // (name, address, notes, or folder/type name)
+    if (searchQuery.trim()) {
+      const tokens = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
+      filtered = filtered.filter(r => {
+        const haystack = `${r.name} ${r.address || ''} ${r.notes || ''} ${r.folder?.name || ''}`.toLowerCase();
+        return tokens.every(t => haystack.includes(t));
+      });
     }
 
-    // Filter by keywords
     if (selectedKeywords.length > 0) {
       filtered = filtered.filter(r => {
         const searchText = `${r.name} ${r.address || ''} ${r.notes || ''} ${r.folder?.name || ''}`.toLowerCase();
@@ -150,7 +148,6 @@ export default function Explore() {
       });
     }
 
-    // Filter by rating
     if (minRating !== 'all') {
       const rating = parseInt(minRating);
       filtered = filtered.filter(r => r.rating && r.rating >= rating);
@@ -294,7 +291,9 @@ export default function Explore() {
 function ExploreRestaurantCard({ restaurant }: { restaurant: Restaurant }) {
   const imageUrl = restaurant.images?.[0]?.image_url;
   const { signedUrl, loading: imageLoading } = useSignedImageUrl(imageUrl);
+  const [imgFailed, setImgFailed] = useState(false);
   const FallbackIcon = getFolderIcon(restaurant.folder?.name);
+  const showFallback = !signedUrl || imgFailed;
 
   return (
     <Card className="overflow-hidden">
@@ -303,10 +302,11 @@ function ExploreRestaurantCard({ restaurant }: { restaurant: Restaurant }) {
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-accent/10">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground/50" />
           </div>
-        ) : signedUrl ? (
+        ) : !showFallback ? (
           <img
             src={signedUrl}
             alt={restaurant.name}
+            onError={() => setImgFailed(true)}
             className="w-full h-full object-cover"
           />
         ) : (
