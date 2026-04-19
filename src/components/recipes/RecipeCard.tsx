@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
+import logo from '@/assets/logo.png';
 import type { Recipe } from '@/pages/Recipes';
 
 interface RecipeCardProps {
@@ -47,8 +48,8 @@ export function RecipeCard({ recipe, isOwner, onDelete, onClick }: RecipeCardPro
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <ChefHat className="h-12 w-12 text-muted-foreground/30" />
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20">
+            <img src={logo} alt={recipe.title} className="h-20 w-20 object-contain opacity-80" />
           </div>
         )}
         {recipe.difficulty && (

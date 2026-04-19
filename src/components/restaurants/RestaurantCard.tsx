@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
+import logo from '@/assets/logo.png';
 
 interface RestaurantCardProps {
   restaurant: {
@@ -46,7 +47,7 @@ export function RestaurantCard({ restaurant, onEdit, onDelete, onMarkVisited }: 
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/20">
-            <MapPin className="h-12 w-12 text-muted-foreground/50" />
+            <img src={logo} alt={restaurant.name} className="h-20 w-20 object-contain opacity-80" />
           </div>
         )}
         {restaurant.folder && (
