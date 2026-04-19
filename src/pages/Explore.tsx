@@ -3,14 +3,12 @@ import { useMapCenter } from '@/hooks/useMapCenter';
 import { useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { MapPin, Star, DollarSign, Loader2, Map, List, Search, Filter, TrendingUp } from 'lucide-react';
-import { toast } from 'sonner';
+import { MapPin, Star, DollarSign, Loader2, Map, List, Filter, TrendingUp } from 'lucide-react';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import { getFolderIcon } from '@/lib/folderIcons';
 
@@ -29,11 +27,6 @@ interface Restaurant {
   images?: { image_url: string }[];
   profile?: { display_name: string | null; username: string | null } | null;
 }
-
-const KEYWORD_TAGS = [
-  'coffee', 'lunch', 'dinner', 'brunch', 'cheap', 'high-end', 
-  'cafe', 'bar', 'pizza', 'sushi', 'italian', 'mexican', 'asian'
-];
 
 export default function Explore() {
   const { user, loading: authLoading } = useAuth();
@@ -261,8 +254,8 @@ export default function Explore() {
                 <MapPin className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
                 <h3 className="text-lg font-medium mb-2">No restaurants found</h3>
                 <p className="text-muted-foreground">
-                  {searchQuery || selectedKeywords.length > 0 
-                    ? 'Try adjusting your search or filters' 
+                  {selectedFolder || minRating !== 'all'
+                    ? 'Try adjusting your filters'
                     : 'Follow more people to discover their favorite spots'}
                 </p>
               </div>
