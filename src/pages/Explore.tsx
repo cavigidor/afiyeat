@@ -5,6 +5,7 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { TypeFilterList } from '@/components/folders/TypeFilterList';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -113,9 +114,17 @@ export default function Explore() {
   }, [view, mapboxToken]);
 
   const folderOptions = useMemo(() => {
-    const map: Record<string, { name: string; color: string }> = {};
+    const map: Record<string, { name: string; color: string; count: number }> = {};
     nearbyRestaurants.forEach(r => {
-      if (r.folder?.name && !map[r.folder.name]) map[r.folder.name] = r.folder;
+      if (!r.folder?.name) return;
+      if (!map[r.folder.name]) {
+        map[r.folder.name] = {
+          name: r.folder.name,
+          color: r.folder.color,
+          count: 0,
+        };
+      }
+      map[r.folder.name].count += 1;
     });
     return Object.values(map);
   }, [nearbyRestaurants]);
@@ -178,74 +187,65 @@ export default function Explore() {
           Explore restaurants from people you follow
         </p>
 
-        {/* Filters */}
-        <Card>
-          <CardContent className="p-3 sm:p-4 space-y-3 sm:space-y-4">
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
-              <Select value={minRating} onValueChange={setMinRating}>
-                <SelectTrigger className="w-full sm:w-[200px]">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Filter by rating" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Ratings</SelectItem>
-                  <SelectItem value="3">3+ Stars</SelectItem>
-                  <SelectItem value="4">4+ Stars</SelectItem>
-                  <SelectItem value="5">5 Stars Only</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {folderOptions.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                <Badge
-                  variant={selectedFolder === null ? 'default' : 'outline'}
-                  className="cursor-pointer"
-                  onClick={() => setSelectedFolder(null)}
-                >
-                  All Types
-                </Badge>
-                {folderOptions.map((f) => (
-                  <Badge
-                    key={f.name}
-                    variant={selectedFolder === f.name ? 'default' : 'outline'}
-                    className="cursor-pointer"
-                    style={
-                      selectedFolder === f.name
-                        ? { backgroundColor: f.color, borderColor: f.color }
-                        : undefined
-                    }
-                    onClick={() =>
-                      setSelectedFolder(selectedFolder === f.name ? null : f.name)
-                    }
-                  >
-                    {f.name}
-                  </Badge>
-                ))}
+        <div className="flex flex-col lg:flex-row gap-6">
+          {folderOptions.length > 0 && (
+            <aside className="w-full lg:w-64 lg:shrink-0">
+              <div className="lg:sticky lg:top-8">
+                <Card>
+                  <CardContent className="p-4">
+                    <TypeFilterList
+                      options={folderOptions.map((folder) => ({
+                        value: folder.name,
+                        label: folder.name,
+                        color: folder.color,
+                        count: folder.count,
+                      }))}
+                      selectedValue={selectedFolder}
+                      onSelectValue={setSelectedFolder}
+                    />
+                  </CardContent>
+                </Card>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </aside>
+          )}
 
-        {view === 'map' ? (
-          mapboxLoading ? (
-            <div className="flex items-center justify-center py-12 bg-card rounded-xl h-[300px] sm:h-[600px]">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : mapboxError ? (
-            <div className="text-center py-12 bg-card rounded-xl h-[300px] sm:h-[600px] flex flex-col items-center justify-center">
-              <Map className="h-12 w-12 text-muted-foreground/50 mb-4" />
-              <h3 className="text-lg font-medium mb-2">Map Unavailable</h3>
-              <p className="text-muted-foreground">{mapboxError}</p>
-            </div>
-          ) : mapboxToken ? (
-            <div className="relative w-full h-[300px] sm:h-[600px] rounded-xl overflow-hidden bg-card">
-              <MapComponent token={mapboxToken} restaurants={filteredNearbyRestaurants} />
-            </div>
-          ) : null
-        ) : (
-          <div className="space-y-4">
-            {loading ? (
+          <div className="flex-1 space-y-4">
+            <Card>
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+                  <Select value={minRating} onValueChange={setMinRating}>
+                    <SelectTrigger className="w-full sm:w-[200px]">
+                      <Filter className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Filter by rating" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Ratings</SelectItem>
+                      <SelectItem value="3">3+ Stars</SelectItem>
+                      <SelectItem value="4">4+ Stars</SelectItem>
+                      <SelectItem value="5">5 Stars Only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {view === 'map' ? (
+              mapboxLoading ? (
+                <div className="flex items-center justify-center py-12 bg-card rounded-xl h-[300px] sm:h-[600px]">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : mapboxError ? (
+                <div className="text-center py-12 bg-card rounded-xl h-[300px] sm:h-[600px] flex flex-col items-center justify-center">
+                  <Map className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Map Unavailable</h3>
+                  <p className="text-muted-foreground">{mapboxError}</p>
+                </div>
+              ) : mapboxToken ? (
+                <div className="relative w-full h-[300px] sm:h-[600px] rounded-xl overflow-hidden bg-card">
+                  <MapComponent token={mapboxToken} restaurants={filteredNearbyRestaurants} />
+                </div>
+              ) : null
+            ) : loading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
@@ -260,14 +260,14 @@ export default function Explore() {
                 </p>
               </div>
             ) : (
-              <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
                 {filteredNearbyRestaurants.map((restaurant) => (
                   <ExploreRestaurantCard key={restaurant.id} restaurant={restaurant} />
                 ))}
               </div>
             )}
           </div>
-        )}
+        </div>
       </main>
     </div>
   );
