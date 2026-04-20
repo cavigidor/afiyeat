@@ -5,6 +5,7 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { TypeFilterList } from '@/components/folders/TypeFilterList';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -113,9 +114,17 @@ export default function Explore() {
   }, [view, mapboxToken]);
 
   const folderOptions = useMemo(() => {
-    const map: Record<string, { name: string; color: string }> = {};
+    const map: Record<string, { name: string; color: string; count: number }> = {};
     nearbyRestaurants.forEach(r => {
-      if (r.folder?.name && !map[r.folder.name]) map[r.folder.name] = r.folder;
+      if (!r.folder?.name) return;
+      if (!map[r.folder.name]) {
+        map[r.folder.name] = {
+          name: r.folder.name,
+          color: r.folder.color,
+          count: 0,
+        };
+      }
+      map[r.folder.name].count += 1;
     });
     return Object.values(map);
   }, [nearbyRestaurants]);
