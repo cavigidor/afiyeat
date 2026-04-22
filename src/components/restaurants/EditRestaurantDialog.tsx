@@ -383,6 +383,11 @@ export function EditRestaurantDialog({
               )}
             />
 
+            {/* Image upload - only for "Been There" */}
+            {!isToGo && restaurant && (
+              <ImageUploadSection restaurantId={restaurant.id} existingImages={restaurant.images || []} onImagesChange={onSuccess} />
+            )}
+
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Changes
