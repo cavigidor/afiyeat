@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -26,10 +26,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ImagePlus, Loader2, X, MapPin, Search, Plus } from 'lucide-react';
+import { ImagePlus, Loader2, X, MapPin, Search, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { validateImageFile } from '@/lib/imageValidation';
+import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Restaurant name is required'),
