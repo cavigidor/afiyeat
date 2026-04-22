@@ -26,10 +26,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ImagePlus, Loader2, X, MapPin, Search, Plus } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { ImageUploadSection } from './ImageUploadSection';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Restaurant name is required'),
@@ -380,6 +381,11 @@ export function EditRestaurantDialog({
                 </FormItem>
               )}
             />
+
+            {/* Image upload - only for "Been There" */}
+            {!isToGo && restaurant && (
+              <ImageUploadSection restaurantId={restaurant.id} existingImages={restaurant.images || []} onImagesChange={onSuccess} />
+            )}
 
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
