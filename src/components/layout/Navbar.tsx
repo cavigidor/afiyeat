@@ -35,14 +35,6 @@ export function Navbar() {
         <span>My List</span>
       </Link>
       <Link
-        to="/explore"
-        className="flex items-center gap-2 text-foreground/80 hover:text-foreground transition-colors"
-        onClick={() => setOpen(false)}
-      >
-        <MapPin className="h-4 w-4" />
-        <span>Explore</span>
-      </Link>
-      <Link
         to="/friends"
         className="flex items-center gap-2 text-foreground/80 hover:text-foreground transition-colors"
         onClick={() => setOpen(false)}
