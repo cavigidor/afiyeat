@@ -45,6 +45,45 @@ export default function Recipes() {
   const [searchQuery, setSearchQuery] = useState('');
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanInitialData, setScanInitialData] = useState<any>(null);
+
+  const handleScanRecipe = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error('Image must be under 8MB');
+      return;
+    }
+    setScanning(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1] || '');
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const { data, error } = await supabase.functions.invoke('parse-recipe-image', {
+        body: { imageBase64: base64, mimeType: file.type },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setScanInitialData(data?.recipe || {});
+      setAddDialogOpen(true);
+      toast.success('Recipe extracted! Review and fill in any missing details.');
+    } catch (err: any) {
+      console.error('Scan recipe failed:', err);
+      toast.error(err?.message || 'Failed to extract recipe');
+    } finally {
+      setScanning(false);
+    }
+  };
 
   useEffect(() => {
     if (!authLoading && !user) {
