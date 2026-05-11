@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/layout/Navbar';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Plus, Search, ChefHat } from 'lucide-react';
+import { Loader2, Plus, Search, ChefHat, ScanLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -45,6 +45,45 @@ export default function Recipes() {
   const [searchQuery, setSearchQuery] = useState('');
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanInitialData, setScanInitialData] = useState<any>(null);
+
+  const handleScanRecipe = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error('Image must be under 8MB');
+      return;
+    }
+    setScanning(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1] || '');
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const { data, error } = await supabase.functions.invoke('parse-recipe-image', {
+        body: { imageBase64: base64, mimeType: file.type },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setScanInitialData(data?.recipe || {});
+      setAddDialogOpen(true);
+      toast.success('Recipe extracted! Review and fill in any missing details.');
+    } catch (err: any) {
+      console.error('Scan recipe failed:', err);
+      toast.error(err?.message || 'Failed to extract recipe');
+    } finally {
+      setScanning(false);
+    }
+  };
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -151,7 +190,24 @@ export default function Recipes() {
                 className="pl-9"
               />
             </div>
-            <Button onClick={() => setAddDialogOpen(true)}>
+            <Button variant="outline" asChild disabled={scanning}>
+              <label className="cursor-pointer">
+                {scanning ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <ScanLine className="h-4 w-4 mr-2" />
+                )}
+                {scanning ? 'Scanning…' : 'Scan Recipe'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleScanRecipe}
+                  disabled={scanning}
+                />
+              </label>
+            </Button>
+            <Button onClick={() => { setScanInitialData(null); setAddDialogOpen(true); }}>
               <Plus className="h-4 w-4 mr-2" />
               Add Recipe
             </Button>
@@ -204,8 +260,12 @@ export default function Recipes() {
 
       <AddRecipeDialog
         open={addDialogOpen}
-        onOpenChange={setAddDialogOpen}
+        onOpenChange={(open) => {
+          setAddDialogOpen(open);
+          if (!open) setScanInitialData(null);
+        }}
         onSuccess={fetchRecipes}
+        initialData={scanInitialData}
       />
 
       <RecipeDetailDialog

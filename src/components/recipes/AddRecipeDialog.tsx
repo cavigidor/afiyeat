@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -24,13 +24,28 @@ import { toast } from 'sonner';
 import { validateImageFile } from '@/lib/imageValidation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+interface InitialRecipeData {
+  title?: string;
+  description?: string;
+  prep_time_minutes?: number | null;
+  cook_time_minutes?: number | null;
+  servings?: number | null;
+  cook_temp?: number | null;
+  cook_temp_unit?: string | null;
+  difficulty?: string | null;
+  ingredients?: string[];
+  instructions?: string[];
+  tags?: string[];
+}
+
 interface AddRecipeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  initialData?: InitialRecipeData | null;
 }
 
-export function AddRecipeDialog({ open, onOpenChange, onSuccess }: AddRecipeDialogProps) {
+export function AddRecipeDialog({ open, onOpenChange, onSuccess, initialData }: AddRecipeDialogProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [imageLoading, setImageLoading] = useState(false);
@@ -65,6 +80,22 @@ export function AddRecipeDialog({ open, onOpenChange, onSuccess }: AddRecipeDial
     setIsPublic(true);
   };
 
+  useEffect(() => {
+    if (open && initialData) {
+      if (initialData.title) setTitle(initialData.title);
+      if (initialData.description) setDescription(initialData.description);
+      if (initialData.prep_time_minutes != null) setPrepTime(String(initialData.prep_time_minutes));
+      if (initialData.cook_time_minutes != null) setCookTime(String(initialData.cook_time_minutes));
+      if (initialData.servings != null) setServings(String(initialData.servings));
+      if (initialData.cook_temp != null) setCookTemp(String(initialData.cook_temp));
+      if (initialData.cook_temp_unit) setCookTempUnit(initialData.cook_temp_unit);
+      if (initialData.difficulty) setDifficulty(initialData.difficulty);
+      if (initialData.ingredients && initialData.ingredients.length) setIngredients(initialData.ingredients);
+      if (initialData.instructions && initialData.instructions.length) setInstructions(initialData.instructions);
+      if (initialData.tags && initialData.tags.length) setTags(initialData.tags.join(', '));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialData]);
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
