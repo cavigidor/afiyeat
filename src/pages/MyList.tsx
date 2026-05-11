@@ -135,16 +135,25 @@ export default function MyList() {
   const currentList = activeTab === 'to_go' ? toGoList : wentToList;
 
   const handleMarkVisited = async (restaurantId: string) => {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('restaurants')
       .update({ status: 'went_to', visited_at: new Date().toISOString() })
-      .eq('id', restaurantId);
+      .eq('id', restaurantId)
+      .select(`
+        *,
+        folder:folders(name, color),
+        images:restaurant_images(image_url, id)
+      `)
+      .single();
 
     if (error) {
       toast.error('Failed to update restaurant');
     } else {
-      toast.success('Marked as been there!');
-      fetchData();
+      toast.success('Marked as been there! Add rating, comments & photos.');
+      // Update local list and open edit dialog so user can add rating/notes/photos
+      setRestaurants((prev) => prev.map((r) => (r.id === restaurantId ? (data as Restaurant) : r)));
+      setSelectedRestaurant(data as Restaurant);
+      setEditDialogOpen(true);
     }
   };
 
