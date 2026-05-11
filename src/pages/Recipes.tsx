@@ -190,7 +190,24 @@ export default function Recipes() {
                 className="pl-9"
               />
             </div>
-            <Button onClick={() => setAddDialogOpen(true)}>
+            <Button variant="outline" asChild disabled={scanning}>
+              <label className="cursor-pointer">
+                {scanning ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <ScanLine className="h-4 w-4 mr-2" />
+                )}
+                {scanning ? 'Scanning…' : 'Scan Recipe'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleScanRecipe}
+                  disabled={scanning}
+                />
+              </label>
+            </Button>
+            <Button onClick={() => { setScanInitialData(null); setAddDialogOpen(true); }}>
               <Plus className="h-4 w-4 mr-2" />
               Add Recipe
             </Button>
