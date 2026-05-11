@@ -260,8 +260,12 @@ export default function Recipes() {
 
       <AddRecipeDialog
         open={addDialogOpen}
-        onOpenChange={setAddDialogOpen}
+        onOpenChange={(open) => {
+          setAddDialogOpen(open);
+          if (!open) setScanInitialData(null);
+        }}
         onSuccess={fetchRecipes}
+        initialData={scanInitialData}
       />
 
       <RecipeDetailDialog
