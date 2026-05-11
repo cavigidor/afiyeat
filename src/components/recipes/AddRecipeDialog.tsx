@@ -24,13 +24,28 @@ import { toast } from 'sonner';
 import { validateImageFile } from '@/lib/imageValidation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+interface InitialRecipeData {
+  title?: string;
+  description?: string;
+  prep_time_minutes?: number | null;
+  cook_time_minutes?: number | null;
+  servings?: number | null;
+  cook_temp?: number | null;
+  cook_temp_unit?: string | null;
+  difficulty?: string | null;
+  ingredients?: string[];
+  instructions?: string[];
+  tags?: string[];
+}
+
 interface AddRecipeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  initialData?: InitialRecipeData | null;
 }
 
-export function AddRecipeDialog({ open, onOpenChange, onSuccess }: AddRecipeDialogProps) {
+export function AddRecipeDialog({ open, onOpenChange, onSuccess, initialData }: AddRecipeDialogProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [imageLoading, setImageLoading] = useState(false);
