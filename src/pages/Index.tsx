@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Navbar } from '@/components/layout/Navbar';
 import { useAuth } from '@/contexts/AuthContext';
 import { MapPin, Users, ChefHat, Camera, ArrowRight } from 'lucide-react';
+import { Seo } from '@/components/Seo';
 
 export default function Index() {
   const { user, loading } = useAuth();
