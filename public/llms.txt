@@ -1,0 +1,12 @@
+# Afiyeat
+
+> Afiyeat is a free restaurant tracker and recipe sharing app. Track restaurants you want to visit, save places you've been, share recipes, and discover new food spots with friends.
+
+## Pages
+
+- [Home](/): Overview of Afiyeat — a free restaurant tracker and recipe sharing app.
+
+## Optional
+
+- [Terms of Service](/terms): Terms governing use of Afiyeat.
+- [Privacy Policy](/privacy): How Afiyeat collects, uses, and protects your data.
