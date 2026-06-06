@@ -60,7 +60,7 @@ export default function Auth() {
 
   useEffect(() => {
     if (user) {
-      navigate('/my-list');
+      navigate('/news');
     }
   }, [user, navigate]);
 
@@ -120,7 +120,7 @@ export default function Auth() {
       }
     } else {
       toast.success('Welcome back!');
-      navigate('/my-list');
+      navigate('/news');
     }
   };
 
@@ -209,7 +209,7 @@ export default function Auth() {
           setActiveTab('signin');
         } else {
           toast.success('Account created! Welcome to Afiyeat!');
-          navigate('/my-list');
+          navigate('/news');
         }
       }
     } catch (error: any) {
