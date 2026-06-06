@@ -134,6 +134,72 @@ export type Database = {
         }
         Relationships: []
       }
+      news_items: {
+        Row: {
+          city: string
+          created_at: string
+          id: string
+          image_url: string | null
+          published_at: string
+          source_name: string | null
+          source_url: string | null
+          summary: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          city: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          published_at?: string
+          source_name?: string | null
+          source_url?: string | null
+          summary?: string | null
+          title: string
+          type?: string
+        }
+        Update: {
+          city?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          published_at?: string
+          source_name?: string | null
+          source_url?: string | null
+          summary?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      news_sources: {
+        Row: {
+          active: boolean
+          city: string
+          created_at: string
+          id: string
+          label: string | null
+          url: string
+        }
+        Insert: {
+          active?: boolean
+          city: string
+          created_at?: string
+          id?: string
+          label?: string | null
+          url: string
+        }
+        Update: {
+          active?: boolean
+          city?: string
+          created_at?: string
+          id?: string
+          label?: string | null
+          url?: string
+        }
+        Relationships: []
+      }
       otp_rate_limits: {
         Row: {
           created_at: string | null
