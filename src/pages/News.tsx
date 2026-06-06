@@ -30,17 +30,74 @@ const CITIES = [
   { value: 'chicago', label: 'Chicago' },
 ];
 
+// Map a US state short_code (e.g. "US-CA") to the closest covered city.
+// California -> Los Angeles, New York -> New York, Illinois -> Chicago.
+// Anything else (or denied location) -> Chicago.
+const STATE_TO_CITY: Record<string, string> = {
+  'US-CA': 'los_angeles',
+  'US-NY': 'new_york',
+  'US-IL': 'chicago',
+};
+const DEFAULT_CITY = 'chicago';
+
 export default function News() {
+  // If the user has manually picked a city before, respect it. Otherwise we
+  // detect from their location on mount.
   const [city, setCity] = useState<string>(() => {
-    return localStorage.getItem('news_city') || 'new_york';
+    return localStorage.getItem('news_city_manual') || DEFAULT_CITY;
   });
   const [items, setItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Detect default city from geolocation on first visit (no manual choice yet).
   useEffect(() => {
-    localStorage.setItem('news_city', city);
+    if (localStorage.getItem('news_city_manual')) return;
+
+    let cancelled = false;
+
+    const applyDetected = (detected: string) => {
+      if (!cancelled) setCity(detected);
+    };
+
+    if (!('geolocation' in navigator)) {
+      applyDetected(DEFAULT_CITY);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { data } = await supabase.functions.invoke('reverse-geocode-region', {
+            body: {
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+            },
+          });
+          const shortCode: string | undefined = data?.shortCode?.toUpperCase?.();
+          applyDetected((shortCode && STATE_TO_CITY[shortCode]) || DEFAULT_CITY);
+        } catch {
+          applyDetected(DEFAULT_CITY);
+        }
+      },
+      // Denied or unavailable -> default to Chicago.
+      () => applyDetected(DEFAULT_CITY),
+      { timeout: 8000 },
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     fetchNews(city);
   }, [city]);
+
+  const handleCityChange = (value: string) => {
+    // A manual pick takes precedence over geolocation from now on.
+    localStorage.setItem('news_city_manual', value);
+    setCity(value);
+  };
 
   const fetchNews = async (selectedCity: string) => {
     setLoading(true);
@@ -54,6 +111,7 @@ export default function News() {
     }
     setLoading(false);
   };
+
 
   const cityLabel = CITIES.find((c) => c.value === city)?.label ?? '';
   const news = items.filter((i) => i.type === 'news');
@@ -82,7 +140,7 @@ export default function News() {
             </div>
             <div className="flex items-center gap-2">
               <MapPin className="h-4 w-4 text-muted-foreground" />
-              <Select value={city} onValueChange={setCity}>
+              <Select value={city} onValueChange={handleCityChange}>
                 <SelectTrigger className="w-[180px] bg-card">
                   <SelectValue placeholder="Choose city" />
                 </SelectTrigger>
