@@ -173,73 +173,69 @@ async function processSource(source: SourceRow): Promise<CollectedItem[]> {
   return out;
 }
 
+async function run(targetCity: string | null) {
+  const supabase = createClient(
+    getEnv("SUPABASE_URL"),
+    getEnv("SUPABASE_SERVICE_ROLE_KEY"),
+  );
+
+  let query = supabase.from("news_sources").select("*").eq("active", true);
+  if (targetCity) query = query.eq("city", targetCity);
+  const { data: sources, error: srcErr } = await query;
+  if (srcErr) throw srcErr;
+  if (!sources || sources.length === 0) {
+    console.log("No active sources");
+    return;
+  }
+
+  // Group sources by city.
+  const byCity: Record<string, SourceRow[]> = {};
+  for (const s of sources as SourceRow[]) {
+    (byCity[s.city] ||= []).push(s);
+  }
+
+  for (const [city, citySources] of Object.entries(byCity)) {
+    // Process this city's sources in parallel for speed.
+    const perSource = await Promise.all(citySources.map((s) => processSource(s)));
+    const collected = perSource.flat();
+
+    if (collected.length === 0) {
+      console.log(`No items collected for ${city}`);
+      continue;
+    }
+
+    // Replace the city's existing items with the fresh digest.
+    await supabase.from("news_items").delete().eq("city", city);
+    const { error: insErr } = await supabase.from("news_items").insert(collected);
+    if (insErr) {
+      console.error("Insert error", city, insErr.message);
+    } else {
+      console.log(`Inserted ${collected.length} items for ${city}`);
+    }
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  let targetCity: string | null = null;
   try {
-    const supabase = createClient(
-      getEnv("SUPABASE_URL"),
-      getEnv("SUPABASE_SERVICE_ROLE_KEY"),
-    );
-
-    let targetCity: string | null = null;
-    try {
-      const body = await req.json();
-      if (body?.city) targetCity = String(body.city);
-    } catch {
-      // no body / not JSON -> process all cities
-    }
-
-    let query = supabase.from("news_sources").select("*").eq("active", true);
-    if (targetCity) query = query.eq("city", targetCity);
-    const { data: sources, error: srcErr } = await query;
-    if (srcErr) throw srcErr;
-
-    if (!sources || sources.length === 0) {
-      return new Response(JSON.stringify({ message: "No active sources", inserted: 0 }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Group sources by city.
-    const byCity: Record<string, SourceRow[]> = {};
-    for (const s of sources as SourceRow[]) {
-      (byCity[s.city] ||= []).push(s);
-    }
-
-    const result: Record<string, number> = {};
-
-    for (const [city, citySources] of Object.entries(byCity)) {
-      const collected: CollectedItem[] = [];
-      for (const source of citySources) {
-        const items = await processSource(source);
-        collected.push(...items);
-      }
-
-      if (collected.length === 0) {
-        result[city] = 0;
-        continue;
-      }
-
-      // Replace the city's existing items with the fresh digest.
-      await supabase.from("news_items").delete().eq("city", city);
-      const { error: insErr } = await supabase.from("news_items").insert(collected);
-      if (insErr) {
-        console.error("Insert error", city, insErr.message);
-        result[city] = 0;
-      } else {
-        result[city] = collected.length;
-      }
-    }
-
-    return new Response(JSON.stringify({ ok: true, inserted: result }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (err) {
-    console.error("generate-news error", (err as Error).message);
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    const body = await req.json();
+    if (body?.city) targetCity = String(body.city);
+  } catch {
+    // no body / not JSON -> process all cities
   }
+
+  // Run the (slow) scraping + summarizing work in the background so the
+  // HTTP request returns immediately and isn't killed by request timeouts.
+  // @ts-ignore EdgeRuntime is available in the Supabase edge runtime.
+  EdgeRuntime.waitUntil(
+    run(targetCity).catch((e) => console.error("generate-news run error", (e as Error).message)),
+  );
+
+  return new Response(
+    JSON.stringify({ ok: true, started: true, city: targetCity ?? "all" }),
+    { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+  );
 });
+
