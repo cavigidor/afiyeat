@@ -22,6 +22,7 @@ import { OTPVerification } from '@/components/auth/OTPVerification';
 import { PasswordRequirements, getPasswordStrength } from '@/components/auth/PasswordRequirements';
 import { supabase } from '@/integrations/supabase/client';
 import logo from '@/assets/logo.png';
+import { Seo } from '@/components/Seo';
 
 const signInSchema = z.object({
   email: z.string().email('Invalid email address'),
