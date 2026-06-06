@@ -11,6 +11,7 @@ import Friends from "./pages/Friends";
 import Search from "./pages/Search";
 
 import MyList from "./pages/MyList";
+import News from "./pages/News";
 import Profile from "./pages/Profile";
 import Recipes from "./pages/Recipes";
 import Cellar from "./pages/Cellar";
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/friends" element={<Friends />} />
             <Route path="/search" element={<Search />} />
             
+            <Route path="/news" element={<News />} />
             <Route path="/my-list" element={<MyList />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/recipes" element={<Recipes />} />
