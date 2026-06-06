@@ -1,9 +1,15 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Link } from "react-router-dom";
+import { Seo } from "@/components/Seo";
 
 const Terms = () => {
   return (
     <div className="min-h-screen bg-background">
+      <Seo
+        title="Terms of Service | Afiyeat"
+        description="Read the Terms of Service for Afiyeat, the free restaurant tracker and recipe sharing app."
+        path="/terms"
+      />
       <Navbar />
       <main className="container py-12 max-w-4xl">
         <h1 className="text-3xl font-bold mb-8">Terms of Service</h1>

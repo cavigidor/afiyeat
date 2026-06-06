@@ -1,9 +1,15 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Link } from "react-router-dom";
+import { Seo } from "@/components/Seo";
 
 const Privacy = () => {
   return (
     <div className="min-h-screen bg-background">
+      <Seo
+        title="Privacy Policy | Afiyeat"
+        description="Learn how Afiyeat collects, uses, and protects your data on the free restaurant tracker and recipe sharing app."
+        path="/privacy"
+      />
       <Navbar />
       <main className="container py-12 max-w-4xl">
         <h1 className="text-3xl font-bold mb-8">Privacy Policy</h1>

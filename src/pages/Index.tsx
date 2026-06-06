@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Navbar } from '@/components/layout/Navbar';
 import { useAuth } from '@/contexts/AuthContext';
 import { MapPin, Users, ChefHat, Camera, ArrowRight } from 'lucide-react';
+import { Seo } from '@/components/Seo';
 
 export default function Index() {
   const { user, loading } = useAuth();
@@ -40,8 +41,14 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-background">
+      <Seo
+        title="Afiyeat — Restaurant Tracker & Recipe Sharing App"
+        description="Track restaurants you want to visit, save places you've been, share recipes, and discover new food spots with friends. Free restaurant tracker app."
+        path="/"
+      />
       <Navbar />
 
+      <main>
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-accent/20 to-background" />
@@ -112,6 +119,7 @@ export default function Index() {
           </div>
         </div>
       </section>
+      </main>
 
       {/* Footer */}
       <footer className="py-8 border-t border-border">

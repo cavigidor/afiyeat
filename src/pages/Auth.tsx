@@ -22,6 +22,7 @@ import { OTPVerification } from '@/components/auth/OTPVerification';
 import { PasswordRequirements, getPasswordStrength } from '@/components/auth/PasswordRequirements';
 import { supabase } from '@/integrations/supabase/client';
 import logo from '@/assets/logo.png';
+import { Seo } from '@/components/Seo';
 
 const signInSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -260,13 +261,20 @@ export default function Auth() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-accent/20 to-background p-4">
+    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-accent/20 to-background p-4">
+      <Seo
+        title="Sign In or Sign Up | Afiyeat"
+        description="Sign in or create your free Afiyeat account to track restaurants, save places you've been, and share recipes with friends."
+        path="/auth"
+      />
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <img src={logo} alt="Afiyeat" className="h-28 w-28 object-contain" />
           </div>
-          <CardTitle className="text-2xl">Afiyeat</CardTitle>
+          <CardTitle className="text-2xl">
+            <h1 className="text-2xl font-semibold leading-none">Welcome to Afiyeat</h1>
+          </CardTitle>
           <CardDescription>
             Track your favorite restaurants and discover new ones with friends
           </CardDescription>
@@ -448,6 +456,6 @@ export default function Auth() {
           </Tabs>
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }
