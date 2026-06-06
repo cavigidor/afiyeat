@@ -140,7 +140,7 @@ export default function News() {
             </div>
             <div className="flex items-center gap-2">
               <MapPin className="h-4 w-4 text-muted-foreground" />
-              <Select value={city} onValueChange={setCity}>
+              <Select value={city} onValueChange={handleCityChange}>
                 <SelectTrigger className="w-[180px] bg-card">
                   <SelectValue placeholder="Choose city" />
                 </SelectTrigger>
