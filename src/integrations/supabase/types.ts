@@ -414,12 +414,102 @@ export type Database = {
           },
         ]
       }
+      shared_list_items: {
+        Row: {
+          added_by: string
+          address: string | null
+          created_at: string
+          id: string
+          latitude: number | null
+          list_id: string
+          longitude: number | null
+          name: string
+          notes: string | null
+          price_level: number | null
+          rating: number | null
+          status: string
+          updated_at: string
+          visited_at: string | null
+        }
+        Insert: {
+          added_by: string
+          address?: string | null
+          created_at?: string
+          id?: string
+          latitude?: number | null
+          list_id: string
+          longitude?: number | null
+          name: string
+          notes?: string | null
+          price_level?: number | null
+          rating?: number | null
+          status?: string
+          updated_at?: string
+          visited_at?: string | null
+        }
+        Update: {
+          added_by?: string
+          address?: string | null
+          created_at?: string
+          id?: string
+          latitude?: number | null
+          list_id?: string
+          longitude?: number | null
+          name?: string
+          notes?: string | null
+          price_level?: number | null
+          rating?: number | null
+          status?: string
+          updated_at?: string
+          visited_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_list_items_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "shared_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shared_lists: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_a: string
+          user_b: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_a: string
+          user_b: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_a?: string
+          user_b?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       can_view_profile: { Args: { profile_user_id: string }; Returns: boolean }
+      is_shared_list_member: {
+        Args: { _list_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
