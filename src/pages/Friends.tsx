@@ -13,6 +13,7 @@ import { Search, UserPlus, UserMinus, Loader2, Users, Sparkles, Map, Check, Cloc
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useMapCenter } from '@/hooks/useMapCenter';
+import { SharedLists } from '@/components/shared/SharedLists';
 
 interface Profile {
   id: string;
