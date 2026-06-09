@@ -271,6 +271,13 @@ export default function Friends() {
       <main className="container py-4 sm:py-8 px-4 sm:px-6 lg:px-8">
         <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Friends</h1>
 
+        <Tabs value={topTab} onValueChange={(v) => setTopTab(v as 'discover' | 'shared')}>
+          <TabsList className="mb-4 sm:mb-6">
+            <TabsTrigger value="discover">Discover</TabsTrigger>
+            <TabsTrigger value="shared">Shared Lists</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="discover">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
           {/* Search and Following List */}
           <div className="lg:col-span-1 space-y-6">
