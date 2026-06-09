@@ -13,6 +13,7 @@ import { Search, UserPlus, UserMinus, Loader2, Users, Sparkles, Map, Check, Cloc
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useMapCenter } from '@/hooks/useMapCenter';
+import { SharedLists } from '@/components/shared/SharedLists';
 
 interface Profile {
   id: string;
@@ -35,6 +36,7 @@ interface Follow {
 export default function Friends() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const [topTab, setTopTab] = useState<'discover' | 'shared'>('discover');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
   const [following, setFollowing] = useState<Profile[]>([]);
@@ -271,6 +273,13 @@ export default function Friends() {
       <main className="container py-4 sm:py-8 px-4 sm:px-6 lg:px-8">
         <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Friends</h1>
 
+        <Tabs value={topTab} onValueChange={(v) => setTopTab(v as 'discover' | 'shared')}>
+          <TabsList className="mb-4 sm:mb-6">
+            <TabsTrigger value="discover">Discover</TabsTrigger>
+            <TabsTrigger value="shared">Shared Lists</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="discover">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
           {/* Search and Following List */}
           <div className="lg:col-span-1 space-y-6">
@@ -663,6 +672,12 @@ export default function Friends() {
             )}
           </div>
         </div>
+          </TabsContent>
+
+          <TabsContent value="shared">
+            <SharedLists following={following} />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
