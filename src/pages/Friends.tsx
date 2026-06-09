@@ -36,6 +36,7 @@ interface Follow {
 export default function Friends() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const [topTab, setTopTab] = useState<'discover' | 'shared'>('discover');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
   const [following, setFollowing] = useState<Profile[]>([]);
