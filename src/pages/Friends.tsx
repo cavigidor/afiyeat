@@ -670,6 +670,12 @@ export default function Friends() {
             )}
           </div>
         </div>
+          </TabsContent>
+
+          <TabsContent value="shared">
+            <SharedLists following={following} />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
