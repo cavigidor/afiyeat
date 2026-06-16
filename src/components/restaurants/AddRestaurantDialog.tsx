@@ -298,6 +298,12 @@ export function AddRestaurantDialog({
     
     setLoading(true);
     try {
+      // Auto-create folder if none selected but name suggests a type
+      let folderId = values.folder_id || null;
+      if (!folderId && values.name) {
+        folderId = await findOrCreateAutoFolder(user.id, values.name, folders);
+      }
+
       // Clear rating for to_go status, keep price_level for both
       const submitValues = {
         ...values,
@@ -315,7 +321,7 @@ export function AddRestaurantDialog({
           longitude: submitValues.longitude || null,
           notes: submitValues.notes || null,
           status: submitValues.status,
-          folder_id: submitValues.folder_id || null,
+          folder_id: folderId,
           rating: submitValues.rating,
           price_level: submitValues.price_level,
           visited_at: submitValues.status === 'went_to' ? new Date().toISOString() : null,
