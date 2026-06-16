@@ -31,6 +31,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { validateImageFile } from '@/lib/imageValidation';
+import { detectFolderFromName, findExistingFolder, findOrCreateAutoFolder } from '@/lib/autoFolder';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Restaurant name is required'),
@@ -171,7 +172,20 @@ export function AddRestaurantDialog({
   });
 
   const watchStatus = form.watch('status');
+  const watchName = form.watch('name');
   const isToGo = watchStatus === 'to_go';
+
+  // Auto-detect folder from name when it changes
+  useEffect(() => {
+    if (!watchName) return;
+    const detected = detectFolderFromName(watchName);
+    if (!detected) return;
+    const existing = findExistingFolder(detected, folders);
+    if (existing) {
+      form.setValue('folder_id', existing.id, { shouldValidate: false });
+    }
+  }, [watchName, folders, form]);
+
 
   // Get user's location when dialog opens
   useEffect(() => {
@@ -284,6 +298,12 @@ export function AddRestaurantDialog({
     
     setLoading(true);
     try {
+      // Auto-create folder if none selected but name suggests a type
+      let folderId = values.folder_id || null;
+      if (!folderId && values.name) {
+        folderId = await findOrCreateAutoFolder(user.id, values.name, folders);
+      }
+
       // Clear rating for to_go status, keep price_level for both
       const submitValues = {
         ...values,
@@ -301,7 +321,7 @@ export function AddRestaurantDialog({
           longitude: submitValues.longitude || null,
           notes: submitValues.notes || null,
           status: submitValues.status,
-          folder_id: submitValues.folder_id || null,
+          folder_id: folderId,
           rating: submitValues.rating,
           price_level: submitValues.price_level,
           visited_at: submitValues.status === 'went_to' ? new Date().toISOString() : null,

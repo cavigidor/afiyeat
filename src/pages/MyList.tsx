@@ -129,6 +129,12 @@ export default function MyList() {
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
       return r.name.toLowerCase().includes(q) || r.address?.toLowerCase().includes(q);
+    })
+    .sort((a, b) => {
+      const folderA = a.folder?.name || '';
+      const folderB = b.folder?.name || '';
+      if (folderA !== folderB) return folderA.localeCompare(folderB);
+      return a.name.localeCompare(b.name);
     });
   const toGoList = filteredRestaurants.filter(r => r.status === 'to_go');
   const wentToList = filteredRestaurants.filter(r => r.status === 'went_to');
