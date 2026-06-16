@@ -172,19 +172,19 @@ export function AddRestaurantDialog({
   });
 
   const watchStatus = form.watch('status');
+  const watchName = form.watch('name');
   const isToGo = watchStatus === 'to_go';
 
   // Auto-detect folder from name when it changes
   useEffect(() => {
-    const name = form.getValues('name');
-    if (!name) return;
-    const detected = detectFolderFromName(name);
+    if (!watchName) return;
+    const detected = detectFolderFromName(watchName);
     if (!detected) return;
     const existing = findExistingFolder(detected, folders);
     if (existing) {
       form.setValue('folder_id', existing.id, { shouldValidate: false });
     }
-  }, [form.watch('name'), folders]);
+  }, [watchName, folders, form]);
 
 
   // Get user's location when dialog opens
