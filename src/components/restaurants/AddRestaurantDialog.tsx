@@ -31,6 +31,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { validateImageFile } from '@/lib/imageValidation';
+import { detectFolderFromName, findExistingFolder, findOrCreateAutoFolder } from '@/lib/autoFolder';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Restaurant name is required'),
