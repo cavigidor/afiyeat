@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { initPushNotifications, requestStartupPermissions } from "@/lib/native";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -22,7 +24,18 @@ import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
-const App = () => (
+const App = () => {
+  useEffect(() => {
+    const setup = async () => {
+      await requestStartupPermissions();
+      await initPushNotifications((token) => {
+        console.log("Push device token:", token);
+      });
+    };
+    void setup();
+  }, []);
+
+  return (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
@@ -35,7 +48,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/friends" element={<Friends />} />
             <Route path="/search" element={<Search />} />
-            
+
             <Route path="/news" element={<News />} />
             <Route path="/my-list" element={<MyList />} />
             <Route path="/profile" element={<Profile />} />
@@ -50,6 +63,7 @@ const App = () => (
       </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;

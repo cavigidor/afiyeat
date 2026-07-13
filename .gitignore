@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# iOS (Capacitor) - generated/user-specific, not source
+ios/App/App/public
+ios/App/Pods
+ios/App/build
+ios/App/DerivedData
+**/xcuserdata/
+*.xcuserstate

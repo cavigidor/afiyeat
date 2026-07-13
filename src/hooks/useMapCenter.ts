@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getCurrentPosition } from '@/lib/native';
 
 interface Coordinates {
   lng: number;
@@ -20,28 +21,16 @@ export function useMapCenter(restaurants: Restaurant[] = []) {
     let cancelled = false;
 
     const determineCenter = async () => {
-      // Try user's location first
-      if ('geolocation' in navigator) {
-        try {
-          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              enableHighAccuracy: false,
-              timeout: 5000,
-              maximumAge: 300000, // 5 minutes cache
-            });
-          });
-
-          if (!cancelled) {
-            setCenter({
-              lng: position.coords.longitude,
-              lat: position.coords.latitude,
-            });
-            setIsLoading(false);
-            return;
-          }
-        } catch {
-          // Geolocation denied or failed, continue to fallback
+      // Try the user's location first (native GPS on device, browser API on web)
+      try {
+        const coords = await getCurrentPosition();
+        if (!cancelled) {
+          setCenter({ lng: coords.longitude, lat: coords.latitude });
+          setIsLoading(false);
+          return;
         }
+      } catch {
+        // Location denied or failed, continue to fallback
       }
 
       // Fallback: center on restaurant cluster

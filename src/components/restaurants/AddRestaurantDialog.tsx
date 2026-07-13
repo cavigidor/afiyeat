@@ -26,7 +26,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ImagePlus, Loader2, X, MapPin, Search, Plus } from 'lucide-react';
+import { ImagePlus, Loader2, X, MapPin, Search, Plus, Camera } from 'lucide-react';
+import { isNative, capturePhoto } from '@/lib/native';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -267,9 +268,8 @@ export function AddRestaurantDialog({
     }
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const allFiles = Array.from(e.target.files || []);
-    const files = allFiles.filter((file) => {
+  const addFiles = (incoming: File[]) => {
+    const files = incoming.filter((file) => {
       const error = validateImageFile(file);
       if (error) {
         toast.error(`${file.name}: ${error}`);
@@ -278,7 +278,7 @@ export function AddRestaurantDialog({
       return true;
     });
     setImages((prev) => [...prev, ...files]);
-    
+
     files.forEach((file) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -286,6 +286,15 @@ export function AddRestaurantDialog({
       };
       reader.readAsDataURL(file);
     });
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    addFiles(Array.from(e.target.files || []));
+  };
+
+  const handleTakePhoto = async () => {
+    const file = await capturePhoto();
+    if (file) addFiles([file]);
   };
 
   const removeImage = (index: number) => {
@@ -650,6 +659,16 @@ export function AddRestaurantDialog({
                   />
                   <ImagePlus className="h-6 w-6 text-muted-foreground" />
                 </label>
+                {isNative() && (
+                  <button
+                    type="button"
+                    onClick={handleTakePhoto}
+                    className="aspect-square border-2 border-dashed border-muted rounded-lg flex items-center justify-center cursor-pointer hover:border-primary transition-colors"
+                    aria-label="Take photo"
+                  >
+                    <Camera className="h-6 w-6 text-muted-foreground" />
+                  </button>
+                )}
               </div>
             </div>
 
