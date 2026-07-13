@@ -1,11 +1,12 @@
 import { useEffect } from "react";
-import { initPushNotifications, requestStartupPermissions } from "@/lib/native";
+import { requestStartupPermissions } from "@/lib/native";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { PushNotificationManager } from "@/components/shared/PushNotificationManager";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -26,18 +27,13 @@ const queryClient = new QueryClient();
 
 const App = () => {
   useEffect(() => {
-    const setup = async () => {
-      await requestStartupPermissions();
-      await initPushNotifications((token) => {
-        console.log("Push device token:", token);
-      });
-    };
-    void setup();
+    void requestStartupPermissions();
   }, []);
 
   return (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
+      <PushNotificationManager />
       <TooltipProvider>
         <Toaster />
         <Sonner />
