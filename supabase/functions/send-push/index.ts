@@ -84,27 +84,65 @@ async function sendToDevice(
   return { ok: false, status: res.status, reason };
 }
 
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+// This function has `verify_jwt = false` in config.toml, so it does its own
+// auth below rather than relying on the API gateway. Two ways in:
+//   1. x-internal-secret header matching INTERNAL_PUSH_SECRET - used by
+//      notify_user() (a Postgres trigger/cron function) to send a push to
+//      *any* user_id. Deliberately a narrow, single-purpose secret rather
+//      than the service-role key, so a leak of it can only ever be used to
+//      send push notifications, not read/write the whole database.
+//   2. A regular Supabase auth JWT - a logged-in user hitting this directly
+//      can only ever send a test push to themselves.
+async function authorizeRequest(
+  req: Request,
+): Promise<{ ok: true; targetUserId: string } | { ok: false; status: number; error: string }> {
+  const internalSecret = req.headers.get("x-internal-secret");
+  const expectedSecret = Deno.env.get("INTERNAL_PUSH_SECRET");
+  if (expectedSecret && internalSecret === expectedSecret) {
+    const body = await req.json().catch(() => ({}));
+    if (!body.user_id) {
+      return { ok: false, status: 400, error: "user_id is required" };
+    }
+    return { ok: true, targetUserId: body.user_id };
+  }
+
+  const authHeader = req.headers.get("authorization") ?? "";
+  const jwt = authHeader.replace(/^Bearer\s+/i, "");
+  if (!jwt) {
+    return { ok: false, status: 401, error: "Missing authorization" };
+  }
+
+  const anonClient = createClient(supabaseUrl, supabaseAnonKey);
+  const { data, error } = await anonClient.auth.getUser(jwt);
+  if (error || !data.user) {
+    return { ok: false, status: 401, error: "Invalid authorization" };
+  }
+
+  return { ok: true, targetUserId: data.user.id };
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const authHeader = req.headers.get("authorization") ?? "";
-    const jwt = authHeader.replace(/^Bearer\s+/i, "");
-    if (!jwt) {
-      return new Response(JSON.stringify({ error: "Missing authorization" }), {
-        status: 401,
+    // Read the body once for auth (internal-secret path needs user_id from
+    // it), then again for the real payload - Request bodies can only be
+    // consumed once, so clone before authorizeRequest touches it.
+    const bodyForAuth = req.clone();
+    const auth = await authorizeRequest(bodyForAuth);
+    if (!auth.ok) {
+      return new Response(JSON.stringify({ error: auth.error }), {
+        status: auth.status,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
-
-    // Trust the claims here: the Supabase gateway already verified this JWT's
-    // signature before invoking the function (verify_jwt = true for this
-    // function in supabase/config.toml).
-    const claims = JSON.parse(atob(jwt.split(".")[1]));
-    const isServiceRole = claims.role === "service_role";
-    const callerUserId: string | undefined = claims.sub;
+    const targetUserId = auth.targetUserId;
 
     const body: SendPushRequest = await req.json();
     if (!body.title || !body.body) {
@@ -114,19 +152,6 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Regular authenticated users can only ever send a test push to
-    // themselves. Only service-role callers (other backend functions) may
-    // target an arbitrary user_id.
-    const targetUserId = isServiceRole ? body.user_id : callerUserId;
-    if (!targetUserId) {
-      return new Response(JSON.stringify({ error: "user_id is required" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data: tokens, error: tokensError } = await supabase
