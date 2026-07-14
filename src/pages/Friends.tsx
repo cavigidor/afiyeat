@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/button';
@@ -53,6 +53,15 @@ export default function Friends() {
   const [mapboxLoading, setMapboxLoading] = useState(true);
   const [focusedRestaurantId, setFocusedRestaurantId] = useState<string | null>(null);
   const mapFlyToRef = useRef<((lat: number, lng: number, restaurantId: string) => void) | null>(null);
+
+  // Stable array reference across re-renders (as long as the underlying data
+  // hasn't changed) - the map component below re-inits its GPS lookup and
+  // rebuilds the whole Mapbox map whenever this reference changes, so an
+  // inline .filter() here was causing a full map rebuild on every render.
+  const statusFilteredRestaurants = useMemo(
+    () => userRestaurants.filter((r) => r.status === friendStatusFilter),
+    [userRestaurants, friendStatusFilter],
+  );
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -540,9 +549,9 @@ export default function Friends() {
                               <Loader2 className="h-8 w-8 animate-spin text-primary" />
                             </div>
                           ) : mapboxToken ? (
-                            <FriendsMapComponent 
-                              token={mapboxToken} 
-                              restaurants={userRestaurants.filter(r => r.status === friendStatusFilter)} 
+                            <FriendsMapComponent
+                              token={mapboxToken}
+                              restaurants={statusFilteredRestaurants}
                               focusedRestaurantId={focusedRestaurantId}
                               onFocusRestaurant={setFocusedRestaurantId}
                               flyToRef={mapFlyToRef}
@@ -559,7 +568,7 @@ export default function Friends() {
 
                     {/* Restaurant list with search + folder filter */}
                     {(() => {
-                      const statusFiltered = userRestaurants.filter(r => r.status === friendStatusFilter);
+                      const statusFiltered = statusFilteredRestaurants;
                       const folderMap: Record<string, { name: string; color: string }> = {};
                       statusFiltered.forEach(r => {
                         if (r.folder?.name && !folderMap[r.folder.name]) {
@@ -696,24 +705,26 @@ function FriendsMapComponent({ token, restaurants, focusedRestaurantId, onFocusR
   const mapRef = useRef<any>(null);
   const markersRef = useRef<globalThis.Map<string, any>>(new globalThis.Map());
   const { center } = useMapCenter(restaurants);
+  // Capture only the center available at mount time; the map is created once
+  // and subsequently panned (see the effect below) rather than rebuilt every
+  // time `center` resolves to a new value (e.g. once GPS comes back).
+  const initialCenterRef = useRef(center);
 
   useEffect(() => {
     if (!mapContainer.current || !token) return;
+    let cancelled = false;
 
     const loadMapbox = async () => {
       const mapboxgl = (await import('mapbox-gl')).default;
       await import('mapbox-gl/dist/mapbox-gl.css');
+      if (cancelled) return;
 
       mapboxgl.accessToken = token;
-
-      if (mapRef.current) {
-        mapRef.current.remove();
-      }
 
       mapRef.current = new mapboxgl.Map({
         container: mapContainer.current!,
         style: 'mapbox://styles/mapbox/streets-v12',
-        center: [center.lng, center.lat],
+        center: [initialCenterRef.current.lng, initialCenterRef.current.lat],
         zoom: 11,
       });
 
@@ -738,13 +749,22 @@ function FriendsMapComponent({ token, restaurants, focusedRestaurantId, onFocusR
     loadMapbox();
 
     return () => {
+      cancelled = true;
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
       }
       flyToRef.current = null;
     };
-  }, [token, flyToRef, center]);
+    // Intentionally created once per token - see the pan effect below.
+  }, [token, flyToRef]);
+
+  // Pan the already-created map when the resolved center changes (e.g. GPS
+  // resolves shortly after mount) instead of tearing the whole map down.
+  useEffect(() => {
+    if (!mapRef.current) return;
+    mapRef.current.easeTo({ center: [center.lng, center.lat], duration: 600 });
+  }, [center]);
 
   useEffect(() => {
     if (!mapRef.current) return;
