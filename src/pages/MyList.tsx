@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMapCenter } from '@/hooks/useMapCenter';
 import { useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/layout/Navbar';
@@ -40,14 +41,37 @@ interface Folder {
   icon: string;
 }
 
+async function fetchMyRestaurants(userId: string): Promise<Restaurant[]> {
+  const { data, error } = await supabase
+    .from('restaurants')
+    .select(`
+      *,
+      folder:folders(name, color),
+      images:restaurant_images(image_url, id)
+    `)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+async function fetchMyFolders(userId: string): Promise<Folder[]> {
+  const { data, error } = await supabase.from('folders').select('*').eq('user_id', userId);
+  if (error) throw error;
+  return data || [];
+}
+
+async function fetchMapboxTokenValue(): Promise<string | null> {
+  const { data, error } = await supabase.functions.invoke('get-mapbox-token');
+  if (error) throw error;
+  return data?.token ?? null;
+}
+
 export default function MyList() {
   const { user, session, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [folders, setFolders] = useState<Folder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
-  const [mapboxLoading, setMapboxLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
@@ -65,79 +89,61 @@ export default function MyList() {
     }
   }, [user, authLoading, navigate]);
 
-  const fetchData = async () => {
-    if (!user) return;
-    setLoading(true);
-    
-    const { data: restaurantData, error } = await supabase
-      .from('restaurants')
-      .select(`
-        *,
-        folder:folders(name, color),
-        images:restaurant_images(image_url, id)
-      `)
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+  const { data: restaurants = [], isLoading: loading } = useQuery({
+    queryKey: ['restaurants', user?.id],
+    queryFn: () => fetchMyRestaurants(user!.id),
+    enabled: !!user,
+  });
 
-    if (error) {
-      console.error('Error fetching restaurants:', error);
-    } else {
-      setRestaurants(restaurantData || []);
-    }
+  const { data: folders = [] } = useQuery({
+    queryKey: ['folders', user?.id],
+    queryFn: () => fetchMyFolders(user!.id),
+    enabled: !!user,
+  });
 
-    const { data: folderData } = await supabase
-      .from('folders')
-      .select('*')
-      .eq('user_id', user.id);
-    
-    setFolders(folderData || []);
-    setLoading(false);
-  };
+  const { data: mapboxToken, isLoading: mapboxLoading } = useQuery({
+    queryKey: ['mapbox-token'],
+    queryFn: fetchMapboxTokenValue,
+    enabled: !!session,
+    staleTime: Infinity,
+    gcTime: Infinity,
+  });
 
-  useEffect(() => {
-    if (user) {
-      fetchData();
-    }
-  }, [user]);
-
-
-  useEffect(() => {
-    const fetchMapboxToken = async () => {
-      if (mapboxToken || !session) return;
-      
-      try {
-        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
-        if (!error && data?.token) {
-          setMapboxToken(data.token);
-        } else {
-          console.error('Mapbox token fetch error:', error);
-        }
-      } catch (err) {
-        console.error('Error fetching Mapbox token:', err);
-      } finally {
-        setMapboxLoading(false);
-      }
-    };
-    fetchMapboxToken();
-  }, [mapboxToken, session]);
+  const invalidateRestaurants = () =>
+    queryClient.invalidateQueries({ queryKey: ['restaurants', user?.id] });
+  const invalidateFolders = () =>
+    queryClient.invalidateQueries({ queryKey: ['folders', user?.id] });
 
   const priceFilter = selectedPriceLevel[0];
-  const filteredRestaurants = restaurants
-    .filter(r => !selectedFolder || r.folder_id === selectedFolder)
-    .filter(r => priceFilter === 0 || r.price_level === priceFilter)
-    .filter(r => {
-      if (!searchQuery.trim()) return true;
-      const q = searchQuery.toLowerCase();
-      return r.name.toLowerCase().includes(q) || r.address?.toLowerCase().includes(q);
-    })
-    .sort((a, b) => {
-      const folderA = a.folder?.name || '';
-      const folderB = b.folder?.name || '';
-      if (folderA !== folderB) return folderA.localeCompare(folderB);
-      return a.name.localeCompare(b.name);
-    });
-  const toGoList = filteredRestaurants.filter(r => r.status === 'to_go');
-  const wentToList = filteredRestaurants.filter(r => r.status === 'went_to');
+
+  // Memoized so the map below (which keys its GPS/marker effects off this
+  // array's reference) doesn't rebuild on every unrelated re-render.
+  const filteredRestaurants = useMemo(
+    () =>
+      restaurants
+        .filter((r) => !selectedFolder || r.folder_id === selectedFolder)
+        .filter((r) => priceFilter === 0 || r.price_level === priceFilter)
+        .filter((r) => {
+          if (!searchQuery.trim()) return true;
+          const q = searchQuery.toLowerCase();
+          return r.name.toLowerCase().includes(q) || r.address?.toLowerCase().includes(q);
+        })
+        .sort((a, b) => {
+          const folderA = a.folder?.name || '';
+          const folderB = b.folder?.name || '';
+          if (folderA !== folderB) return folderA.localeCompare(folderB);
+          return a.name.localeCompare(b.name);
+        }),
+    [restaurants, selectedFolder, priceFilter, searchQuery],
+  );
+  const toGoList = useMemo(
+    () => filteredRestaurants.filter((r) => r.status === 'to_go'),
+    [filteredRestaurants],
+  );
+  const wentToList = useMemo(
+    () => filteredRestaurants.filter((r) => r.status === 'went_to'),
+    [filteredRestaurants],
+  );
   const currentList = activeTab === 'to_go' ? toGoList : wentToList;
 
   const handleMarkVisited = async (restaurantId: string) => {
@@ -156,8 +162,7 @@ export default function MyList() {
       toast.error('Failed to update restaurant');
     } else {
       toast.success('Marked as been there! Add rating, comments & photos.');
-      // Update local list and open edit dialog so user can add rating/notes/photos
-      setRestaurants((prev) => prev.map((r) => (r.id === restaurantId ? (data as Restaurant) : r)));
+      invalidateRestaurants();
       setSelectedRestaurant(data as Restaurant);
       setEditDialogOpen(true);
     }
@@ -173,7 +178,7 @@ export default function MyList() {
       toast.error('Failed to delete restaurant');
     } else {
       toast.success('Restaurant deleted');
-      fetchData();
+      invalidateRestaurants();
     }
   };
 
@@ -235,7 +240,7 @@ export default function MyList() {
                     folders={folders}
                     selectedFolder={selectedFolder}
                     onSelectFolder={setSelectedFolder}
-                    onFoldersChange={fetchData}
+                    onFoldersChange={invalidateFolders}
                     restaurants={restaurants}
                     onRestaurantClick={handleRestaurantClick}
                   />
@@ -384,7 +389,7 @@ export default function MyList() {
         open={addDialogOpen}
         onOpenChange={setAddDialogOpen}
         folders={folders}
-        onSuccess={fetchData}
+        onSuccess={invalidateRestaurants}
       />
 
       <EditRestaurantDialog
@@ -392,7 +397,7 @@ export default function MyList() {
         onOpenChange={setEditDialogOpen}
         restaurant={selectedRestaurant}
         folders={folders}
-        onSuccess={fetchData}
+        onSuccess={invalidateRestaurants}
       />
     </div>
   );

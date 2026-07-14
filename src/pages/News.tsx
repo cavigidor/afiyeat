@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Navbar } from '@/components/layout/Navbar';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -40,14 +41,23 @@ const STATE_TO_CITY: Record<string, string> = {
 };
 const DEFAULT_CITY = 'chicago';
 
+async function fetchNewsFor(selectedCity: string): Promise<NewsItem[]> {
+  const { data, error } = await supabase
+    .from('news_items')
+    .select('*')
+    .eq('city', selectedCity)
+    .order('published_at', { ascending: false });
+
+  if (error) throw error;
+  return (data as NewsItem[]) || [];
+}
+
 export default function News() {
   // If the user has manually picked a city before, respect it. Otherwise we
   // detect from their location on mount.
   const [city, setCity] = useState<string>(() => {
     return localStorage.getItem('news_city_manual') || DEFAULT_CITY;
   });
-  const [items, setItems] = useState<NewsItem[]>([]);
-  const [loading, setLoading] = useState(true);
 
   // Detect default city from geolocation on first visit (no manual choice yet).
   useEffect(() => {
@@ -89,27 +99,16 @@ export default function News() {
     };
   }, []);
 
-  useEffect(() => {
-    fetchNews(city);
-  }, [city]);
+  const { data: items = [], isLoading: loading } = useQuery({
+    queryKey: ['news_items', city],
+    queryFn: () => fetchNewsFor(city),
+    staleTime: 5 * 60 * 1000, // news updates daily, no need to refetch aggressively
+  });
 
   const handleCityChange = (value: string) => {
     // A manual pick takes precedence over geolocation from now on.
     localStorage.setItem('news_city_manual', value);
     setCity(value);
-  };
-
-  const fetchNews = async (selectedCity: string) => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('news_items')
-      .select('*')
-      .eq('city', selectedCity)
-      .order('published_at', { ascending: false });
-    if (!error && data) {
-      setItems(data as NewsItem[]);
-    }
-    setLoading(false);
   };
 
 

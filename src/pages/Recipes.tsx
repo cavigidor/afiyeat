@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/layout/Navbar';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,11 +37,46 @@ export interface Recipe {
   } | null;
 }
 
+async function fetchRecipesFor(userId: string, activeTab: string): Promise<Recipe[]> {
+  let query = supabase
+    .from('recipes')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (activeTab === 'my-recipes') {
+    query = query.eq('user_id', userId);
+  } else {
+    query = query.eq('is_public', true);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  // Fetch profiles for each recipe
+  const recipesWithProfiles = await Promise.all(
+    (data || []).map(async (recipe) => {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('display_name, username, avatar_url')
+        .eq('user_id', recipe.user_id)
+        .maybeSingle();
+
+      return {
+        ...recipe,
+        ingredients: Array.isArray(recipe.ingredients) ? recipe.ingredients : [],
+        instructions: Array.isArray(recipe.instructions) ? recipe.instructions : [],
+        profile,
+      } as Recipe;
+    }),
+  );
+
+  return recipesWithProfiles;
+}
+
 export default function Recipes() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('discover');
   const [searchQuery, setSearchQuery] = useState('');
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -91,58 +127,17 @@ export default function Recipes() {
     }
   }, [user, authLoading, navigate]);
 
-  const fetchRecipes = async () => {
-    if (!user) return;
-    setLoading(true);
+  const {
+    data: recipes = [],
+    isLoading: loading,
+  } = useQuery({
+    queryKey: ['recipes', user?.id, activeTab],
+    queryFn: () => fetchRecipesFor(user!.id, activeTab),
+    enabled: !!user,
+  });
 
-    try {
-      let query = supabase
-        .from('recipes')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (activeTab === 'my-recipes') {
-        query = query.eq('user_id', user.id);
-      } else {
-        query = query.eq('is_public', true);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      // Fetch profiles for each recipe
-      const recipesWithProfiles = await Promise.all(
-        (data || []).map(async (recipe) => {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('display_name, username, avatar_url')
-            .eq('user_id', recipe.user_id)
-            .maybeSingle();
-          
-          return {
-            ...recipe,
-            ingredients: Array.isArray(recipe.ingredients) ? recipe.ingredients : [],
-            instructions: Array.isArray(recipe.instructions) ? recipe.instructions : [],
-            profile
-          } as Recipe;
-        })
-      );
-
-      setRecipes(recipesWithProfiles);
-    } catch (error) {
-      console.error('Error fetching recipes:', error);
-      toast.error('Failed to load recipes');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (user) {
-      fetchRecipes();
-    }
-  }, [user, activeTab]);
+  const invalidateRecipes = () =>
+    queryClient.invalidateQueries({ queryKey: ['recipes', user?.id] });
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from('recipes').delete().eq('id', id);
@@ -150,7 +145,7 @@ export default function Recipes() {
       toast.error('Failed to delete recipe');
     } else {
       toast.success('Recipe deleted');
-      fetchRecipes();
+      invalidateRecipes();
     }
   };
 
@@ -264,7 +259,7 @@ export default function Recipes() {
           setAddDialogOpen(open);
           if (!open) setScanInitialData(null);
         }}
-        onSuccess={fetchRecipes}
+        onSuccess={invalidateRecipes}
         initialData={scanInitialData}
       />
 
@@ -279,7 +274,7 @@ export default function Recipes() {
             setSelectedRecipe(null);
           }
         }}
-        onUpdate={fetchRecipes}
+        onUpdate={invalidateRecipes}
       />
     </div>
   );

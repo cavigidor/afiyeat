@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -32,14 +33,43 @@ interface Folder {
   color: string;
 }
 
+async function fetchFoldersFor(userId: string): Promise<Folder[]> {
+  const { data, error } = await supabase
+    .from('folders')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+  return data || [];
+}
+
+async function fetchRestaurantsFor(userId: string, folderId: string | null): Promise<Restaurant[]> {
+  let query = supabase
+    .from('restaurants')
+    .select(`
+      *,
+      folder:folders(name, color),
+      images:restaurant_images(image_url)
+    `)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (folderId) {
+    query = query.eq('folder_id', folderId);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [folders, setFolders] = useState<Folder[]>([]);
+  const queryClient = useQueryClient();
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('all');
-  const [loading, setLoading] = useState(true);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -48,56 +78,22 @@ export default function Dashboard() {
     }
   }, [user, authLoading, navigate]);
 
-  const fetchFolders = async () => {
-    if (!user) return;
-    
-    const { data, error } = await supabase
-      .from('folders')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: true });
+  const { data: folders = [] } = useQuery({
+    queryKey: ['folders', user?.id],
+    queryFn: () => fetchFoldersFor(user!.id),
+    enabled: !!user,
+  });
 
-    if (error) {
-      console.error('Error fetching folders:', error);
-    } else {
-      setFolders(data || []);
-    }
-  };
+  const { data: restaurants = [], isLoading: loading } = useQuery({
+    queryKey: ['restaurants', user?.id, selectedFolder],
+    queryFn: () => fetchRestaurantsFor(user!.id, selectedFolder),
+    enabled: !!user,
+  });
 
-  const fetchRestaurants = async () => {
-    if (!user) return;
-    
-    setLoading(true);
-    let query = supabase
-      .from('restaurants')
-      .select(`
-        *,
-        folder:folders(name, color),
-        images:restaurant_images(image_url)
-      `)
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-
-    if (selectedFolder) {
-      query = query.eq('folder_id', selectedFolder);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error('Error fetching restaurants:', error);
-    } else {
-      setRestaurants(data || []);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    if (user) {
-      fetchFolders();
-      fetchRestaurants();
-    }
-  }, [user, selectedFolder]);
+  const invalidateRestaurants = () =>
+    queryClient.invalidateQueries({ queryKey: ['restaurants', user?.id] });
+  const invalidateFolders = () =>
+    queryClient.invalidateQueries({ queryKey: ['folders', user?.id] });
 
   const handleMarkVisited = async (id: string) => {
     const { error } = await supabase
@@ -109,7 +105,7 @@ export default function Dashboard() {
       toast.error('Failed to update restaurant');
     } else {
       toast.success('Marked as been there!');
-      fetchRestaurants();
+      invalidateRestaurants();
     }
   };
 
@@ -120,7 +116,7 @@ export default function Dashboard() {
       toast.error('Failed to delete restaurant');
     } else {
       toast.success('Restaurant deleted');
-      fetchRestaurants();
+      invalidateRestaurants();
     }
   };
 
@@ -171,7 +167,7 @@ export default function Dashboard() {
                 folders={folders}
                 selectedFolder={selectedFolder}
                 onSelectFolder={setSelectedFolder}
-                onFoldersChange={fetchFolders}
+                onFoldersChange={invalidateFolders}
               />
 
             </div>
@@ -248,7 +244,7 @@ export default function Dashboard() {
         open={addDialogOpen}
         onOpenChange={setAddDialogOpen}
         folders={folders}
-        onSuccess={fetchRestaurants}
+        onSuccess={invalidateRestaurants}
       />
 
     </div>

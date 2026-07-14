@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/button';
@@ -33,26 +34,113 @@ interface Follow {
   profiles: Profile;
 }
 
+async function fetchFollowingFor(userId: string): Promise<Profile[]> {
+  const { data: followsData, error: followsError } = await supabase
+    .from('follows')
+    .select('following_id')
+    .eq('follower_id', userId)
+    .eq('status', 'accepted');
+
+  if (followsError) throw followsError;
+  if (!followsData || followsData.length === 0) return [];
+
+  const followingIds = followsData.map((f) => f.following_id);
+  const { data: profilesData, error: profilesError } = await supabase
+    .from('profiles')
+    .select('id, user_id, username, display_name, avatar_url')
+    .in('user_id', followingIds);
+
+  if (profilesError) throw profilesError;
+  return profilesData || [];
+}
+
+async function fetchSuggestedFor(userId: string): Promise<SuggestedProfile[]> {
+  const { data: publicProfiles, error: profilesError } = await supabase
+    .from('profiles')
+    .select('id, user_id, username, display_name, avatar_url')
+    .eq('is_private', false)
+    .neq('user_id', userId);
+
+  if (profilesError) throw profilesError;
+  if (!publicProfiles || publicProfiles.length === 0) return [];
+
+  const profilesWithCounts: SuggestedProfile[] = [];
+  for (const profile of publicProfiles) {
+    const { count } = await supabase
+      .from('follows')
+      .select('*', { count: 'exact', head: true })
+      .eq('following_id', profile.user_id)
+      .eq('status', 'accepted');
+
+    profilesWithCounts.push({ ...profile, follower_count: count || 0 });
+  }
+
+  profilesWithCounts.sort((a, b) => b.follower_count - a.follower_count);
+  return profilesWithCounts.slice(0, 5);
+}
+
+async function fetchMapboxTokenValue(): Promise<string | null> {
+  const { data, error } = await supabase.functions.invoke('get-mapbox-token');
+  if (error) throw error;
+  return data?.token ?? null;
+}
+
+async function fetchUserRestaurantsFor(profileUserId: string): Promise<any[]> {
+  const { data, error } = await supabase
+    .from('restaurants')
+    .select(`
+      *,
+      folder:folders(name, color),
+      images:restaurant_images(image_url)
+    `)
+    .eq('user_id', profileUserId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
 export default function Friends() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [topTab, setTopTab] = useState<'discover' | 'shared'>('discover');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
-  const [following, setFollowing] = useState<Profile[]>([]);
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
-  const [userRestaurants, setUserRestaurants] = useState<any[]>([]);
   const [friendStatusFilter, setFriendStatusFilter] = useState<'went_to' | 'to_go'>('went_to');
   const [friendListSearch, setFriendListSearch] = useState('');
   const [friendSelectedFolder, setFriendSelectedFolder] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [suggested, setSuggested] = useState<SuggestedProfile[]>([]);
-  const [suggestedLoading, setSuggestedLoading] = useState(true);
-  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
-  const [mapboxLoading, setMapboxLoading] = useState(true);
   const [focusedRestaurantId, setFocusedRestaurantId] = useState<string | null>(null);
   const mapFlyToRef = useRef<((lat: number, lng: number, restaurantId: string) => void) | null>(null);
+
+  const { data: following = [] } = useQuery({
+    queryKey: ['following', user?.id],
+    queryFn: () => fetchFollowingFor(user!.id),
+    enabled: !!user,
+  });
+
+  const { data: suggested = [], isLoading: suggestedLoading } = useQuery({
+    queryKey: ['suggested', user?.id],
+    queryFn: () => fetchSuggestedFor(user!.id),
+    enabled: !!user,
+  });
+
+  // Doesn't change per-user - keep it around indefinitely instead of
+  // re-fetching a fresh Mapbox token every time this page mounts.
+  const { data: mapboxToken, isLoading: mapboxLoading } = useQuery({
+    queryKey: ['mapbox-token'],
+    queryFn: fetchMapboxTokenValue,
+    staleTime: Infinity,
+    gcTime: Infinity,
+  });
+
+  const { data: userRestaurants = [], isLoading: loading } = useQuery({
+    queryKey: ['user-restaurants', selectedUser?.user_id],
+    queryFn: () => fetchUserRestaurantsFor(selectedUser!.user_id),
+    enabled: !!selectedUser,
+  });
 
   // Stable array reference across re-renders (as long as the underlying data
   // hasn't changed) - the map component below re-inits its GPS lookup and
@@ -69,108 +157,8 @@ export default function Friends() {
     }
   }, [user, authLoading, navigate]);
 
-  const fetchFollowing = async () => {
-    if (!user) return;
-
-    // Get follows with accepted status
-    const { data: followsData, error: followsError } = await supabase
-      .from('follows')
-      .select('following_id')
-      .eq('follower_id', user.id)
-      .eq('status', 'accepted');
-
-    if (followsError) {
-      console.error('Error fetching follows:', followsError);
-      return;
-    }
-
-    if (!followsData || followsData.length === 0) {
-      setFollowing([]);
-      return;
-    }
-
-    // Get profiles for followed users
-    const followingIds = followsData.map((f) => f.following_id);
-    const { data: profilesData, error: profilesError } = await supabase
-      .from('profiles')
-      .select('id, user_id, username, display_name, avatar_url')
-      .in('user_id', followingIds);
-
-    if (profilesError) {
-      console.error('Error fetching profiles:', profilesError);
-    } else {
-      setFollowing(profilesData || []);
-    }
-  };
-
-  const fetchSuggested = async () => {
-    if (!user) return;
-    setSuggestedLoading(true);
-
-    // Get public profiles
-    const { data: publicProfiles, error: profilesError } = await supabase
-      .from('profiles')
-      .select('id, user_id, username, display_name, avatar_url')
-      .eq('is_private', false)
-      .neq('user_id', user.id);
-
-    if (profilesError) {
-      console.error('Error fetching public profiles:', profilesError);
-      setSuggestedLoading(false);
-      return;
-    }
-
-    if (!publicProfiles || publicProfiles.length === 0) {
-      setSuggested([]);
-      setSuggestedLoading(false);
-      return;
-    }
-
-    // Get follower counts for each profile
-    const profilesWithCounts: SuggestedProfile[] = [];
-    for (const profile of publicProfiles) {
-      const { count } = await supabase
-        .from('follows')
-        .select('*', { count: 'exact', head: true })
-        .eq('following_id', profile.user_id)
-        .eq('status', 'accepted');
-
-      profilesWithCounts.push({
-        ...profile,
-        follower_count: count || 0,
-      });
-    }
-
-    // Sort by follower count and take top 5
-    profilesWithCounts.sort((a, b) => b.follower_count - a.follower_count);
-    setSuggested(profilesWithCounts.slice(0, 5));
-    setSuggestedLoading(false);
-  };
-
-  useEffect(() => {
-    if (user) {
-      fetchFollowing();
-      fetchSuggested();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    const fetchMapboxToken = async () => {
-      if (mapboxToken) return;
-      
-      try {
-        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
-        if (!error && data?.token) {
-          setMapboxToken(data.token);
-        }
-      } catch (err) {
-        console.error('Error fetching Mapbox token:', err);
-      } finally {
-        setMapboxLoading(false);
-      }
-    };
-    fetchMapboxToken();
-  }, [mapboxToken]);
+  const invalidateFollowing = () =>
+    queryClient.invalidateQueries({ queryKey: ['following', user?.id] });
 
   const handleRestaurantClick = (restaurant: any) => {
     if (restaurant.latitude && restaurant.longitude) {
@@ -216,7 +204,7 @@ export default function Friends() {
       }
     } else {
       toast.success('Now following!');
-      fetchFollowing();
+      invalidateFollowing();
     }
   };
 
@@ -233,10 +221,9 @@ export default function Friends() {
       toast.error('Failed to unfollow user');
     } else {
       toast.success('Unfollowed');
-      fetchFollowing();
+      invalidateFollowing();
       if (selectedUser?.user_id === profileUserId) {
         setSelectedUser(null);
-        setUserRestaurants([]);
       }
     }
   };
@@ -245,26 +232,8 @@ export default function Friends() {
     return following.some((f) => f.user_id === profileUserId);
   };
 
-  const viewUserRestaurants = async (profile: Profile) => {
+  const viewUserRestaurants = (profile: Profile) => {
     setSelectedUser(profile);
-    setLoading(true);
-
-    const { data, error } = await supabase
-      .from('restaurants')
-      .select(`
-        *,
-        folder:folders(name, color),
-        images:restaurant_images(image_url)
-      `)
-      .eq('user_id', profile.user_id)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching user restaurants:', error);
-    } else {
-      setUserRestaurants(data || []);
-    }
-    setLoading(false);
   };
 
   if (authLoading) {
@@ -408,8 +377,9 @@ export default function Friends() {
                             size="sm"
                             onClick={() => {
                               handleFollow(profile.user_id);
-                              setSuggested((prev) =>
-                                prev.filter((p) => p.user_id !== profile.user_id)
+                              queryClient.setQueryData<SuggestedProfile[]>(
+                                ['suggested', user?.id],
+                                (prev) => prev?.filter((p) => p.user_id !== profile.user_id),
                               );
                             }}
                           >

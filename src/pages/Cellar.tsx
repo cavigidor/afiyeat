@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/button';
@@ -21,11 +22,21 @@ interface CellarItem {
   created_at: string;
 }
 
+async function fetchCellarItems(userId: string): Promise<CellarItem[]> {
+  const { data, error } = await supabase
+    .from('cellar_items')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
 export default function Cellar() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [items, setItems] = useState<CellarItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'beer' | 'wine'>('beer');
 
@@ -35,26 +46,14 @@ export default function Cellar() {
     }
   }, [user, authLoading, navigate]);
 
-  const fetchItems = async () => {
-    if (!user) return;
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('cellar_items')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+  const { data: items = [], isLoading: loading } = useQuery({
+    queryKey: ['cellar_items', user?.id],
+    queryFn: () => fetchCellarItems(user!.id),
+    enabled: !!user,
+  });
 
-    if (error) {
-      console.error('Error fetching cellar items:', error);
-    } else {
-      setItems(data || []);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    if (user) fetchItems();
-  }, [user]);
+  const invalidateItems = () =>
+    queryClient.invalidateQueries({ queryKey: ['cellar_items', user?.id] });
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from('cellar_items').delete().eq('id', id);
@@ -62,7 +61,7 @@ export default function Cellar() {
       toast.error('Failed to delete');
     } else {
       toast.success('Removed from cellar');
-      fetchItems();
+      invalidateItems();
     }
   };
 
@@ -120,7 +119,7 @@ export default function Cellar() {
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                     {beerItems.map(item => (
-                      <CellarItemCard key={item.id} item={item} onDelete={handleDelete} onUpdate={fetchItems} />
+                      <CellarItemCard key={item.id} item={item} onDelete={handleDelete} onUpdate={invalidateItems} />
                     ))}
                   </div>
                 )}
@@ -139,7 +138,7 @@ export default function Cellar() {
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                     {wineItems.map(item => (
-                      <CellarItemCard key={item.id} item={item} onDelete={handleDelete} onUpdate={fetchItems} />
+                      <CellarItemCard key={item.id} item={item} onDelete={handleDelete} onUpdate={invalidateItems} />
                     ))}
                   </div>
                 )}
@@ -149,7 +148,7 @@ export default function Cellar() {
         </Card>
       </main>
 
-      <AddCellarItemDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} onSuccess={fetchItems} drinkType={activeTab} />
+      <AddCellarItemDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} onSuccess={invalidateItems} drinkType={activeTab} />
     </div>
   );
 }

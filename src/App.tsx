@@ -23,7 +23,19 @@ import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import ResetPassword from "./pages/ResetPassword";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Data doesn't need to be refetched every single time a component
+      // remounts (e.g. switching tabs) - treat it as fresh for a minute so
+      // navigation shows cached data instantly instead of a full spinner.
+      staleTime: 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 const App = () => {
   useEffect(() => {

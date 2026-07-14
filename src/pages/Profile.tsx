@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -66,24 +67,109 @@ interface PendingRequest {
   profile: FollowUser;
 }
 
+async function fetchProfileFor(userId: string): Promise<ProfileData> {
+  const { data, error } = await supabase.from('profiles').select('*').eq('user_id', userId).single();
+  if (error) throw error;
+  return data;
+}
+
+async function fetchStatsFor(userId: string) {
+  const [restaurantsRes, followingRes, followersRes, pendingRes] = await Promise.all([
+    supabase.from('restaurants').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+    supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', userId).eq('status', 'accepted'),
+    supabase.from('follows').select('id', { count: 'exact', head: true }).eq('following_id', userId).eq('status', 'accepted'),
+    supabase.from('follows').select('id', { count: 'exact', head: true }).eq('following_id', userId).eq('status', 'pending'),
+  ]);
+
+  return {
+    restaurants: restaurantsRes.count || 0,
+    following: followingRes.count || 0,
+    followers: followersRes.count || 0,
+    pending: pendingRes.count || 0,
+  };
+}
+
+async function fetchPendingRequestsFor(userId: string): Promise<PendingRequest[]> {
+  const { data, error } = await supabase
+    .from('follows')
+    .select('id, follower_id')
+    .eq('following_id', userId)
+    .eq('status', 'pending');
+
+  if (error) throw error;
+  if (!data || data.length === 0) return [];
+
+  const followerIds = data.map((f) => f.follower_id);
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, user_id, username, display_name, avatar_url')
+    .in('user_id', followerIds);
+
+  return data
+    .map((follow) => ({
+      id: follow.id,
+      follower_id: follow.follower_id,
+      profile: profiles?.find((p) => p.user_id === follow.follower_id) as FollowUser,
+    }))
+    .filter((r) => r.profile);
+}
+
+async function fetchFollowersFor(userId: string): Promise<FollowUser[]> {
+  const { data: followsData, error } = await supabase
+    .from('follows')
+    .select('follower_id')
+    .eq('following_id', userId)
+    .eq('status', 'accepted');
+
+  if (error) throw error;
+  if (!followsData || followsData.length === 0) return [];
+
+  const followerIds = followsData.map((f) => f.follower_id);
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, user_id, username, display_name, avatar_url')
+    .in('user_id', followerIds);
+
+  return profiles || [];
+}
+
+async function fetchFollowingListFor(userId: string): Promise<FollowUser[]> {
+  const { data: followsData, error } = await supabase
+    .from('follows')
+    .select('following_id')
+    .eq('follower_id', userId)
+    .eq('status', 'accepted');
+
+  if (error) throw error;
+  if (!followsData || followsData.length === 0) return [];
+
+  const followingIds = followsData.map((f) => f.following_id);
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, user_id, username, display_name, avatar_url')
+    .in('user_id', followingIds);
+
+  return profiles || [];
+}
+
 export default function Profile() {
   const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
-  const [profile, setProfile] = useState<ProfileData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [stats, setStats] = useState({ restaurants: 0, following: 0, followers: 0 });
   const [followersDialogOpen, setFollowersDialogOpen] = useState(false);
   const [followingDialogOpen, setFollowingDialogOpen] = useState(false);
   const [requestsDialogOpen, setRequestsDialogOpen] = useState(false);
-  const [followers, setFollowers] = useState<FollowUser[]>([]);
-  const [following, setFollowing] = useState<FollowUser[]>([]);
-  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
-  const [loadingList, setLoadingList] = useState(false);
   const [cropperFile, setCropperFile] = useState<File | null>(null);
   const [cropperOpen, setCropperOpen] = useState(false);
-  
+
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ['profile', user?.id],
+    queryFn: () => fetchProfileFor(user!.id),
+    enabled: !!user,
+  });
+
   // Use signed URL for avatar
   const { signedUrl: avatarSignedUrl } = useSignedImageUrl(profile?.avatar_url);
 
@@ -97,156 +183,50 @@ export default function Profile() {
     },
   });
 
+  // Sync the form once the profile loads (or changes underneath us).
+  useEffect(() => {
+    if (profile) {
+      form.reset({
+        username: profile.username || '',
+        display_name: profile.display_name || '',
+        bio: profile.bio || '',
+        is_private: profile.is_private || false,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile]);
+
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/auth');
     }
   }, [user, authLoading, navigate]);
 
-  const fetchProfile = async () => {
-    if (!user) return;
+  const { data: stats = { restaurants: 0, following: 0, followers: 0, pending: 0 } } = useQuery({
+    queryKey: ['profile-stats', user?.id],
+    queryFn: () => fetchStatsFor(user!.id),
+    enabled: !!user,
+  });
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', user.id)
-      .single();
+  const { data: pendingRequests = [] } = useQuery({
+    queryKey: ['pending-requests', user?.id],
+    queryFn: () => fetchPendingRequestsFor(user!.id),
+    enabled: !!user && stats.pending > 0,
+  });
 
-    if (error) {
-      console.error('Error fetching profile:', error);
-    } else {
-      setProfile(data);
-      form.reset({
-        username: data.username || '',
-        display_name: data.display_name || '',
-        bio: data.bio || '',
-        is_private: data.is_private || false,
-      });
-    }
-    setLoading(false);
-  };
+  const { data: followers = [], isLoading: followersLoading } = useQuery({
+    queryKey: ['followers', user?.id],
+    queryFn: () => fetchFollowersFor(user!.id),
+    enabled: !!user && followersDialogOpen,
+  });
 
-  const fetchStats = async () => {
-    if (!user) return;
+  const { data: following = [], isLoading: followingLoading } = useQuery({
+    queryKey: ['following', user?.id],
+    queryFn: () => fetchFollowingListFor(user!.id),
+    enabled: !!user && followingDialogOpen,
+  });
 
-    const [restaurantsRes, followingRes, followersRes, pendingRes] = await Promise.all([
-      supabase.from('restaurants').select('id', { count: 'exact' }).eq('user_id', user.id),
-      supabase.from('follows').select('id', { count: 'exact' }).eq('follower_id', user.id).eq('status', 'accepted'),
-      supabase.from('follows').select('id', { count: 'exact' }).eq('following_id', user.id).eq('status', 'accepted'),
-      supabase.from('follows').select('id', { count: 'exact' }).eq('following_id', user.id).eq('status', 'pending'),
-    ]);
-
-    setStats({
-      restaurants: restaurantsRes.count || 0,
-      following: followingRes.count || 0,
-      followers: followersRes.count || 0,
-    });
-
-    // Fetch pending requests if any
-    if ((pendingRes.count || 0) > 0) {
-      fetchPendingRequests();
-    }
-  };
-
-  const fetchPendingRequests = async () => {
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from('follows')
-      .select('id, follower_id')
-      .eq('following_id', user.id)
-      .eq('status', 'pending');
-
-    if (error) {
-      console.error('Error fetching pending requests:', error);
-      return;
-    }
-
-    if (data && data.length > 0) {
-      const followerIds = data.map(f => f.follower_id);
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, user_id, username, display_name, avatar_url')
-        .in('user_id', followerIds);
-
-      const requests = data.map(follow => ({
-        id: follow.id,
-        follower_id: follow.follower_id,
-        profile: profiles?.find(p => p.user_id === follow.follower_id) as FollowUser,
-      })).filter(r => r.profile);
-
-      setPendingRequests(requests);
-    } else {
-      setPendingRequests([]);
-    }
-  };
-
-  const fetchFollowers = async () => {
-    if (!user) return;
-    setLoadingList(true);
-
-    const { data: followsData, error } = await supabase
-      .from('follows')
-      .select('follower_id')
-      .eq('following_id', user.id)
-      .eq('status', 'accepted');
-
-    if (error) {
-      console.error('Error fetching followers:', error);
-      setLoadingList(false);
-      return;
-    }
-
-    if (followsData && followsData.length > 0) {
-      const followerIds = followsData.map(f => f.follower_id);
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, user_id, username, display_name, avatar_url')
-        .in('user_id', followerIds);
-
-      setFollowers(profiles || []);
-    } else {
-      setFollowers([]);
-    }
-    setLoadingList(false);
-  };
-
-  const fetchFollowing = async () => {
-    if (!user) return;
-    setLoadingList(true);
-
-    const { data: followsData, error } = await supabase
-      .from('follows')
-      .select('following_id')
-      .eq('follower_id', user.id)
-      .eq('status', 'accepted');
-
-    if (error) {
-      console.error('Error fetching following:', error);
-      setLoadingList(false);
-      return;
-    }
-
-    if (followsData && followsData.length > 0) {
-      const followingIds = followsData.map(f => f.following_id);
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, user_id, username, display_name, avatar_url')
-        .in('user_id', followingIds);
-
-      setFollowing(profiles || []);
-    } else {
-      setFollowing([]);
-    }
-    setLoadingList(false);
-  };
-
-  useEffect(() => {
-    if (user) {
-      fetchProfile();
-      fetchStats();
-    }
-  }, [user]);
+  const invalidate = (key: string) => queryClient.invalidateQueries({ queryKey: [key, user?.id] });
 
   const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -285,7 +265,9 @@ export default function Profile() {
 
       if (updateError) throw updateError;
 
-      setProfile({ ...profile, avatar_url: storagePath });
+      queryClient.setQueryData<ProfileData>(['profile', user?.id], (prev) =>
+        prev ? { ...prev, avatar_url: storagePath } : prev,
+      );
       setCropperOpen(false);
       toast.success('Avatar updated!');
     } catch (error: any) {
@@ -316,7 +298,17 @@ export default function Profile() {
         toast.error(error.message || 'Failed to update profile');
       }
     } else {
-      setProfile({ ...profile, is_private: values.is_private });
+      queryClient.setQueryData<ProfileData>(['profile', user?.id], (prev) =>
+        prev
+          ? {
+              ...prev,
+              username: values.username,
+              display_name: values.display_name || null,
+              bio: values.bio || null,
+              is_private: values.is_private,
+            }
+          : prev,
+      );
       toast.success('Profile updated!');
     }
     setSaving(false);
@@ -332,8 +324,8 @@ export default function Profile() {
       toast.error('Failed to accept request');
     } else {
       toast.success('Request accepted!');
-      fetchPendingRequests();
-      fetchStats();
+      invalidate('pending-requests');
+      invalidate('profile-stats');
     }
   };
 
@@ -347,7 +339,7 @@ export default function Profile() {
       toast.error('Failed to reject request');
     } else {
       toast.success('Request rejected');
-      fetchPendingRequests();
+      invalidate('pending-requests');
     }
   };
 
@@ -364,8 +356,8 @@ export default function Profile() {
       toast.error('Failed to remove follower');
     } else {
       toast.success('Follower removed');
-      fetchFollowers();
-      fetchStats();
+      invalidate('followers');
+      invalidate('profile-stats');
     }
   };
 
@@ -382,12 +374,12 @@ export default function Profile() {
       toast.error('Failed to unfollow');
     } else {
       toast.success('Unfollowed');
-      fetchFollowing();
-      fetchStats();
+      invalidate('following');
+      invalidate('profile-stats');
     }
   };
 
-  if (authLoading || loading) {
+  if (authLoading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -453,20 +445,14 @@ export default function Profile() {
                 </div>
                 <button
                   className="text-center hover:opacity-80 transition-opacity"
-                  onClick={() => {
-                    fetchFollowing();
-                    setFollowingDialogOpen(true);
-                  }}
+                  onClick={() => setFollowingDialogOpen(true)}
                 >
                   <div className="text-xl sm:text-2xl font-bold">{stats.following}</div>
                   <div className="text-xs sm:text-sm text-muted-foreground">Following</div>
                 </button>
                 <button
                   className="text-center hover:opacity-80 transition-opacity"
-                  onClick={() => {
-                    fetchFollowers();
-                    setFollowersDialogOpen(true);
-                  }}
+                  onClick={() => setFollowersDialogOpen(true)}
                 >
                   <div className="text-xl sm:text-2xl font-bold">{stats.followers}</div>
                   <div className="text-xs sm:text-sm text-muted-foreground">Followers</div>
@@ -576,7 +562,7 @@ export default function Profile() {
             <DialogTitle>Followers</DialogTitle>
           </DialogHeader>
           <div className="max-h-[400px] overflow-y-auto">
-            {loadingList ? (
+            {followersLoading ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>
@@ -620,7 +606,7 @@ export default function Profile() {
             <DialogTitle>Following</DialogTitle>
           </DialogHeader>
           <div className="max-h-[400px] overflow-y-auto">
-            {loadingList ? (
+            {followingLoading ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>
