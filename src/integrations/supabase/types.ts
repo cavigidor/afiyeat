@@ -50,6 +50,33 @@ export type Database = {
         }
         Relationships: []
       }
+      device_tokens: {
+        Row: {
+          created_at: string
+          id: string
+          platform: string
+          token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          platform?: string
+          token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          platform?: string
+          token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       email_otp: {
         Row: {
           code: string
@@ -80,6 +107,21 @@ export type Database = {
           locked_until?: string | null
           verification_attempts?: number | null
           verified?: boolean
+        }
+        Relationships: []
+      }
+      engagement_reminders: {
+        Row: {
+          last_sent_at: string
+          user_id: string
+        }
+        Insert: {
+          last_sent_at?: string
+          user_id: string
+        }
+        Update: {
+          last_sent_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -510,6 +552,17 @@ export type Database = {
         Args: { _list_id: string; _user_id: string }
         Returns: boolean
       }
+      notify_user: {
+        Args: {
+          p_body: string
+          p_data?: Json
+          p_title: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      send_inactivity_reminders: { Args: never; Returns: undefined }
+      send_weekly_digest: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
