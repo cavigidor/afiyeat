@@ -146,6 +146,14 @@ export function AddRestaurantDialog({
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<PlaceResult[]>([]);
+  // Metadata for the selected place, used to dedupe/aggregate this entry
+  // with other users' entries for the same place on the Explore map. Not
+  // shown in the form UI, so it's tracked separately rather than as a
+  // react-hook-form field.
+  const [selectedPlaceMeta, setSelectedPlaceMeta] = useState<{
+    placeId: string | null;
+    category: string | null;
+  }>({ placeId: null, category: null });
   const [searching, setSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -241,20 +249,22 @@ export function AddRestaurantDialog({
     setSearchQuery(place.name);
     setShowResults(false);
     setSearchResults([]);
-    
+    setSelectedPlaceMeta({ placeId: place.mapboxId || null, category: place.category });
+
     if (place.mapboxId && (place.latitude === null || place.longitude === null)) {
       try {
         const { data, error } = await supabase.functions.invoke('place-retrieve', {
           body: { mapboxId: place.mapboxId, sessionToken },
         });
-        
+
         if (error) throw error;
-        
+
         const result = data.result;
         form.setValue('name', result.name);
         form.setValue('address', result.address);
         form.setValue('latitude', result.latitude);
         form.setValue('longitude', result.longitude);
+        setSelectedPlaceMeta({ placeId: result.id || place.mapboxId || null, category: result.category ?? place.category });
       } catch (error) {
         console.error('Retrieve error:', error);
         form.setValue('name', place.name);
@@ -331,6 +341,8 @@ export function AddRestaurantDialog({
           notes: submitValues.notes || null,
           status: submitValues.status,
           folder_id: folderId,
+          place_id: selectedPlaceMeta.placeId,
+          category: selectedPlaceMeta.category,
           rating: submitValues.rating,
           price_level: submitValues.price_level,
           visited_at: submitValues.status === 'went_to' ? new Date().toISOString() : null,
@@ -370,6 +382,7 @@ export function AddRestaurantDialog({
       setImages([]);
       setImagePreviews([]);
       setSearchQuery('');
+      setSelectedPlaceMeta({ placeId: null, category: null });
       onOpenChange(false);
       onSuccess();
     } catch (error: any) {
@@ -387,6 +400,7 @@ export function AddRestaurantDialog({
       setImagePreviews([]);
       setSearchQuery('');
       setSearchResults([]);
+      setSelectedPlaceMeta({ placeId: null, category: null });
     }
   }, [open, form]);
 
