@@ -12,6 +12,8 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Friends from "./pages/Friends";
 import Search from "./pages/Search";
+import Explore from "./pages/Explore";
+import PublicProfile from "./pages/PublicProfile";
 
 import MyList from "./pages/MyList";
 import News from "./pages/News";
@@ -56,6 +58,8 @@ const App = () => {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/friends" element={<Friends />} />
             <Route path="/search" element={<Search />} />
+            <Route path="/explore" element={<Explore />} />
+            <Route path="/u/:userId" element={<PublicProfile />} />
 
             <Route path="/news" element={<News />} />
             <Route path="/my-list" element={<MyList />} />
