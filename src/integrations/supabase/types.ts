@@ -560,28 +560,28 @@ export type Database = {
       get_explore_places: {
         Args: { p_mode?: string }
         Returns: {
-          place_id: string
-          name: string
-          address: string | null
-          latitude: number | null
-          longitude: number | null
-          category: string | null
-          price_level: number | null
-          avg_rating: number | null
-          rating_count: number
+          address: string
+          avg_rating: number
+          category: string
           contributor_count: number
+          latitude: number
+          longitude: number
+          name: string
+          place_id: string
+          price_level: number
+          rating_count: number
         }[]
       }
       get_place_comments: {
-        Args: { p_place_id: string; p_mode?: string }
+        Args: { p_mode?: string; p_place_id: string }
         Returns: {
-          user_id: string
-          username: string | null
-          display_name: string | null
-          avatar_url: string | null
-          rating: number | null
-          notes: string | null
+          avatar_url: string
           created_at: string
+          display_name: string
+          notes: string
+          rating: number
+          user_id: string
+          username: string
         }[]
       }
       is_shared_list_member: {
