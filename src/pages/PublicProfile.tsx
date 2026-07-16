@@ -6,6 +6,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RestaurantCard } from '@/components/restaurants/RestaurantCard';
+import { RestaurantListRow } from '@/components/restaurants/RestaurantListRow';
+import { RestaurantDetailDialog, type DetailRestaurant } from '@/components/restaurants/RestaurantDetailDialog';
+import { RestaurantListToolbar } from '@/components/restaurants/RestaurantListToolbar';
+import { useRestaurantListControls } from '@/hooks/useRestaurantListControls';
+import { useViewMode } from '@/hooks/useViewMode';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, UserPlus, UserMinus, Lock, ArrowLeft, Check, Clock } from 'lucide-react';
@@ -125,7 +130,11 @@ export default function PublicProfile() {
     }
   };
 
-  const filteredRestaurants = restaurants.filter((r) => r.status === statusFilter);
+  const statusFilteredRestaurants = restaurants.filter((r) => r.status === statusFilter);
+  const { typeFilter, setTypeFilter, sortBy, setSortBy, availableTypes, filteredSorted: filteredRestaurants } =
+    useRestaurantListControls(statusFilteredRestaurants);
+  const [viewMode, setViewMode] = useViewMode('public-profile');
+  const [detailRestaurant, setDetailRestaurant] = useState<DetailRestaurant | null>(null);
 
   if (authLoading || profileLoading) {
     return (
@@ -215,22 +224,48 @@ export default function PublicProfile() {
           </div>
         ) : (
           <div className="space-y-4">
-            <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'went_to' | 'to_go')}>
-              <TabsList>
-                <TabsTrigger value="went_to" className="gap-1.5">
-                  <Check className="h-3.5 w-3.5" /> Been There
-                </TabsTrigger>
-                <TabsTrigger value="to_go" className="gap-1.5">
-                  <Clock className="h-3.5 w-3.5" /> To Go
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'went_to' | 'to_go')}>
+                <TabsList>
+                  <TabsTrigger value="went_to" className="gap-1.5">
+                    <Check className="h-3.5 w-3.5" /> Been There
+                  </TabsTrigger>
+                  <TabsTrigger value="to_go" className="gap-1.5">
+                    <Clock className="h-3.5 w-3.5" /> To Go
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+
+              <RestaurantListToolbar
+                availableTypes={availableTypes}
+                typeFilter={typeFilter}
+                onTypeFilterChange={setTypeFilter}
+                sortBy={sortBy}
+                onSortByChange={setSortBy}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+              />
+            </div>
 
             {filteredRestaurants.length === 0 ? (
               <div className="text-center py-12 bg-card rounded-xl">
                 <p className="text-muted-foreground">
-                  {statusFilter === 'went_to' ? 'No places marked as Been There yet' : 'No places on their To Go list'}
+                  {statusFilteredRestaurants.length === 0
+                    ? statusFilter === 'went_to'
+                      ? 'No places marked as Been There yet'
+                      : 'No places on their To Go list'
+                    : 'No restaurants match your filters'}
                 </p>
+              </div>
+            ) : viewMode === 'list' ? (
+              <div className="space-y-2">
+                {filteredRestaurants.map((restaurant) => (
+                  <RestaurantListRow
+                    key={restaurant.id}
+                    restaurant={restaurant}
+                    onOpenDetail={() => setDetailRestaurant(restaurant)}
+                  />
+                ))}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -242,6 +277,11 @@ export default function PublicProfile() {
           </div>
         )}
       </main>
+
+      <RestaurantDetailDialog
+        restaurant={detailRestaurant}
+        onOpenChange={(open) => !open && setDetailRestaurant(null)}
+      />
     </div>
   );
 }

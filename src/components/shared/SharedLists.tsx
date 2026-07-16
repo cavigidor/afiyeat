@@ -14,6 +14,18 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { RestaurantCard } from '@/components/restaurants/RestaurantCard';
+import { RestaurantListRow } from '@/components/restaurants/RestaurantListRow';
+import { RestaurantDetailDialog, type DetailRestaurant } from '@/components/restaurants/RestaurantDetailDialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem as SortSelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ListViewToggle } from '@/components/shared/ListViewToggle';
+import { useViewMode } from '@/hooks/useViewMode';
+import type { RestaurantSortBy } from '@/hooks/useRestaurantListControls';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Plus, Users, Check, Clock, Trash2 } from 'lucide-react';
@@ -55,6 +67,9 @@ export function SharedLists({ following }: SharedListsProps) {
   const [addOpen, setAddOpen] = useState(false);
   const [editItem, setEditItem] = useState<SharedItem | null>(null);
   const [deleteListId, setDeleteListId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<RestaurantSortBy>('name');
+  const [viewMode, setViewMode] = useViewMode('shared-lists');
+  const [detailItem, setDetailItem] = useState<SharedItem | null>(null);
 
   const selectedList = lists.find((l) => l.id === selectedListId) || null;
 
@@ -163,8 +178,22 @@ export function SharedLists({ following }: SharedListsProps) {
   const partnerLabel = (l: SharedList) =>
     l.partner?.display_name || l.partner?.username || 'a friend';
 
-  const toGoList = items.filter((i) => i.status === 'to_go');
-  const wentToList = items.filter((i) => i.status === 'went_to');
+  const sortItems = (list: SharedItem[]) =>
+    [...list].sort((a, b) => {
+      switch (sortBy) {
+        case 'price_asc':
+          return (a.price_level ?? 99) - (b.price_level ?? 99);
+        case 'price_desc':
+          return (b.price_level ?? -1) - (a.price_level ?? -1);
+        case 'rating_desc':
+          return (b.rating ?? -1) - (a.rating ?? -1);
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
+
+  const toGoList = sortItems(items.filter((i) => i.status === 'to_go'));
+  const wentToList = sortItems(items.filter((i) => i.status === 'went_to'));
   const currentList = activeTab === 'to_go' ? toGoList : wentToList;
 
   return (
@@ -264,16 +293,33 @@ export function SharedLists({ following }: SharedListsProps) {
             </div>
 
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'to_go' | 'went_to')}>
-              <TabsList className="mb-4">
-                <TabsTrigger value="to_go" className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  To Go ({toGoList.length})
-                </TabsTrigger>
-                <TabsTrigger value="went_to" className="flex items-center gap-2">
-                  <Check className="h-4 w-4" />
-                  Been There ({wentToList.length})
-                </TabsTrigger>
-              </TabsList>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                <TabsList>
+                  <TabsTrigger value="to_go" className="flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    To Go ({toGoList.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="went_to" className="flex items-center gap-2">
+                    <Check className="h-4 w-4" />
+                    Been There ({wentToList.length})
+                  </TabsTrigger>
+                </TabsList>
+
+                <div className="flex items-center gap-2">
+                  <Select value={sortBy} onValueChange={(v) => setSortBy(v as RestaurantSortBy)}>
+                    <SelectTrigger className="w-[168px] h-9">
+                      <SelectValue placeholder="Sort" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SortSelectItem value="name">Name (A-Z)</SortSelectItem>
+                      <SortSelectItem value="price_asc">Price: Low to High</SortSelectItem>
+                      <SortSelectItem value="price_desc">Price: High to Low</SortSelectItem>
+                      <SortSelectItem value="rating_desc">Rating: High to Low</SortSelectItem>
+                    </SelectContent>
+                  </Select>
+                  <ListViewToggle value={viewMode} onChange={setViewMode} />
+                </div>
+              </div>
 
               <TabsContent value={activeTab}>
                 {loadingItems ? (
@@ -292,6 +338,21 @@ export function SharedLists({ following }: SharedListsProps) {
                         ? 'No places on the to-go list yet'
                         : "You haven't been anywhere together yet"}
                     </p>
+                  </div>
+                ) : viewMode === 'list' ? (
+                  <div className="space-y-2">
+                    {currentList.map((item) => (
+                      <RestaurantListRow
+                        key={item.id}
+                        restaurant={item}
+                        onOpenDetail={() => setDetailItem(item)}
+                        onEdit={() => setEditItem(item)}
+                        onDelete={() => handleDeleteItem(item.id)}
+                        onMarkVisited={
+                          item.status === 'to_go' ? () => handleMarkVisited(item.id) : undefined
+                        }
+                      />
+                    ))}
                   </div>
                 ) : (
                   <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2">
@@ -343,6 +404,27 @@ export function SharedLists({ following }: SharedListsProps) {
         onOpenChange={(o) => !o && setEditItem(null)}
         item={editItem}
         onSuccess={fetchItems}
+      />
+
+      <RestaurantDetailDialog
+        restaurant={detailItem as DetailRestaurant | null}
+        onOpenChange={(open) => !open && setDetailItem(null)}
+        onEdit={() => {
+          if (detailItem) setEditItem(detailItem);
+          setDetailItem(null);
+        }}
+        onDelete={() => {
+          if (detailItem) handleDeleteItem(detailItem.id);
+          setDetailItem(null);
+        }}
+        onMarkVisited={
+          detailItem?.status === 'to_go'
+            ? () => {
+                handleMarkVisited(detailItem.id);
+                setDetailItem(null);
+              }
+            : undefined
+        }
       />
 
       <AlertDialog open={!!deleteListId} onOpenChange={(o) => !o && setDeleteListId(null)}>

@@ -8,12 +8,24 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RestaurantCard } from '@/components/restaurants/RestaurantCard';
+import { RestaurantListRow } from '@/components/restaurants/RestaurantListRow';
+import { RestaurantDetailDialog, type DetailRestaurant } from '@/components/restaurants/RestaurantDetailDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Search, UserPlus, UserMinus, Loader2, Users, Sparkles, Map, Check, Clock, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useMapCenter } from '@/hooks/useMapCenter';
+import { useViewMode } from '@/hooks/useViewMode';
+import type { RestaurantSortBy } from '@/hooks/useRestaurantListControls';
+import { ListViewToggle } from '@/components/shared/ListViewToggle';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { SharedLists } from '@/components/shared/SharedLists';
 
 interface Profile {
@@ -111,6 +123,9 @@ export default function Friends() {
   const [friendStatusFilter, setFriendStatusFilter] = useState<'went_to' | 'to_go'>('went_to');
   const [friendListSearch, setFriendListSearch] = useState('');
   const [friendSelectedFolder, setFriendSelectedFolder] = useState<string | null>(null);
+  const [friendSortBy, setFriendSortBy] = useState<RestaurantSortBy>('name');
+  const [friendViewMode, setFriendViewMode] = useViewMode('friends');
+  const [detailRestaurant, setDetailRestaurant] = useState<DetailRestaurant | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [focusedRestaurantId, setFocusedRestaurantId] = useState<string | null>(null);
   const mapFlyToRef = useRef<((lat: number, lng: number, restaurantId: string) => void) | null>(null);
@@ -548,12 +563,25 @@ export default function Friends() {
                       const folderOptions = Object.values(folderMap);
 
                       const tokens = friendListSearch.toLowerCase().split(/\s+/).filter(Boolean);
-                      const filtered = statusFiltered.filter(r => {
-                        if (friendSelectedFolder && r.folder?.name !== friendSelectedFolder) return false;
-                        if (tokens.length === 0) return true;
-                        const hay = `${r.name} ${r.address || ''} ${r.notes || ''} ${r.folder?.name || ''}`.toLowerCase();
-                        return tokens.every(t => hay.includes(t));
-                      });
+                      const filtered = statusFiltered
+                        .filter(r => {
+                          if (friendSelectedFolder && r.folder?.name !== friendSelectedFolder) return false;
+                          if (tokens.length === 0) return true;
+                          const hay = `${r.name} ${r.address || ''} ${r.notes || ''} ${r.folder?.name || ''}`.toLowerCase();
+                          return tokens.every(t => hay.includes(t));
+                        })
+                        .sort((a, b) => {
+                          switch (friendSortBy) {
+                            case 'price_asc':
+                              return (a.price_level ?? 99) - (b.price_level ?? 99);
+                            case 'price_desc':
+                              return (b.price_level ?? -1) - (a.price_level ?? -1);
+                            case 'rating_desc':
+                              return (b.rating ?? -1) - (a.rating ?? -1);
+                            default:
+                              return a.name.localeCompare(b.name);
+                          }
+                        });
 
                       return (
                         <div className="space-y-3">
@@ -567,6 +595,18 @@ export default function Friends() {
                                 className="pl-9"
                               />
                             </div>
+                            <Select value={friendSortBy} onValueChange={(v) => setFriendSortBy(v as RestaurantSortBy)}>
+                              <SelectTrigger className="w-full sm:w-[168px] h-9 shrink-0">
+                                <SelectValue placeholder="Sort" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="name">Name (A-Z)</SelectItem>
+                                <SelectItem value="price_asc">Price: Low to High</SelectItem>
+                                <SelectItem value="price_desc">Price: High to Low</SelectItem>
+                                <SelectItem value="rating_desc">Rating: High to Low</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <ListViewToggle value={friendViewMode} onChange={setFriendViewMode} />
                             {(friendListSearch || friendSelectedFolder) && (
                               <Button
                                 variant="ghost"
@@ -617,6 +657,17 @@ export default function Friends() {
                                   : 'No restaurants match your filters'}
                               </p>
                             </div>
+                          ) : friendViewMode === 'list' ? (
+                            <div className="space-y-2">
+                              {filtered.map((restaurant) => (
+                                <RestaurantListRow
+                                  key={restaurant.id}
+                                  restaurant={restaurant}
+                                  onOpenDetail={() => setDetailRestaurant(restaurant)}
+                                  onFlyTo={() => handleRestaurantClick(restaurant)}
+                                />
+                              ))}
+                            </div>
                           ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               {filtered.map((restaurant) => (
@@ -658,6 +709,11 @@ export default function Friends() {
           </TabsContent>
         </Tabs>
       </main>
+
+      <RestaurantDetailDialog
+        restaurant={detailRestaurant}
+        onOpenChange={(open) => !open && setDetailRestaurant(null)}
+      />
     </div>
   );
 }

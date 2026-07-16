@@ -9,8 +9,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RecipeCard } from '@/components/recipes/RecipeCard';
+import { RecipeListRow } from '@/components/recipes/RecipeListRow';
 import { AddRecipeDialog } from '@/components/recipes/AddRecipeDialog';
 import { RecipeDetailDialog } from '@/components/recipes/RecipeDetailDialog';
+import { ListViewToggle } from '@/components/shared/ListViewToggle';
+import { useViewMode } from '@/hooks/useViewMode';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
 
 export interface Recipe {
@@ -83,6 +93,9 @@ export default function Recipes() {
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [scanning, setScanning] = useState(false);
   const [scanInitialData, setScanInitialData] = useState<any>(null);
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'newest' | 'title' | 'prep_time'>('newest');
+  const [viewMode, setViewMode] = useViewMode('recipes');
 
   const handleScanRecipe = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -149,16 +162,32 @@ export default function Recipes() {
     }
   };
 
-  const filteredRecipes = recipes.filter((recipe) => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      recipe.title.toLowerCase().includes(query) ||
-      recipe.description?.toLowerCase().includes(query) ||
-      recipe.tags?.some((tag) => tag.toLowerCase().includes(query)) ||
-      recipe.ingredients.some((ing) => ing.toLowerCase().includes(query))
-    );
-  });
+  const availableTags = Array.from(
+    new Set(recipes.flatMap((r) => r.tags || [])),
+  ).sort();
+
+  const filteredRecipes = recipes
+    .filter((recipe) => {
+      if (!searchQuery) return true;
+      const query = searchQuery.toLowerCase();
+      return (
+        recipe.title.toLowerCase().includes(query) ||
+        recipe.description?.toLowerCase().includes(query) ||
+        recipe.tags?.some((tag) => tag.toLowerCase().includes(query)) ||
+        recipe.ingredients.some((ing) => ing.toLowerCase().includes(query))
+      );
+    })
+    .filter((recipe) => !tagFilter || recipe.tags?.includes(tagFilter))
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'title':
+          return a.title.localeCompare(b.title);
+        case 'prep_time':
+          return (a.prep_time_minutes ?? 999) - (b.prep_time_minutes ?? 999);
+        default:
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+    });
 
   if (authLoading) {
     return (
@@ -209,12 +238,43 @@ export default function Recipes() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-          <TabsList>
-            <TabsTrigger value="discover">Discover</TabsTrigger>
-            <TabsTrigger value="my-recipes">My Recipes</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList>
+              <TabsTrigger value="discover">Discover</TabsTrigger>
+              <TabsTrigger value="my-recipes">My Recipes</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {availableTags.length > 0 && (
+              <Select value={tagFilter ?? 'all'} onValueChange={(v) => setTagFilter(v === 'all' ? null : v)}>
+                <SelectTrigger className="w-[130px] h-9">
+                  <SelectValue placeholder="Tag" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Tags</SelectItem>
+                  {availableTags.map((tag) => (
+                    <SelectItem key={tag} value={tag}>
+                      {tag}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+              <SelectTrigger className="w-[140px] h-9">
+                <SelectValue placeholder="Sort" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Newest</SelectItem>
+                <SelectItem value="title">Title (A-Z)</SelectItem>
+                <SelectItem value="prep_time">Prep Time</SelectItem>
+              </SelectContent>
+            </Select>
+            <ListViewToggle value={viewMode} onChange={setViewMode} />
+          </div>
+        </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -237,6 +297,18 @@ export default function Recipes() {
                 Add Your First Recipe
               </Button>
             )}
+          </div>
+        ) : viewMode === 'list' ? (
+          <div className="space-y-2">
+            {filteredRecipes.map((recipe) => (
+              <RecipeListRow
+                key={recipe.id}
+                recipe={recipe}
+                isOwner={recipe.user_id === user?.id}
+                onDelete={() => handleDelete(recipe.id)}
+                onClick={() => setSelectedRecipe(recipe)}
+              />
+            ))}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-6">

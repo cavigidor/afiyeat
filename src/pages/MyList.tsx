@@ -13,9 +13,14 @@ import { exportListAsPdf } from '@/lib/exportPdf';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { RestaurantCard } from '@/components/restaurants/RestaurantCard';
+import { RestaurantListRow } from '@/components/restaurants/RestaurantListRow';
+import { RestaurantDetailDialog, type DetailRestaurant } from '@/components/restaurants/RestaurantDetailDialog';
+import { RestaurantListToolbar } from '@/components/restaurants/RestaurantListToolbar';
 import { AddRestaurantDialog } from '@/components/restaurants/AddRestaurantDialog';
 import { EditRestaurantDialog } from '@/components/restaurants/EditRestaurantDialog';
 import { FolderList } from '@/components/folders/FolderList';
+import { useViewMode } from '@/hooks/useViewMode';
+import type { RestaurantSortBy } from '@/hooks/useRestaurantListControls';
 import { toast } from 'sonner';
 
 interface Restaurant {
@@ -79,6 +84,9 @@ export default function MyList() {
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [selectedPriceLevel, setSelectedPriceLevel] = useState<number[]>([0]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<RestaurantSortBy>('name');
+  const [viewMode, setViewMode] = useViewMode('mylist');
+  const [detailRestaurant, setDetailRestaurant] = useState<Restaurant | null>(null);
   const [focusedRestaurantId, setFocusedRestaurantId] = useState<string | null>(null);
   const mapFlyToRef = useRef<((lat: number, lng: number, restaurantId: string) => void) | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
@@ -129,12 +137,18 @@ export default function MyList() {
           return r.name.toLowerCase().includes(q) || r.address?.toLowerCase().includes(q);
         })
         .sort((a, b) => {
-          const folderA = a.folder?.name || '';
-          const folderB = b.folder?.name || '';
-          if (folderA !== folderB) return folderA.localeCompare(folderB);
-          return a.name.localeCompare(b.name);
+          switch (sortBy) {
+            case 'price_asc':
+              return (a.price_level ?? 99) - (b.price_level ?? 99);
+            case 'price_desc':
+              return (b.price_level ?? -1) - (a.price_level ?? -1);
+            case 'rating_desc':
+              return (b.rating ?? -1) - (a.rating ?? -1);
+            default:
+              return a.name.localeCompare(b.name);
+          }
         }),
-    [restaurants, selectedFolder, priceFilter, searchQuery],
+    [restaurants, selectedFolder, priceFilter, searchQuery, sortBy],
   );
   const toGoList = useMemo(
     () => filteredRestaurants.filter((r) => r.status === 'to_go'),
@@ -282,6 +296,21 @@ export default function MyList() {
                   </span>
                 </div>
 
+                {/* Type/sort/view controls */}
+                <div className="mb-4">
+                  <RestaurantListToolbar
+                    availableTypes={folders.map((f) => f.name)}
+                    typeFilter={folders.find((f) => f.id === selectedFolder)?.name ?? null}
+                    onTypeFilterChange={(name) =>
+                      setSelectedFolder(name ? folders.find((f) => f.name === name)?.id ?? null : null)
+                    }
+                    sortBy={sortBy}
+                    onSortByChange={setSortBy}
+                    viewMode={viewMode}
+                    onViewModeChange={setViewMode}
+                  />
+                </div>
+
                 <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'to_go' | 'went_to')}>
                   <TabsList className="mb-4">
                     <TabsTrigger value="to_go" className="flex items-center gap-2">
@@ -304,11 +333,25 @@ export default function MyList() {
                         <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
                         <p>No restaurants on your to-go list yet</p>
                       </div>
+                    ) : viewMode === 'list' ? (
+                      <div className="space-y-2">
+                        {toGoList.map((restaurant) => (
+                          <RestaurantListRow
+                            key={restaurant.id}
+                            restaurant={restaurant}
+                            onOpenDetail={() => setDetailRestaurant(restaurant)}
+                            onFlyTo={() => handleRestaurantClick(restaurant)}
+                            onMarkVisited={() => handleMarkVisited(restaurant.id)}
+                            onEdit={() => handleEdit(restaurant)}
+                            onDelete={() => handleDelete(restaurant.id)}
+                          />
+                        ))}
+                      </div>
                     ) : (
                       <div className="grid gap-3 sm:gap-4 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
                         {toGoList.map((restaurant) => (
-                          <div 
-                            key={restaurant.id} 
+                          <div
+                            key={restaurant.id}
                             onClick={() => handleRestaurantClick(restaurant)}
                             className="cursor-pointer"
                           >
@@ -334,11 +377,24 @@ export default function MyList() {
                         <Check className="h-8 w-8 mx-auto mb-2 opacity-50" />
                         <p>You haven't been to any restaurants yet</p>
                       </div>
+                    ) : viewMode === 'list' ? (
+                      <div className="space-y-2">
+                        {wentToList.map((restaurant) => (
+                          <RestaurantListRow
+                            key={restaurant.id}
+                            restaurant={restaurant}
+                            onOpenDetail={() => setDetailRestaurant(restaurant)}
+                            onFlyTo={() => handleRestaurantClick(restaurant)}
+                            onEdit={() => handleEdit(restaurant)}
+                            onDelete={() => handleDelete(restaurant.id)}
+                          />
+                        ))}
+                      </div>
                     ) : (
                       <div className="grid gap-3 sm:gap-4 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
                         {wentToList.map((restaurant) => (
-                          <div 
-                            key={restaurant.id} 
+                          <div
+                            key={restaurant.id}
                             onClick={() => handleRestaurantClick(restaurant)}
                             className="cursor-pointer"
                           >
@@ -398,6 +454,27 @@ export default function MyList() {
         restaurant={selectedRestaurant}
         folders={folders}
         onSuccess={invalidateRestaurants}
+      />
+
+      <RestaurantDetailDialog
+        restaurant={detailRestaurant as DetailRestaurant | null}
+        onOpenChange={(open) => !open && setDetailRestaurant(null)}
+        onEdit={() => {
+          if (detailRestaurant) handleEdit(detailRestaurant);
+          setDetailRestaurant(null);
+        }}
+        onDelete={() => {
+          if (detailRestaurant) handleDelete(detailRestaurant.id);
+          setDetailRestaurant(null);
+        }}
+        onMarkVisited={
+          detailRestaurant?.status === 'to_go'
+            ? () => {
+                handleMarkVisited(detailRestaurant.id);
+                setDetailRestaurant(null);
+              }
+            : undefined
+        }
       />
     </div>
   );
