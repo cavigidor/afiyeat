@@ -400,6 +400,7 @@ export type Database = {
       restaurants: {
         Row: {
           address: string | null
+          category: string | null
           created_at: string
           folder_id: string | null
           id: string
@@ -407,6 +408,7 @@ export type Database = {
           longitude: number | null
           name: string
           notes: string | null
+          place_id: string | null
           price_level: number | null
           rating: number | null
           status: string
@@ -416,6 +418,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          category?: string | null
           created_at?: string
           folder_id?: string | null
           id?: string
@@ -423,6 +426,7 @@ export type Database = {
           longitude?: number | null
           name: string
           notes?: string | null
+          place_id?: string | null
           price_level?: number | null
           rating?: number | null
           status?: string
@@ -432,6 +436,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          category?: string | null
           created_at?: string
           folder_id?: string | null
           id?: string
@@ -439,6 +444,7 @@ export type Database = {
           longitude?: number | null
           name?: string
           notes?: string | null
+          place_id?: string | null
           price_level?: number | null
           rating?: number | null
           status?: string
@@ -548,6 +554,33 @@ export type Database = {
     }
     Functions: {
       can_view_profile: { Args: { profile_user_id: string }; Returns: boolean }
+      get_explore_places: {
+        Args: { p_mode?: string }
+        Returns: {
+          address: string
+          avg_rating: number
+          category: string
+          contributor_count: number
+          latitude: number
+          longitude: number
+          name: string
+          place_id: string
+          price_level: number
+          rating_count: number
+        }[]
+      }
+      get_place_comments: {
+        Args: { p_mode?: string; p_place_id: string }
+        Returns: {
+          avatar_url: string
+          created_at: string
+          display_name: string
+          notes: string
+          rating: number
+          user_id: string
+          username: string
+        }[]
+      }
       is_shared_list_member: {
         Args: { _list_id: string; _user_id: string }
         Returns: boolean
