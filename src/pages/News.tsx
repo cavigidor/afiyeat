@@ -11,7 +11,14 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Newspaper, Sparkles, MapPin, ExternalLink, Calendar } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, Newspaper, Sparkles, MapPin, ExternalLink, Calendar, Plus } from 'lucide-react';
+import { AddMentionedPlaceDialog } from '@/components/news/AddMentionedPlaceDialog';
+
+interface MentionedRestaurant {
+  name: string;
+  address: string | null;
+}
 
 interface NewsItem {
   id: string;
@@ -23,6 +30,7 @@ interface NewsItem {
   source_url: string | null;
   image_url: string | null;
   published_at: string;
+  mentioned_restaurants: MentionedRestaurant[] | null;
 }
 
 const CITIES = [
@@ -49,7 +57,7 @@ async function fetchNewsFor(selectedCity: string): Promise<NewsItem[]> {
     .order('published_at', { ascending: false });
 
   if (error) throw error;
-  return (data as NewsItem[]) || [];
+  return (data as unknown as NewsItem[]) || [];
 }
 
 export default function News() {
@@ -111,6 +119,8 @@ export default function News() {
     setCity(value);
   };
 
+
+  const [addPlaceName, setAddPlaceName] = useState<string | null>(null);
 
   const cityLabel = CITIES.find((c) => c.value === city)?.label ?? '';
   const news = items.filter((i) => i.type === 'news');
@@ -180,7 +190,7 @@ export default function News() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {news.map((item) => (
-                    <NewsCard key={item.id} item={item} />
+                    <NewsCard key={item.id} item={item} onAddPlace={setAddPlaceName} />
                   ))}
                 </div>
               </section>
@@ -195,7 +205,7 @@ export default function News() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {recs.map((item) => (
-                    <NewsCard key={item.id} item={item} />
+                    <NewsCard key={item.id} item={item} onAddPlace={setAddPlaceName} />
                   ))}
                 </div>
               </section>
@@ -203,11 +213,17 @@ export default function News() {
           </div>
         )}
       </div>
+
+      <AddMentionedPlaceDialog
+        open={!!addPlaceName}
+        onOpenChange={(open) => !open && setAddPlaceName(null)}
+        placeName={addPlaceName ?? ''}
+      />
     </div>
   );
 }
 
-function NewsCard({ item }: { item: NewsItem }) {
+function NewsCard({ item, onAddPlace }: { item: NewsItem; onAddPlace: (name: string) => void }) {
   const dateLabel = new Date(item.published_at).toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
@@ -227,9 +243,11 @@ function NewsCard({ item }: { item: NewsItem }) {
       <div>{children}</div>
     );
 
+  const mentioned = item.mentioned_restaurants || [];
+
   return (
-    <Wrapper>
-      <Card className="h-full overflow-hidden transition-shadow hover:shadow-lg">
+    <Card className="h-full overflow-hidden transition-shadow hover:shadow-lg flex flex-col">
+      <Wrapper>
         {item.image_url && (
           <div className="aspect-video overflow-hidden bg-muted">
             <img
@@ -240,7 +258,7 @@ function NewsCard({ item }: { item: NewsItem }) {
             />
           </div>
         )}
-        <CardContent className="p-5">
+        <CardContent className="p-5 pb-3">
           <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
             <Calendar className="h-3 w-3" />
             <span>{dateLabel}</span>
@@ -265,7 +283,32 @@ function NewsCard({ item }: { item: NewsItem }) {
             </div>
           )}
         </CardContent>
-      </Card>
-    </Wrapper>
+      </Wrapper>
+
+      {mentioned.length > 0 && (
+        <div className="px-5 pb-5 pt-1 mt-auto">
+          <p className="text-xs font-medium text-muted-foreground mb-1.5">Mentioned:</p>
+          <div className="flex flex-wrap gap-1.5">
+            {mentioned.map((r) => (
+              <Button
+                key={r.name}
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1 px-2"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onAddPlace(r.name);
+                }}
+              >
+                <Plus className="h-3 w-3" />
+                {r.name}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }

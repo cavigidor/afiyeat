@@ -19,6 +19,11 @@ interface SourceRow {
   label: string | null;
 }
 
+interface MentionedRestaurant {
+  name: string;
+  address: string | null;
+}
+
 interface CollectedItem {
   city: string;
   type: string;
@@ -27,6 +32,7 @@ interface CollectedItem {
   source_name: string | null;
   source_url: string;
   image_url: string | null;
+  mentioned_restaurants: MentionedRestaurant[];
 }
 
 function getEnv(name: string): string {
@@ -146,9 +152,15 @@ async function processSource(source: SourceRow): Promise<CollectedItem[]> {
         role: "system",
         content:
           "Summarize this food/restaurant article for a city dining digest. " +
-          'Return ONLY JSON: {"title": string, "summary": string, "type": "news" | "rec"}. ' +
+          'Return ONLY JSON: {"title": string, "summary": string, "type": "news" | "rec", ' +
+          '"restaurants": {"name": string, "address": string | null}[]}. ' +
           "title: a clean, concise headline. summary: 2-3 sentences capturing the key info. " +
           'type: "rec" if it is a recommendation / best-of / where-to-eat guide, otherwise "news". ' +
+          "restaurants: every specific, named restaurant/bar/cafe mentioned in the article (up to 8). " +
+          "Use the exact name as written in the article. Include a street address only if the article " +
+          "explicitly states one (else null) - do not guess or infer an address. " +
+          "Skip generic mentions (e.g. \"the neighborhood's restaurants\") and skip the publication itself. " +
+          "Return an empty array if no specific restaurant is named. " +
           "Do not invent facts; only use the article content.",
       },
       {
@@ -159,6 +171,19 @@ async function processSource(source: SourceRow): Promise<CollectedItem[]> {
 
     if (!summary?.title || !summary?.summary) continue;
 
+    const rawRestaurants: unknown[] = Array.isArray(summary.restaurants) ? summary.restaurants : [];
+    const mentionedRestaurants: MentionedRestaurant[] = rawRestaurants
+      .filter((r): r is Record<string, unknown> => !!r && typeof r === "object")
+      .map((r) => ({
+        name: String((r as Record<string, unknown>).name ?? "").slice(0, 200).trim(),
+        address:
+          typeof (r as Record<string, unknown>).address === "string"
+            ? String((r as Record<string, unknown>).address).slice(0, 300).trim() || null
+            : null,
+      }))
+      .filter((r) => r.name.length > 0)
+      .slice(0, 8);
+
     out.push({
       city: source.city,
       type: summary.type === "rec" ? "rec" : "news",
@@ -167,6 +192,7 @@ async function processSource(source: SourceRow): Promise<CollectedItem[]> {
       source_name: source.label,
       source_url: articleUrl,
       image_url: pickImage(article.metadata),
+      mentioned_restaurants: mentionedRestaurants,
     });
   }
 
