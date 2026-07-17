@@ -29,11 +29,12 @@ import {
 } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Camera, Save, LogOut, Lock, Check, X, UserPlus } from 'lucide-react';
+import { Loader2, Camera, Save, LogOut, Lock, Check, X, UserPlus, Bell } from 'lucide-react';
 import { toast } from 'sonner';
 import { validateImageFile } from '@/lib/imageValidation';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import { AvatarCropper } from '@/components/profile/AvatarCropper';
+import { isNative } from '@/lib/native';
 
 const profileSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters').max(20),
@@ -163,6 +164,7 @@ export default function Profile() {
   const [requestsDialogOpen, setRequestsDialogOpen] = useState(false);
   const [cropperFile, setCropperFile] = useState<File | null>(null);
   const [cropperOpen, setCropperOpen] = useState(false);
+  const [sendingTestPush, setSendingTestPush] = useState(false);
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['profile', user?.id],
@@ -379,6 +381,31 @@ export default function Profile() {
     }
   };
 
+  const handleSendTestNotification = async () => {
+    setSendingTestPush(true);
+    try {
+      // No user_id in the body - send-push then authenticates via this
+      // session's JWT and only ever targets the caller's own devices.
+      const { data, error } = await supabase.functions.invoke('send-push', {
+        body: {
+          title: 'Afiyet olsun! 🍽️',
+          body: "This is a test push - if you're seeing it, your notifications are set up.",
+        },
+      });
+      if (error) throw error;
+      if (data?.sent > 0) {
+        toast.success(`Sent to ${data.sent} device${data.sent === 1 ? '' : 's'}!`);
+      } else {
+        toast.error('No registered devices found for this account on this build.');
+      }
+    } catch (err) {
+      console.error('Test notification failed:', err);
+      toast.error('Failed to send test notification');
+    } finally {
+      setSendingTestPush(false);
+    }
+  };
+
   if (authLoading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -553,6 +580,34 @@ export default function Profile() {
             </Form>
           </CardContent>
         </Card>
+
+        {isNative() && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Bell className="h-5 w-5" />
+                Notifications
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-3">
+                Send yourself a test push to confirm notifications are set up correctly on this device.
+              </p>
+              <Button
+                variant="outline"
+                onClick={handleSendTestNotification}
+                disabled={sendingTestPush}
+              >
+                {sendingTestPush ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Bell className="h-4 w-4 mr-2" />
+                )}
+                Send Test Notification
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </main>
 
       {/* Followers Dialog */}
