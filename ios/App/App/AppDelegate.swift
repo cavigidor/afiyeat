@@ -46,4 +46,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
 
+    // Required by @capacitor/push-notifications: forwards the APNs device
+    // token (or registration error) from iOS into Capacitor's JS bridge, so
+    // the 'registration'/'registrationError' listeners in native.ts actually
+    // fire. Without these, PushNotifications.register() never resolves with
+    // a token and no row ever gets saved to device_tokens.
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+    }
+
 }
