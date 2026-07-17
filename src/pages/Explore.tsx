@@ -27,7 +27,7 @@ async function fetchExplorePlaces(mode: ExploreMode): Promise<ExplorePlace[]> {
 }
 
 export default function Explore() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<ExploreMode>('all');
   const [view, setView] = useState<ExploreView>('map');
@@ -40,9 +40,13 @@ export default function Explore() {
   }, [user, authLoading, navigate]);
 
   // Doesn't change per-user - shared cache key with Friends.tsx/Profile.tsx.
+  // Gated on session (not just user) so it doesn't fire - and permanently
+  // fail/cache an error - before the auth token needed by the edge function
+  // is actually attached, same as the other pages that fetch this.
   const { data: mapboxToken, isLoading: mapboxLoading } = useQuery({
     queryKey: ['mapbox-token'],
     queryFn: fetchMapboxTokenValue,
+    enabled: !!session,
     staleTime: Infinity,
     gcTime: Infinity,
   });
