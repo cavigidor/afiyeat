@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, MapPin, Star, DollarSign } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { formatCategory, type ExplorePlace } from './ExplorePlaceCard';
+import { formatCategory, toNumber, type ExplorePlace } from './ExplorePlaceCard';
 
 interface PlaceComment {
   user_id: string;
@@ -40,6 +40,8 @@ export function PlaceDetailSheet({ place, mode, onOpenChange }: PlaceDetailSheet
   });
 
   const categoryLabel = place ? formatCategory(place.category) : null;
+  const avgRating = place ? toNumber(place.avg_rating) : null;
+  const ratingCount = place ? toNumber(place.rating_count) ?? 0 : 0;
 
   return (
     <Sheet open={!!place} onOpenChange={onOpenChange}>
@@ -61,12 +63,12 @@ export function PlaceDetailSheet({ place, mode, onOpenChange }: PlaceDetailSheet
             )}
 
             <div className="flex items-center gap-4 mt-3">
-              {place.avg_rating != null && (
+              {avgRating != null && (
                 <div className="flex items-center gap-1">
                   <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                  <span className="text-sm font-medium">{place.avg_rating.toFixed(1)}/10</span>
+                  <span className="text-sm font-medium">{avgRating.toFixed(1)}/10</span>
                   <span className="text-xs text-muted-foreground">
-                    ({place.rating_count} rating{place.rating_count === 1 ? '' : 's'})
+                    ({ratingCount} rating{ratingCount === 1 ? '' : 's'})
                   </span>
                 </div>
               )}

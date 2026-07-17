@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useMapCenter } from '@/hooks/useMapCenter';
-import { formatCategory, type ExplorePlace } from './ExplorePlaceCard';
+import { formatCategory, toNumber, type ExplorePlace } from './ExplorePlaceCard';
 
 interface ExploreMapComponentProps {
   token: string;
@@ -83,37 +83,46 @@ export function ExploreMapComponent({ token, places, onSelectPlace }: ExploreMap
       const mapboxgl = (await import('mapbox-gl')).default;
 
       placesWithLocation.forEach((place) => {
-        const el = document.createElement('div');
-        el.className =
-          'flex items-center justify-center w-8 h-8 bg-primary rounded-full shadow-lg cursor-pointer hover:scale-110 transition-transform';
-        el.innerHTML =
-          '<svg class="w-4 h-4" fill="white" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>';
+        // A single malformed place shouldn't be able to abort the loop and
+        // leave every place after it (and the fitBounds call below) without
+        // a marker - keep failures scoped to just that one place.
+        try {
+          const el = document.createElement('div');
+          el.className =
+            'flex items-center justify-center w-8 h-8 bg-primary rounded-full shadow-lg cursor-pointer hover:scale-110 transition-transform';
+          el.innerHTML =
+            '<svg class="w-4 h-4" fill="white" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>';
 
-        const safeName = place.name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const categoryLabel = formatCategory(place.category);
-        const ratingLine =
-          place.avg_rating != null
-            ? `<p class="text-sm">${place.avg_rating.toFixed(1)}/10 &middot; ${place.rating_count} rating${place.rating_count === 1 ? '' : 's'}</p>`
-            : '';
+          const safeName = place.name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          const categoryLabel = formatCategory(place.category);
+          const avgRating = toNumber(place.avg_rating);
+          const ratingCount = toNumber(place.rating_count) ?? 0;
+          const ratingLine =
+            avgRating != null
+              ? `<p class="text-sm">${avgRating.toFixed(1)}/10 &middot; ${ratingCount} rating${ratingCount === 1 ? '' : 's'}</p>`
+              : '';
 
-        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
-          <div class="p-2">
-            <h3 class="font-semibold">${safeName}</h3>
-            ${categoryLabel ? `<p class="text-xs text-gray-500">${categoryLabel}</p>` : ''}
-            ${ratingLine}
-          </div>
-        `);
+          const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
+            <div class="p-2">
+              <h3 class="font-semibold">${safeName}</h3>
+              ${categoryLabel ? `<p class="text-xs text-gray-500">${categoryLabel}</p>` : ''}
+              ${ratingLine}
+            </div>
+          `);
 
-        const marker = new mapboxgl.Marker(el)
-          .setLngLat([place.longitude!, place.latitude!])
-          .setPopup(popup)
-          .addTo(mapRef.current);
+          const marker = new mapboxgl.Marker(el)
+            .setLngLat([place.longitude!, place.latitude!])
+            .setPopup(popup)
+            .addTo(mapRef.current);
 
-        el.addEventListener('click', () => {
-          onSelectPlaceRef.current(place);
-        });
+          el.addEventListener('click', () => {
+            onSelectPlaceRef.current(place);
+          });
 
-        markersRef.current.set(place.place_id, marker);
+          markersRef.current.set(place.place_id, marker);
+        } catch (err) {
+          console.error('Failed to add Explore marker for place:', place.place_id, err);
+        }
       });
 
       const bounds = new mapboxgl.LngLatBounds();

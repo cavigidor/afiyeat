@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { getCurrentDeviceToken } from '@/components/shared/PushNotificationManager';
 
 interface AuthContextType {
   user: User | null;
@@ -62,6 +63,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    // This device's push token is otherwise never cleared on sign-out, so a
+    // signed-out user would keep receiving pushes here until someone else
+    // happens to log in on this same device later and reassigns the token.
+    // Only remove *this* device's token (by its unique value, not user_id),
+    // so a user signed in on multiple devices doesn't lose push on the
+    // others just by signing out of one.
+    const token = getCurrentDeviceToken();
+    if (token) {
+      await supabase.from('device_tokens').delete().eq('token', token);
+    }
     await supabase.auth.signOut();
   };
 

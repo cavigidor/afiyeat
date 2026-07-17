@@ -541,7 +541,17 @@ function MapComponent({ token, restaurants, focusedRestaurantId, onFocusRestaura
       }
       flyToRef.current = null;
     };
+    // Intentionally created once per token - the map is panned (not rebuilt)
+    // when `center` resolves to a new value below (e.g. once GPS comes back
+    // after this effect already ran with the fallback center).
   }, [token, flyToRef]);
+
+  // Pan the already-created map when the resolved center changes, instead of
+  // leaving it stuck on whatever center was available at mount time.
+  useEffect(() => {
+    if (!mapRef.current) return;
+    mapRef.current.easeTo({ center: [center.lng, center.lat], duration: 600 });
+  }, [center]);
 
   useEffect(() => {
     if (!mapRef.current) return;

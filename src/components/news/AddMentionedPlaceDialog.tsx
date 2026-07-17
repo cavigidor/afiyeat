@@ -101,6 +101,7 @@ export function AddMentionedPlaceDialog({ open, onOpenChange, placeName }: AddMe
 
   const [sharedLists, setSharedLists] = useState<SharedListOption[]>([]);
   const [sharedListsLoading, setSharedListsLoading] = useState(false);
+  const [myFolders, setMyFolders] = useState<{ id: string; name: string; color: string }[]>([]);
 
   // Prime the search with the article's restaurant name whenever the
   // dialog opens for a new place.
@@ -137,6 +138,24 @@ export function AddMentionedPlaceDialog({ open, onOpenChange, placeName }: AddMe
       .then(setSharedLists)
       .catch((err) => console.error('Failed to load shared lists:', err))
       .finally(() => setSharedListsLoading(false));
+  }, [open, user]);
+
+  // Needed so findOrCreateAutoFolder (below) can match an existing folder by
+  // name instead of always creating a fresh duplicate "Pizza"/"Bar"/etc.
+  // folder every time a place is quick-added from an article.
+  useEffect(() => {
+    if (!open || !user) return;
+    supabase
+      .from('folders')
+      .select('id, name, color')
+      .eq('user_id', user.id)
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Failed to load folders:', error);
+          return;
+        }
+        setMyFolders(data || []);
+      });
   }, [open, user]);
 
   // Auto-search once the dialog opens (searchQuery starts pre-filled).
@@ -214,7 +233,7 @@ export function AddMentionedPlaceDialog({ open, onOpenChange, placeName }: AddMe
     setLoading(true);
     try {
       if (destination === 'mine') {
-        const folderId = await findOrCreateAutoFolder(user.id, name, []);
+        const folderId = await findOrCreateAutoFolder(user.id, name, myFolders);
         const { error } = await supabase.from('restaurants').insert({
           user_id: user.id,
           name: name.trim(),

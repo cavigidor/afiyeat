@@ -22,6 +22,16 @@ export function formatCategory(category: string | null): string | null {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+// Postgres numeric/bigint columns (AVG, COUNT) come back from PostgREST as
+// JSON strings, not numbers, to avoid precision loss - even though the SQL
+// function casts them to double precision/integer server-side, coerce
+// defensively here too so a future RPC change can't reintroduce a crash.
+export function toNumber(value: number | string | null | undefined): number | null {
+  if (value == null) return null;
+  const n = typeof value === 'number' ? value : parseFloat(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 interface ExplorePlaceCardProps {
   place: ExplorePlace;
   onClick?: () => void;
@@ -29,6 +39,9 @@ interface ExplorePlaceCardProps {
 
 export function ExplorePlaceCard({ place, onClick }: ExplorePlaceCardProps) {
   const categoryLabel = formatCategory(place.category);
+  const avgRating = toNumber(place.avg_rating);
+  const ratingCount = toNumber(place.rating_count) ?? 0;
+  const contributorCount = toNumber(place.contributor_count) ?? 0;
 
   return (
     <Card
@@ -56,12 +69,12 @@ export function ExplorePlaceCard({ place, onClick }: ExplorePlaceCardProps) {
         </div>
 
         <div className="flex items-center gap-4 mt-3 flex-wrap">
-          {place.avg_rating != null && (
+          {avgRating != null && (
             <div className="flex items-center gap-1">
               <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-              <span className="text-sm font-medium">{place.avg_rating.toFixed(1)}/10</span>
+              <span className="text-sm font-medium">{avgRating.toFixed(1)}/10</span>
               <span className="text-xs text-muted-foreground">
-                ({place.rating_count} rating{place.rating_count === 1 ? '' : 's'})
+                ({ratingCount} rating{ratingCount === 1 ? '' : 's'})
               </span>
             </div>
           )}
@@ -79,7 +92,7 @@ export function ExplorePlaceCard({ place, onClick }: ExplorePlaceCardProps) {
           )}
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Users className="h-3 w-3" />
-            {place.contributor_count} added this
+            {contributorCount} added this
           </div>
         </div>
       </CardContent>

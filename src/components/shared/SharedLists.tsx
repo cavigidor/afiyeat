@@ -89,7 +89,7 @@ export function SharedLists({ following }: SharedListsProps) {
 
     const rows = data || [];
     const partnerIds = rows.map((r) => (r.user_a === user.id ? r.user_b : r.user_a));
-    let profilesById: Record<string, Profile> = {};
+    const profilesById: Record<string, Profile> = {};
     if (partnerIds.length > 0) {
       const { data: profs } = await supabase
         .from('profiles')
