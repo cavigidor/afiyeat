@@ -1,14 +1,17 @@
 import { useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import { useMapCenter } from '@/hooks/useMapCenter';
+import { getCurrentPosition } from '@/lib/native';
 import { formatCategory, toNumber, type ExplorePlace } from './ExplorePlaceCard';
 
 interface ExploreMapComponentProps {
   token: string;
   places: ExplorePlace[];
   onSelectPlace: (place: ExplorePlace) => void;
+  flyToMeRef: React.MutableRefObject<(() => void) | null>;
 }
 
-export function ExploreMapComponent({ token, places, onSelectPlace }: ExploreMapComponentProps) {
+export function ExploreMapComponent({ token, places, onSelectPlace, flyToMeRef }: ExploreMapComponentProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<globalThis.Map<string, any>>(new globalThis.Map());
@@ -43,12 +46,23 @@ export function ExploreMapComponent({ token, places, onSelectPlace }: ExploreMap
 
       mapRef.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-      const geolocate = new mapboxgl.GeolocateControl({
-        positionOptions: { enableHighAccuracy: true },
-        trackUserLocation: true,
-        showUserHeading: true,
-      });
-      mapRef.current.addControl(geolocate, 'top-right');
+      // Exposes an explicit "Near Me" action to the parent page's button,
+      // using the same getCurrentPosition() wrapper as the rest of the app
+      // (correctly routes through the native Capacitor plugin on iOS/Android
+      // instead of relying on the web geolocation API inside the WebView).
+      flyToMeRef.current = () => {
+        getCurrentPosition()
+          .then((coords) => {
+            mapRef.current?.flyTo({
+              center: [coords.longitude, coords.latitude],
+              zoom: 14,
+              essential: true,
+            });
+          })
+          .catch(() => {
+            toast.error("Couldn't get your location. Check location permissions and try again.");
+          });
+      };
     };
 
     loadMapbox();
@@ -59,9 +73,10 @@ export function ExploreMapComponent({ token, places, onSelectPlace }: ExploreMap
         mapRef.current.remove();
         mapRef.current = null;
       }
+      flyToMeRef.current = null;
     };
     // Intentionally created once per token - see the pan effect below.
-  }, [token]);
+  }, [token, flyToMeRef]);
 
   // Pan the already-created map when the resolved center changes instead of
   // tearing the whole map down.

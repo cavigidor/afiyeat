@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/layout/Navbar';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Map as MapIcon, List as ListIcon, Compass } from 'lucide-react';
+import { Loader2, Map as MapIcon, List as ListIcon, Compass, LocateFixed } from 'lucide-react';
 import { ExploreMapComponent } from '@/components/explore/ExploreMapComponent';
 import { ExplorePlaceCard, type ExplorePlace } from '@/components/explore/ExplorePlaceCard';
 import { PlaceDetailSheet } from '@/components/explore/PlaceDetailSheet';
@@ -32,6 +33,7 @@ export default function Explore() {
   const [mode, setMode] = useState<ExploreMode>('all');
   const [view, setView] = useState<ExploreView>('map');
   const [selectedPlace, setSelectedPlace] = useState<ExplorePlace | null>(null);
+  const flyToMeRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -118,11 +120,24 @@ export default function Explore() {
             <CardContent className="p-0">
               <div className="h-[60vh] sm:h-[65vh] relative">
                 {mapboxToken ? (
-                  <ExploreMapComponent
-                    token={mapboxToken}
-                    places={places}
-                    onSelectPlace={setSelectedPlace}
-                  />
+                  <>
+                    <ExploreMapComponent
+                      token={mapboxToken}
+                      places={places}
+                      onSelectPlace={setSelectedPlace}
+                      flyToMeRef={flyToMeRef}
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="absolute bottom-4 left-4 shadow-md gap-1.5 z-10"
+                      onClick={() => flyToMeRef.current?.()}
+                    >
+                      <LocateFixed className="h-4 w-4" />
+                      Near Me
+                    </Button>
+                  </>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                     <MapIcon className="h-12 w-12 mb-4 opacity-50" />
