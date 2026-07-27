@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -33,32 +34,43 @@ interface PlaceDetailSheetProps {
 }
 
 export function PlaceDetailSheet({ place, mode, onOpenChange }: PlaceDetailSheetProps) {
+  // Radix keeps SheetContent mounted during its closing animation, and the
+  // parent nulls `place` the instant a close is requested. Without holding
+  // onto the last non-null place, SheetTitle would unmount mid-animation
+  // while SheetContent is still in the DOM, which trips Radix's "DialogContent
+  // requires a DialogTitle" accessibility warning. Holding the last value
+  // also avoids a content-flash-to-empty during the close animation.
+  const [displayPlace, setDisplayPlace] = useState<ExplorePlace | null>(null);
+  useEffect(() => {
+    if (place) setDisplayPlace(place);
+  }, [place]);
+
   const { data: comments = [], isLoading } = useQuery({
-    queryKey: ['place-comments', place?.place_id, mode],
-    queryFn: () => fetchPlaceComments(place!.place_id, mode),
+    queryKey: ['place-comments', displayPlace?.place_id, mode],
+    queryFn: () => fetchPlaceComments(displayPlace!.place_id, mode),
     enabled: !!place,
   });
 
-  const categoryLabel = place ? formatCategory(place.category) : null;
-  const avgRating = place ? toNumber(place.avg_rating) : null;
-  const ratingCount = place ? toNumber(place.rating_count) ?? 0 : 0;
+  const categoryLabel = displayPlace ? formatCategory(displayPlace.category) : null;
+  const avgRating = displayPlace ? toNumber(displayPlace.avg_rating) : null;
+  const ratingCount = displayPlace ? toNumber(displayPlace.rating_count) ?? 0 : 0;
 
   return (
     <Sheet open={!!place} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl">
-        {place && (
+        {displayPlace && (
           <>
             <SheetHeader className="text-left">
               <SheetTitle className="flex items-center gap-2 flex-wrap">
-                {place.name}
+                {displayPlace.name}
                 {categoryLabel && <Badge variant="secondary">{categoryLabel}</Badge>}
               </SheetTitle>
             </SheetHeader>
 
-            {place.address && (
+            {displayPlace.address && (
               <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
                 <MapPin className="h-3 w-3 flex-shrink-0" />
-                {place.address}
+                {displayPlace.address}
               </p>
             )}
 
@@ -72,13 +84,13 @@ export function PlaceDetailSheet({ place, mode, onOpenChange }: PlaceDetailSheet
                   </span>
                 </div>
               )}
-              {place.price_level && (
+              {displayPlace.price_level && (
                 <div className="flex items-center">
                   {Array.from({ length: 4 }).map((_, i) => (
                     <DollarSign
                       key={i}
                       className={`h-4 w-4 -ml-1 first:ml-0 ${
-                        i < place.price_level! ? 'text-primary' : 'text-muted'
+                        i < displayPlace.price_level! ? 'text-primary' : 'text-muted'
                       }`}
                     />
                   ))}

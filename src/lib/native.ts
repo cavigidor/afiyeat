@@ -13,13 +13,17 @@ export async function initPushNotifications(
       perm = await PushNotifications.requestPermissions();
     }
     if (perm.receive !== 'granted') return;
-    await PushNotifications.register();
+    // Listeners must be attached before register() is called - otherwise the
+    // native 'registration' event (with the token) can fire and resolve
+    // before the JS side is listening for it, silently dropping the token
+    // and leaving device_tokens empty even though registration "succeeded".
     PushNotifications.addListener('registration', (token) => {
       void onToken?.(token.value);
     });
     PushNotifications.addListener('registrationError', (err) => {
       console.error('Push registration error:', err);
     });
+    await PushNotifications.register();
   } catch (err) {
     console.error('initPushNotifications failed:', err);
   }
