@@ -575,7 +575,6 @@ export type Database = {
           avatar_url: string
           created_at: string
           display_name: string
-          is_anonymous: boolean
           notes: string
           rating: number
           user_id: string
