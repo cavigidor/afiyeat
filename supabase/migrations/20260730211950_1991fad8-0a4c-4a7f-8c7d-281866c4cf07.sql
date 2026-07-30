@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.seed_default_folders(uuid) FROM PUBLIC, anon, authenticated;
