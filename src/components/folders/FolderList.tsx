@@ -3,7 +3,7 @@ import { sortByTypeOrder } from '@/lib/typeOrder';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Folder, X, Check, Trash2, ChevronDown, ChevronRight, MapPin } from 'lucide-react';
+import { Plus, Folder, X, Check, Trash2, Pencil, ChevronDown, ChevronRight, MapPin } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -44,6 +44,9 @@ export function FolderList({
   const [newFolderName, setNewFolderName] = useState('');
   const [selectedColor, setSelectedColor] = useState(FOLDER_COLORS[0]);
   const [expandedFolder, setExpandedFolder] = useState<string | null>(null);
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editColor, setEditColor] = useState(FOLDER_COLORS[0]);
 
   const handleAddFolder = async () => {
     if (!user || !newFolderName.trim()) return;
@@ -63,6 +66,38 @@ export function FolderList({
       onFoldersChange();
     } catch (error: any) {
       toast.error(error.message || 'Failed to create folder');
+    }
+  };
+
+  const startEditing = (folder: { id: string; name: string; color: string }) => {
+    setEditingFolderId(folder.id);
+    setEditName(folder.name);
+    setEditColor(folder.color);
+    setIsAdding(false);
+  };
+
+  const cancelEditing = () => {
+    setEditingFolderId(null);
+    setEditName('');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingFolderId || !editName.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('folders')
+        .update({ name: editName.trim(), color: editColor })
+        .eq('id', editingFolderId);
+
+      if (error) throw error;
+
+      toast.success('Type updated!');
+      setEditingFolderId(null);
+      setEditName('');
+      onFoldersChange();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update type');
     }
   };
 
@@ -159,7 +194,42 @@ export function FolderList({
         {sortByTypeOrder(folders, (f) => f.name).map((folder) => {
           const folderRestaurants = getRestaurantsInFolder(folder.id);
           const isExpanded = expandedFolder === folder.id;
-          
+          const isEditing = editingFolderId === folder.id;
+
+          if (isEditing) {
+            return (
+              <div key={folder.id} className="space-y-2 p-3 bg-muted/50 rounded-lg">
+                <Input
+                  placeholder="Type name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
+                  autoFocus
+                />
+                <div className="flex flex-wrap gap-1">
+                  {FOLDER_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => setEditColor(color)}
+                      className={`w-6 h-6 rounded-full transition-transform ${
+                        editColor === color ? 'ring-2 ring-primary ring-offset-2' : ''
+                      }`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={handleSaveEdit} className="flex-1">
+                    <Check className="h-4 w-4 mr-1" /> Save
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={cancelEditing}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            );
+          }
+
           return (
             <div key={folder.id}>
               <div
@@ -193,15 +263,25 @@ export function FolderList({
                   <span className="text-xs opacity-60">({folderRestaurants.length})</span>
                 </button>
                 <button
+                  onClick={() => startEditing(folder)}
+                  className={`opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted-foreground/20 ${
+                    selectedFolder === folder.id ? 'hover:bg-primary-foreground/20' : ''
+                  }`}
+                  aria-label="Edit type"
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
+                <button
                   onClick={() => handleDeleteFolder(folder.id)}
                   className={`opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/20 ${
                     selectedFolder === folder.id ? 'hover:bg-primary-foreground/20' : ''
                   }`}
+                  aria-label="Delete type"
                 >
                   <Trash2 className="h-3 w-3" />
                 </button>
               </div>
-              
+
               {/* Expanded restaurant list */}
               {isExpanded && folderRestaurants.length > 0 && (
                 <div className="ml-6 mt-1 space-y-0.5">
