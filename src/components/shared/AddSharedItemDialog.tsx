@@ -21,6 +21,7 @@ import { Loader2, MapPin, Search, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { EmojiSlider } from './EmojiSlider';
 import { PriceLevelSelector, PRICE_LABELS } from '@/components/shared/PriceLevelSelector';
 
 interface PlaceResult {
