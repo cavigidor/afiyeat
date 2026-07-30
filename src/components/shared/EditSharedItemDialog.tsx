@@ -19,7 +19,7 @@ import {
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { EmojiSlider, PRICE_LABELS } from './EmojiSlider';
+import { PriceLevelSelector, PRICE_LABELS } from '@/components/shared/PriceLevelSelector';
 
 export interface SharedItem {
   id: string;

@@ -32,6 +32,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { validateImageFile } from '@/lib/imageValidation';
+import { PriceLevelSelector, PRICE_LABELS } from '@/components/shared/PriceLevelSelector';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Restaurant name is required'),
@@ -66,7 +67,6 @@ interface AddRestaurantDialogProps {
 }
 
 const FOOD_EMOJIS = ['🍕', '🍔', '🍣', '🌮', '🍜', '🥗', '🍰', '🍝', '🥘', '🍱'];
-const PRICE_LABELS = ['<$30', '<$50', '<$100', '$100+'];
 
 function EmojiSlider({ 
   value, 
