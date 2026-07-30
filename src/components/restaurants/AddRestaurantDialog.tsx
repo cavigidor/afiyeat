@@ -568,16 +568,12 @@ export function AddRestaurantDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    Price Level: {'$'.repeat(field.value || 0)} {field.value ? `(${PRICE_LABELS[field.value - 1]})` : 'Not set'}
+                    Price Level: {field.value ? `${'$'.repeat(field.value)} (${PRICE_LABELS[field.value - 1]})` : 'Not set'}
                   </FormLabel>
                   <FormControl>
-                    <EmojiSlider
-                      value={field.value ?? 2}
-                      onChange={field.onChange}
-                      min={1}
-                      max={4}
-                      emojiIndex={emojiIndices.price}
-                      labels={PRICE_LABELS}
+                    <PriceLevelSelector
+                      value={field.value}
+                      onChange={(v) => field.onChange(v ?? undefined)}
                     />
                   </FormControl>
                   <FormMessage />

@@ -131,14 +131,7 @@ export function EditSharedItemDialog({ open, onOpenChange, item, onSuccess }: Ed
             <Label>
               Price Level: {priceLevel ? `${'$'.repeat(priceLevel)} (${PRICE_LABELS[priceLevel - 1]})` : 'Not set'}
             </Label>
-            <EmojiSlider
-              value={priceLevel ?? 2}
-              onChange={setPriceLevel}
-              min={1}
-              max={4}
-              emojiIndex={emojiIndices.price}
-              labels={PRICE_LABELS}
-            />
+            <PriceLevelSelector value={priceLevel} onChange={setPriceLevel} />
           </div>
 
           {!isToGo && (

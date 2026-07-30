@@ -335,14 +335,7 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
             <Label>
               Price Level: {priceLevel ? `${'$'.repeat(priceLevel)} (${PRICE_LABELS[priceLevel - 1]})` : 'Not set'}
             </Label>
-            <EmojiSlider
-              value={priceLevel ?? 2}
-              onChange={setPriceLevel}
-              min={1}
-              max={4}
-              emojiIndex={priceEmojiIndex}
-              labels={PRICE_LABELS}
-            />
+            <PriceLevelSelector value={priceLevel} onChange={setPriceLevel} />
           </div>
 
           <div className="space-y-2">
