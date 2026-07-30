@@ -156,7 +156,7 @@ export function FolderList({
           All Restaurants
         </button>
 
-        {folders.map((folder) => {
+        {sortByTypeOrder(folders, (f) => f.name).map((folder) => {
           const folderRestaurants = getRestaurantsInFolder(folder.id);
           const isExpanded = expandedFolder === folder.id;
           
