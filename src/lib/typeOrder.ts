@@ -21,14 +21,19 @@ const TYPE_ORDER = [
   'Restaurant',
 ];
 
-function typeSortIndex(name: string): number {
+function typeSortIndex(name?: string | null): number {
+  if (!name) return TYPE_ORDER.length;
   const idx = TYPE_ORDER.findIndex((t) => t.toLowerCase() === name.toLowerCase());
   return idx === -1 ? TYPE_ORDER.length : idx;
 }
 
-export function compareTypeNames(a: string, b: string): number {
+export function compareTypeNames(a?: string | null, b?: string | null): number {
   const ia = typeSortIndex(a);
   const ib = typeSortIndex(b);
   if (ia !== ib) return ia - ib;
-  return a.localeCompare(b);
+  return (a ?? '').localeCompare(b ?? '');
+}
+
+export function sortByTypeOrder<T>(items: T[], getName: (item: T) => string | null | undefined): T[] {
+  return [...items].sort((a, b) => compareTypeNames(getName(a), getName(b)));
 }

@@ -20,6 +20,7 @@ import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { EmojiSlider, PRICE_LABELS } from './EmojiSlider';
+import { PriceLevelPicker } from '@/components/restaurants/PriceLevelPicker';
 
 export interface SharedItem {
   id: string;
@@ -131,12 +132,9 @@ export function EditSharedItemDialog({ open, onOpenChange, item, onSuccess }: Ed
             <Label>
               Price Level: {priceLevel ? `${'$'.repeat(priceLevel)} (${PRICE_LABELS[priceLevel - 1]})` : 'Not set'}
             </Label>
-            <EmojiSlider
-              value={priceLevel ?? 2}
+            <PriceLevelPicker
+              value={priceLevel}
               onChange={setPriceLevel}
-              min={1}
-              max={4}
-              emojiIndex={emojiIndices.price}
               labels={PRICE_LABELS}
             />
           </div>
