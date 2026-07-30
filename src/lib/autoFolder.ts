@@ -13,7 +13,7 @@ const DEFAULT_FOLDER_COLORS: Record<string, string> = {
   Bar: '#9C27B0',
   Pub: '#9C27B0',
   Dessert: '#E91E63',
-  Bakery: '#E91E63',
+  Bakery: '#C68958',
   Sushi: '#F44336',
   Pizza: '#FF5722',
   Burger: '#8D6E63',
@@ -59,16 +59,25 @@ export function detectFolderFromName(name: string): string | null {
   )
     return 'Bar';
 
-  // Dessert / Bakery / Pastry
+  // Bakery / Patisserie (bread, pastries - its own type, distinct from Dessert)
+  if (
+    lower.includes('bakery') ||
+    lower.includes('bakehouse') ||
+    lower.includes('patisserie') ||
+    lower.includes('boulangerie') ||
+    lower.includes('pastry') ||
+    lower.includes('baker') ||
+    lower.includes('bread')
+  )
+    return 'Bakery';
+
+  // Dessert / Sweets
   if (
     lower.includes('dessert') ||
-    lower.includes('bakery') ||
     lower.includes('cake') ||
-    lower.includes('pastry') ||
     lower.includes('ice cream') ||
     lower.includes('sweet') ||
     lower.includes('donut') ||
-    lower.includes('patisserie') ||
     lower.includes('gelato')
   )
     return 'Dessert';
