@@ -33,6 +33,21 @@ export function detectFolderFromName(name: string): string | null {
   // Brunch / Breakfast
   if (lower.includes('brunch') || lower.includes('breakfast')) return 'Brunch';
 
+  // Bakery / Patisserie (checked before Coffee/Cafe - a lot of real bakeries
+  // are named things like "X Patisserie & Café", and without this ordering
+  // the Coffee check below would catch the "café" in the name first and the
+  // place would never be recognized as its own Bakery type at all).
+  if (
+    lower.includes('bakery') ||
+    lower.includes('bakehouse') ||
+    lower.includes('patisserie') ||
+    lower.includes('boulangerie') ||
+    lower.includes('pastry') ||
+    lower.includes('baker') ||
+    lower.includes('bread')
+  )
+    return 'Bakery';
+
   // Coffee / Cafe
   if (
     lower.includes('coffee') ||
@@ -58,18 +73,6 @@ export function detectFolderFromName(name: string): string | null {
     lower.includes('speakeasy')
   )
     return 'Bar';
-
-  // Bakery / Patisserie (bread, pastries - its own type, distinct from Dessert)
-  if (
-    lower.includes('bakery') ||
-    lower.includes('bakehouse') ||
-    lower.includes('patisserie') ||
-    lower.includes('boulangerie') ||
-    lower.includes('pastry') ||
-    lower.includes('baker') ||
-    lower.includes('bread')
-  )
-    return 'Bakery';
 
   // Dessert / Sweets
   if (
