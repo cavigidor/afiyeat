@@ -149,6 +149,28 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  /* Prevents sideways drift on screens that are even a pixel wider than the
+     viewport (a stray fixed-width element, a shadow, etc.) - clips rather
+     than lets the whole page become horizontally scrollable/bouncy. */
+  html,
+  body {
+    overflow-x: hidden;
+    width: 100%;
+    /* Disables the browser's own pinch-zoom and double-tap-to-zoom gesture
+       app-wide. touch-action isn't inherited, but WebKit resolves the used
+       touch-action for a touch point as the intersection of the hit
+       element's value and its ancestors', so this still applies to normal
+       page content. Mapbox sets touch-action: none directly on its own
+       canvas to run its own pinch/pan gestures, which is more specific and
+       wins there, so the map keeps its own pinch-to-zoom. */
+    touch-action: manipulation;
+  }
+
+  #root {
+    overflow-x: hidden;
+    width: 100%;
+  }
+
   body {
     @apply bg-background text-foreground;
   }
