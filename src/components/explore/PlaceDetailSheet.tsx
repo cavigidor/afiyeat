@@ -16,6 +16,7 @@ interface PlaceComment {
   rating: number | null;
   notes: string | null;
   created_at: string;
+  is_anonymous: boolean;
 }
 
 async function fetchPlaceComments(placeId: string, mode: 'friends' | 'all'): Promise<PlaceComment[]> {
@@ -112,36 +113,59 @@ export function PlaceDetailSheet({ place, mode, onOpenChange }: PlaceDetailSheet
                   No comments visible for this place yet.
                 </p>
               ) : (
-                comments.map((c) => (
-                  <div key={c.user_id} className="flex gap-3 p-3 rounded-lg bg-muted/40">
-                    <Link to={`/u/${c.user_id}`} onClick={() => onOpenChange(false)}>
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src={c.avatar_url || ''} />
-                        <AvatarFallback className="bg-primary text-primary-foreground">
-                          {(c.username || c.display_name || 'U')[0].toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    </Link>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Link
-                          to={`/u/${c.user_id}`}
-                          onClick={() => onOpenChange(false)}
-                          className="font-medium text-sm hover:underline"
-                        >
-                          {c.display_name || c.username || 'Someone'}
+                comments.map((c) => {
+                  // Private contributors show up (per-place rating/notes still
+                  // count), but their identity is withheld - the RPC already
+                  // nulled username/display_name/avatar_url for them, and
+                  // is_anonymous tells us not to link through to their
+                  // profile page either (that page shows the real username,
+                  // which would defeat the anonymization above).
+                  const avatarInitial = (c.username || c.display_name || 'U')[0].toUpperCase();
+                  const nameLabel = c.display_name || c.username || 'Someone';
+
+                  const avatar = (
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage src={c.avatar_url || ''} />
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        {avatarInitial}
+                      </AvatarFallback>
+                    </Avatar>
+                  );
+
+                  return (
+                    <div key={c.user_id} className="flex gap-3 p-3 rounded-lg bg-muted/40">
+                      {c.is_anonymous ? (
+                        avatar
+                      ) : (
+                        <Link to={`/u/${c.user_id}`} onClick={() => onOpenChange(false)}>
+                          {avatar}
                         </Link>
-                        {c.rating != null && (
-                          <span className="text-xs text-muted-foreground flex items-center gap-0.5">
-                            <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
-                            {c.rating}/10
-                          </span>
-                        )}
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {c.is_anonymous ? (
+                            <span className="font-medium text-sm text-muted-foreground">{nameLabel}</span>
+                          ) : (
+                            <Link
+                              to={`/u/${c.user_id}`}
+                              onClick={() => onOpenChange(false)}
+                              className="font-medium text-sm hover:underline"
+                            >
+                              {nameLabel}
+                            </Link>
+                          )}
+                          {c.rating != null && (
+                            <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                              <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
+                              {c.rating}/10
+                            </span>
+                          )}
+                        </div>
+                        {c.notes && <p className="text-sm mt-1 whitespace-pre-wrap">{c.notes}</p>}
                       </div>
-                      {c.notes && <p className="text-sm mt-1 whitespace-pre-wrap">{c.notes}</p>}
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </>
