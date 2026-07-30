@@ -31,6 +31,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { ImageUploadSection } from './ImageUploadSection';
+import { PriceLevelSelector, PRICE_LABELS } from '@/components/shared/PriceLevelSelector';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Restaurant name is required'),
@@ -70,7 +71,6 @@ interface EditRestaurantDialogProps {
 }
 
 const FOOD_EMOJIS = ['🍕', '🍔', '🍣', '🌮', '🍜', '🥗', '🍰', '🍝', '🥘', '🍱'];
-const PRICE_LABELS = ['<$30', '<$50', '<$100', '$100+'];
 
 function EmojiSlider({ 
   value, 
@@ -324,16 +324,12 @@ export function EditRestaurantDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    Price Level: {'$'.repeat(field.value || 0)} {field.value ? `(${PRICE_LABELS[field.value - 1]})` : 'Not set'}
+                    Price Level: {field.value ? `${'$'.repeat(field.value)} (${PRICE_LABELS[field.value - 1]})` : 'Not set'}
                   </FormLabel>
                   <FormControl>
-                    <EmojiSlider
-                      value={field.value ?? 2}
-                      onChange={field.onChange}
-                      min={1}
-                      max={4}
-                      emojiIndex={emojiIndices.price}
-                      labels={PRICE_LABELS}
+                    <PriceLevelSelector
+                      value={field.value}
+                      onChange={(v) => field.onChange(v ?? undefined)}
                     />
                   </FormControl>
                   <FormMessage />

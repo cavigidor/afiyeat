@@ -21,7 +21,8 @@ import { Loader2, MapPin, Search, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { EmojiSlider, PRICE_LABELS } from './EmojiSlider';
+import { EmojiSlider } from './EmojiSlider';
+import { PriceLevelSelector, PRICE_LABELS } from '@/components/shared/PriceLevelSelector';
 
 interface PlaceResult {
   id: string;
@@ -335,14 +336,7 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
             <Label>
               Price Level: {priceLevel ? `${'$'.repeat(priceLevel)} (${PRICE_LABELS[priceLevel - 1]})` : 'Not set'}
             </Label>
-            <EmojiSlider
-              value={priceLevel ?? 2}
-              onChange={setPriceLevel}
-              min={1}
-              max={4}
-              emojiIndex={priceEmojiIndex}
-              labels={PRICE_LABELS}
-            />
+            <PriceLevelSelector value={priceLevel} onChange={setPriceLevel} />
           </div>
 
           <div className="space-y-2">

@@ -18,6 +18,7 @@ import { RestaurantDetailDialog, type DetailRestaurant } from '@/components/rest
 import { RestaurantListToolbar } from '@/components/restaurants/RestaurantListToolbar';
 import { AddRestaurantDialog } from '@/components/restaurants/AddRestaurantDialog';
 import { EditRestaurantDialog } from '@/components/restaurants/EditRestaurantDialog';
+import { sortByTypeOrder } from '@/lib/typeOrder';
 import { FolderList } from '@/components/folders/FolderList';
 import { useViewMode } from '@/hooks/useViewMode';
 import type { RestaurantSortBy } from '@/hooks/useRestaurantListControls';
@@ -299,7 +300,7 @@ export default function MyList() {
                 {/* Type/sort/view controls */}
                 <div className="mb-4">
                   <RestaurantListToolbar
-                    availableTypes={folders.map((f) => f.name)}
+                    availableTypes={sortByTypeOrder(folders, (f) => f.name).map((f) => f.name)}
                     typeFilter={folders.find((f) => f.id === selectedFolder)?.name ?? null}
                     onTypeFilterChange={(name) =>
                       setSelectedFolder(name ? folders.find((f) => f.name === name)?.id ?? null : null)

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { sortByTypeOrder } from '@/lib/typeOrder';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -155,7 +156,7 @@ export function FolderList({
           All Restaurants
         </button>
 
-        {folders.map((folder) => {
+        {sortByTypeOrder(folders, (f) => f.name).map((folder) => {
           const folderRestaurants = getRestaurantsInFolder(folder.id);
           const isExpanded = expandedFolder === folder.id;
           
