@@ -1,0 +1,56 @@
+-- Data cleanup for existing folders/types:
+-- 1. "Cafes" -> "Cafe" (singular), merging into an existing "Cafe" folder
+--    per user if one already exists rather than creating a duplicate.
+-- 2. "Bars" -> "Bar" (singular), same merge behavior.
+-- 3. "Dessert"/"Desserts" is retired and merged into "Bakery" (creating a
+--    Bakery folder for that user if they don't already have one), since
+--    Bakery is now the intended catch-all type instead of a separate
+--    Dessert type.
+--
+-- This only touches folders (and reassigns any restaurants sitting inside
+-- them) - it does not affect restaurants that already have no folder, and
+-- it's safe to run more than once (no matching rows left after the first
+-- run).
+
+DO $$
+DECLARE
+  r RECORD;
+  target_id UUID;
+BEGIN
+  -- Cafes -> Cafe
+  FOR r IN SELECT id, user_id FROM public.folders WHERE lower(name) = 'cafes' LOOP
+    SELECT id INTO target_id FROM public.folders
+      WHERE user_id = r.user_id AND lower(name) = 'cafe' AND id <> r.id LIMIT 1;
+    IF target_id IS NULL THEN
+      UPDATE public.folders SET name = 'Cafe' WHERE id = r.id;
+    ELSE
+      UPDATE public.restaurants SET folder_id = target_id WHERE folder_id = r.id;
+      DELETE FROM public.folders WHERE id = r.id;
+    END IF;
+  END LOOP;
+
+  -- Bars -> Bar
+  FOR r IN SELECT id, user_id FROM public.folders WHERE lower(name) = 'bars' LOOP
+    SELECT id INTO target_id FROM public.folders
+      WHERE user_id = r.user_id AND lower(name) = 'bar' AND id <> r.id LIMIT 1;
+    IF target_id IS NULL THEN
+      UPDATE public.folders SET name = 'Bar' WHERE id = r.id;
+    ELSE
+      UPDATE public.restaurants SET folder_id = target_id WHERE folder_id = r.id;
+      DELETE FROM public.folders WHERE id = r.id;
+    END IF;
+  END LOOP;
+
+  -- Dessert/Desserts -> Bakery (create Bakery folder for the user if needed)
+  FOR r IN SELECT id, user_id FROM public.folders WHERE lower(name) IN ('dessert', 'desserts') LOOP
+    SELECT id INTO target_id FROM public.folders
+      WHERE user_id = r.user_id AND lower(name) = 'bakery' LIMIT 1;
+    IF target_id IS NULL THEN
+      INSERT INTO public.folders (user_id, name, color)
+        VALUES (r.user_id, 'Bakery', '#C68958')
+        RETURNING id INTO target_id;
+    END IF;
+    UPDATE public.restaurants SET folder_id = target_id WHERE folder_id = r.id;
+    DELETE FROM public.folders WHERE id = r.id;
+  END LOOP;
+END $$;
