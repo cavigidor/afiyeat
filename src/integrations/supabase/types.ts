@@ -594,6 +594,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      seed_default_folders: { Args: { p_user_id: string }; Returns: undefined }
       send_inactivity_reminders: { Args: never; Returns: undefined }
       send_weekly_digest: { Args: never; Returns: undefined }
     }
