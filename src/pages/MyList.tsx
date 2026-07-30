@@ -299,7 +299,7 @@ export default function MyList() {
                 {/* Type/sort/view controls */}
                 <div className="mb-4">
                   <RestaurantListToolbar
-                    availableTypes={folders.map((f) => f.name)}
+                    availableTypes={sortByTypeOrder(folders, (f) => f.name).map((f) => f.name)}
                     typeFilter={folders.find((f) => f.id === selectedFolder)?.name ?? null}
                     onTypeFilterChange={(name) =>
                       setSelectedFolder(name ? folders.find((f) => f.name === name)?.id ?? null : null)
