@@ -4,10 +4,10 @@
 // types the user created themselves - those sort alphabetically after all
 // known ones, rather than being scattered based on when they were created.
 const TYPE_ORDER = [
-  'Breakfast',
-  'Brunch',
   'Lunch',
   'Dinner',
+  'Breakfast',
+  'Brunch',
   'Bakery',
   'Cafe',
   'Coffee',

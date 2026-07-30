@@ -31,7 +31,7 @@ import { isNative, capturePhoto } from '@/lib/native';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { validateImageFile } from '@/lib/imageValidation';
+import { validateImageFile, compressImage, MAX_IMAGES_PER_RESTAURANT } from '@/lib/imageValidation';
 import { PriceLevelPicker } from './PriceLevelPicker';
 
 const formSchema = z.object({
@@ -265,8 +265,14 @@ export function AddRestaurantDialog({
     }
   };
 
-  const addFiles = (incoming: File[]) => {
-    const files = incoming.filter((file) => {
+  const addFiles = async (incoming: File[]) => {
+    const remainingSlots = MAX_IMAGES_PER_RESTAURANT - images.length;
+    if (remainingSlots <= 0) {
+      toast.error(`You can add up to ${MAX_IMAGES_PER_RESTAURANT} photos per place.`);
+      return;
+    }
+
+    const validated = incoming.filter((file) => {
       const error = validateImageFile(file);
       if (error) {
         toast.error(`${file.name}: ${error}`);
@@ -274,9 +280,22 @@ export function AddRestaurantDialog({
       }
       return true;
     });
-    setImages((prev) => [...prev, ...files]);
 
-    files.forEach((file) => {
+    if (validated.length > remainingSlots) {
+      toast.error(
+        `Only ${remainingSlots} more photo${remainingSlots === 1 ? '' : 's'} can be added (max ${MAX_IMAGES_PER_RESTAURANT}).`,
+      );
+    }
+    const toAdd = validated.slice(0, remainingSlots);
+
+    // Downscale/re-encode before it ever touches state or gets uploaded, so
+    // normal multi-megabyte phone photos don't trip size limits or bloat
+    // storage - see compressImage() for details.
+    const compressed = await Promise.all(toAdd.map((file) => compressImage(file)));
+
+    setImages((prev) => [...prev, ...compressed]);
+
+    compressed.forEach((file) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         setImagePreviews((prev) => [...prev, e.target?.result as string]);
@@ -625,7 +644,9 @@ export function AddRestaurantDialog({
             />
 
             <div className="space-y-2">
-              <FormLabel>Photos</FormLabel>
+              <FormLabel>
+                Photos ({imagePreviews.length}/{MAX_IMAGES_PER_RESTAURANT})
+              </FormLabel>
               <div className="grid grid-cols-4 gap-2">
                 {imagePreviews.map((preview, index) => (
                   <div key={index} className="relative aspect-square">
@@ -643,17 +664,19 @@ export function AddRestaurantDialog({
                     </button>
                   </div>
                 ))}
-                <label className="aspect-square border-2 border-dashed border-muted rounded-lg flex items-center justify-center cursor-pointer hover:border-primary transition-colors">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleImageChange}
-                    className="hidden"
-                  />
-                  <ImagePlus className="h-6 w-6 text-muted-foreground" />
-                </label>
-                {isNative() && (
+                {imagePreviews.length < MAX_IMAGES_PER_RESTAURANT && (
+                  <label className="aspect-square border-2 border-dashed border-muted rounded-lg flex items-center justify-center cursor-pointer hover:border-primary transition-colors">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageChange}
+                      className="hidden"
+                    />
+                    <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                  </label>
+                )}
+                {isNative() && imagePreviews.length < MAX_IMAGES_PER_RESTAURANT && (
                   <button
                     type="button"
                     onClick={handleTakePhoto}

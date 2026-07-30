@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { validateImageFile } from '@/lib/imageValidation';
+import { validateImageFile, compressImage, MAX_IMAGES_PER_RESTAURANT } from '@/lib/imageValidation';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 
 interface ExistingImage {
@@ -57,6 +57,13 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
     const files = e.target.files;
     if (!files || !user) return;
 
+    const remainingSlots = MAX_IMAGES_PER_RESTAURANT - existingImages.length;
+    if (remainingSlots <= 0) {
+      toast.error(`You can add up to ${MAX_IMAGES_PER_RESTAURANT} photos per place.`);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     const fileArray = Array.from(files);
     for (const file of fileArray) {
       const error = validateImageFile(file);
@@ -66,9 +73,18 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
       }
     }
 
+    if (fileArray.length > remainingSlots) {
+      toast.error(
+        `Only ${remainingSlots} more photo${remainingSlots === 1 ? '' : 's'} can be added (max ${MAX_IMAGES_PER_RESTAURANT}).`,
+      );
+    }
+    const toUpload = fileArray.slice(0, remainingSlots);
+
     setUploading(true);
     try {
-      for (const file of fileArray) {
+      // Downscale/re-encode before upload - see compressImage() for why.
+      const compressedFiles = await Promise.all(toUpload.map((file) => compressImage(file)));
+      for (const file of compressedFiles) {
         const ext = file.name.split('.').pop();
         const path = `${user.id}/${restaurantId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
@@ -89,7 +105,7 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
         if (dbError) throw dbError;
       }
 
-      toast.success(`${fileArray.length} image${fileArray.length > 1 ? 's' : ''} uploaded!`);
+      toast.success(`${toUpload.length} image${toUpload.length > 1 ? 's' : ''} uploaded!`);
       onImagesChange();
     } catch (err: any) {
       toast.error(err.message || 'Failed to upload image');
@@ -115,23 +131,27 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
 
   return (
     <div className="space-y-3">
-      <label className="text-sm font-medium">Photos</label>
+      <label className="text-sm font-medium">
+        Photos ({existingImages.length}/{MAX_IMAGES_PER_RESTAURANT})
+      </label>
       <div className="grid grid-cols-4 gap-2">
         {existingImages.map((img) => (
           <ImageThumbnail key={img.id} image={img} onDelete={handleDeleteImage} />
         ))}
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center hover:border-primary/50 transition-colors"
-        >
-          {uploading ? (
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          ) : (
-            <ImagePlus className="h-5 w-5 text-muted-foreground" />
-          )}
-        </button>
+        {existingImages.length < MAX_IMAGES_PER_RESTAURANT && (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center hover:border-primary/50 transition-colors"
+          >
+            {uploading ? (
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            ) : (
+              <ImagePlus className="h-5 w-5 text-muted-foreground" />
+            )}
+          </button>
+        )}
       </div>
       <input
         ref={fileInputRef}
