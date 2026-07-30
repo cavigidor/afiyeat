@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, MapPin, Clock, Check, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { compareTypeNames } from '@/lib/typeOrder';
 
 interface Restaurant {
   id: string;
@@ -41,7 +42,7 @@ async function fetchFoldersFor(userId: string): Promise<Folder[]> {
     .order('created_at', { ascending: true });
 
   if (error) throw error;
-  return data || [];
+  return (data || []).sort((a, b) => compareTypeNames(a.name, b.name));
 }
 
 async function fetchRestaurantsFor(userId: string, folderId: string | null): Promise<Restaurant[]> {

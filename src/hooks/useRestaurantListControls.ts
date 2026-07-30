@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { compareTypeNames } from '@/lib/typeOrder';
 
 export type RestaurantSortBy = 'name' | 'price_asc' | 'price_desc' | 'rating_desc';
 
@@ -25,7 +26,7 @@ export function useRestaurantListControls<T extends RestaurantLike>(restaurants:
     restaurants.forEach((r) => {
       if (r.folder?.name) names.add(r.folder.name);
     });
-    return Array.from(names).sort();
+    return Array.from(names).sort(compareTypeNames);
   }, [restaurants]);
 
   const filteredSorted = useMemo(() => {

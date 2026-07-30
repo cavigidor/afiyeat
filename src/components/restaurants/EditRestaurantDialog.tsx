@@ -31,6 +31,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { ImageUploadSection } from './ImageUploadSection';
+import { PriceLevelPicker } from './PriceLevelPicker';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Restaurant name is required'),
@@ -146,9 +147,10 @@ export function EditRestaurantDialog({
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   
+  // Emoji index for the rating slider only - price is now a plain 4-box
+  // picker with no emoji thumb.
   const emojiIndices = useMemo(() => ({
     rating: Math.floor(Math.random() * FOOD_EMOJIS.length),
-    price: Math.floor(Math.random() * FOOD_EMOJIS.length),
   }), [open]);
 
   const form = useForm<FormValues>({
@@ -327,12 +329,9 @@ export function EditRestaurantDialog({
                     Price Level: {'$'.repeat(field.value || 0)} {field.value ? `(${PRICE_LABELS[field.value - 1]})` : 'Not set'}
                   </FormLabel>
                   <FormControl>
-                    <EmojiSlider
-                      value={field.value ?? 2}
+                    <PriceLevelPicker
+                      value={field.value}
                       onChange={field.onChange}
-                      min={1}
-                      max={4}
-                      emojiIndex={emojiIndices.price}
                       labels={PRICE_LABELS}
                     />
                   </FormControl>

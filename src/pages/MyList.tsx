@@ -21,6 +21,7 @@ import { EditRestaurantDialog } from '@/components/restaurants/EditRestaurantDia
 import { FolderList } from '@/components/folders/FolderList';
 import { useViewMode } from '@/hooks/useViewMode';
 import type { RestaurantSortBy } from '@/hooks/useRestaurantListControls';
+import { compareTypeNames } from '@/lib/typeOrder';
 import { toast } from 'sonner';
 
 interface Restaurant {
@@ -64,7 +65,7 @@ async function fetchMyRestaurants(userId: string): Promise<Restaurant[]> {
 async function fetchMyFolders(userId: string): Promise<Folder[]> {
   const { data, error } = await supabase.from('folders').select('*').eq('user_id', userId);
   if (error) throw error;
-  return data || [];
+  return (data || []).sort((a, b) => compareTypeNames(a.name, b.name));
 }
 
 async function fetchMapboxTokenValue(): Promise<string | null> {
