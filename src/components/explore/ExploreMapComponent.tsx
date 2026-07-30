@@ -86,15 +86,26 @@ export function ExploreMapComponent({ token, places, onSelectPlace, flyToMeRef }
   }, [center]);
 
   useEffect(() => {
-    if (!mapRef.current) return;
-
-    markersRef.current.forEach((marker) => marker.remove());
-    markersRef.current.clear();
-
+    // Bug: this effect used to bail out immediately with
+    // `if (!mapRef.current) return` before ever starting the polling
+    // interval below. The places query and the Mapbox map creation (a
+    // dynamic import + async Map constructor in the effect above) race each
+    // other - if places resolved first (the common case), mapRef.current
+    // was still null, this effect returned with no interval scheduled, and
+    // since `places` rarely changes reference again, markers never got
+    // added even though the list view (fed by the same data) rendered
+    // fine. Now the interval always starts and just waits for the map to
+    // exist and finish loading before placing markers.
     const placesWithLocation = places.filter((p) => p.latitude != null && p.longitude != null);
-    if (placesWithLocation.length === 0) return;
 
     const loadMarkers = async () => {
+      if (!mapRef.current) return;
+
+      markersRef.current.forEach((marker) => marker.remove());
+      markersRef.current.clear();
+
+      if (placesWithLocation.length === 0) return;
+
       const mapboxgl = (await import('mapbox-gl')).default;
 
       placesWithLocation.forEach((place) => {
