@@ -18,6 +18,7 @@ import { RestaurantDetailDialog, type DetailRestaurant } from '@/components/rest
 import { RestaurantListToolbar } from '@/components/restaurants/RestaurantListToolbar';
 import { AddRestaurantDialog } from '@/components/restaurants/AddRestaurantDialog';
 import { EditRestaurantDialog } from '@/components/restaurants/EditRestaurantDialog';
+import { sortByTypeOrder } from '@/lib/typeOrder';
 import { FolderList } from '@/components/folders/FolderList';
 import { useViewMode } from '@/hooks/useViewMode';
 import type { RestaurantSortBy } from '@/hooks/useRestaurantListControls';
