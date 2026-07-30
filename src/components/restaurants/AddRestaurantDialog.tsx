@@ -32,6 +32,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { validateImageFile, compressImage, MAX_IMAGES_PER_RESTAURANT } from '@/lib/imageValidation';
+import { isDuplicateRestaurant } from '@/lib/duplicateRestaurant';
 import { PriceLevelPicker } from './PriceLevelPicker';
 
 const formSchema = z.object({
@@ -320,9 +321,21 @@ export function AddRestaurantDialog({
 
   const onSubmit = async (values: FormValues) => {
     if (!user) return;
-    
+
     setLoading(true);
     try {
+      const duplicate = await isDuplicateRestaurant(user.id, {
+        name: values.name,
+        latitude: values.latitude,
+        longitude: values.longitude,
+        placeId: selectedPlaceMeta.placeId,
+      });
+      if (duplicate) {
+        toast.error("You've already added this place to your list.");
+        setLoading(false);
+        return;
+      }
+
       const folderId = values.folder_id || null;
 
       // Clear rating for to_go status, keep price_level for both

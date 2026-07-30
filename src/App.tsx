@@ -4,12 +4,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PushNotificationManager } from "@/components/shared/PushNotificationManager";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
-import Dashboard from "./pages/Dashboard";
 import Friends from "./pages/Friends";
 import Search from "./pages/Search";
 import Explore from "./pages/Explore";
@@ -55,7 +54,12 @@ const App = () => {
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
-            <Route path="/dashboard" element={<Dashboard />} />
+            {/* Dashboard.tsx was an earlier, less complete version of this
+                same page (no edit-after-mark-visited flow, no duplicate
+                check, no type ordering, etc.) that MyList.tsx has since
+                fully superseded - redirect rather than maintain two
+                divergent copies of the same screen. */}
+            <Route path="/dashboard" element={<Navigate to="/my-list" replace />} />
             <Route path="/friends" element={<Friends />} />
             <Route path="/search" element={<Search />} />
             <Route path="/explore" element={<Explore />} />

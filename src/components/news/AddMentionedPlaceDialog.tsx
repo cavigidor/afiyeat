@@ -21,6 +21,7 @@ import { Loader2, MapPin, Search, List, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { isDuplicateRestaurant } from '@/lib/duplicateRestaurant';
 
 interface PlaceResult {
   id: string;
@@ -213,6 +214,18 @@ export function AddMentionedPlaceDialog({ open, onOpenChange, placeName }: AddMe
     setLoading(true);
     try {
       if (destination === 'mine') {
+        const duplicate = await isDuplicateRestaurant(user.id, {
+          name,
+          latitude,
+          longitude,
+          placeId,
+        });
+        if (duplicate) {
+          toast.error("You've already added this place to your list.");
+          setLoading(false);
+          return;
+        }
+
         // No type/folder is assigned here - the user can pick one afterward
         // from My List's edit dialog if they want this categorized.
         const { error } = await supabase.from('restaurants').insert({
