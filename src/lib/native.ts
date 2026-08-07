@@ -13,6 +13,13 @@ export async function initPushNotifications(
       perm = await PushNotifications.requestPermissions();
     }
     if (perm.receive !== 'granted') return;
+    // This can legitimately run more than once per app session (e.g. the
+    // auth listener firing SIGNED_IN again on token refresh), and each call
+    // used to stack a fresh pair of listeners on top of any still attached
+    // from a previous call - so a single real token event would fire the
+    // (Supabase-upserting) callback once per past call, growing over the
+    // session. Clear out anything previously attached first.
+    await PushNotifications.removeAllListeners();
     // Listeners must be attached before register() is called - otherwise the
     // native 'registration' event (with the token) can fire and resolve
     // before the JS side is listening for it, silently dropping the token

@@ -22,9 +22,10 @@ export function getCurrentDeviceToken(): string | null {
  */
 export function PushNotificationManager() {
   const { user } = useAuth();
+  const userId = user?.id;
 
   useEffect(() => {
-    if (!user || !isNative()) return;
+    if (!userId || !isNative()) return;
 
     let cancelled = false;
     const platform = Capacitor.getPlatform() === 'android' ? 'android' : 'ios';
@@ -33,7 +34,7 @@ export function PushNotificationManager() {
       if (cancelled) return;
       currentDeviceToken = token;
       const { error } = await supabase.from('device_tokens').upsert(
-        { user_id: user.id, token, platform },
+        { user_id: userId, token, platform },
         { onConflict: 'token' },
       );
       if (error) {
@@ -44,7 +45,13 @@ export function PushNotificationManager() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+    // Supabase hands back a new `session`/`user` object on every auth event
+    // (initial getSession(), the auth listener's INITIAL_SESSION, a token
+    // refresh, etc.) even when it's the same signed-in account - depending
+    // on the object itself re-ran this effect (and re-registered for push)
+    // multiple times per cold start. Depending on just the id instead means
+    // it only actually re-runs on a real sign-in/sign-out/account switch.
+  }, [userId]);
 
   return null;
 }
