@@ -1,12 +1,8 @@
-import { useState } from 'react';
-import { sortByTypeOrder } from '@/lib/typeOrder';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Plus, Folder, X, Check, Trash2, Pencil, ChevronDown, ChevronRight, MapPin } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
+import { Plus, Folder, X, Check, Trash2, Pencil, ChevronUp, ChevronDown, ChevronRight, MapPin } from 'lucide-react';
+import { useFolderManagement, FOLDER_COLORS, type ManagedFolder } from '@/hooks/useFolderManagement';
+import { useState } from 'react';
 
 interface Restaurant {
   id: string;
@@ -17,19 +13,13 @@ interface Restaurant {
 }
 
 interface FolderListProps {
-  folders: { id: string; name: string; color: string }[];
+  folders: ManagedFolder[];
   selectedFolder: string | null;
   onSelectFolder: (id: string | null) => void;
   onFoldersChange: () => void;
   restaurants?: Restaurant[];
   onRestaurantClick?: (restaurant: Restaurant) => void;
 }
-
-const FOLDER_COLORS = [
-  '#E91E63', '#9C27B0', '#673AB7', '#3F51B5',
-  '#2196F3', '#00BCD4', '#009688', '#4CAF50',
-  '#8BC34A', '#CDDC39', '#FFC107', '#FF9800',
-];
 
 export function FolderList({
   folders,
@@ -39,82 +29,27 @@ export function FolderList({
   restaurants = [],
   onRestaurantClick,
 }: FolderListProps) {
-  const { user } = useAuth();
-  const [isAdding, setIsAdding] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
-  const [selectedColor, setSelectedColor] = useState(FOLDER_COLORS[0]);
   const [expandedFolder, setExpandedFolder] = useState<string | null>(null);
-  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
-  const [editName, setEditName] = useState('');
-  const [editColor, setEditColor] = useState(FOLDER_COLORS[0]);
-
-  const handleAddFolder = async () => {
-    if (!user || !newFolderName.trim()) return;
-
-    try {
-      const { error } = await supabase.from('folders').insert({
-        user_id: user.id,
-        name: newFolderName.trim(),
-        color: selectedColor,
-      });
-
-      if (error) throw error;
-
-      toast.success('Folder created!');
-      setNewFolderName('');
-      setIsAdding(false);
-      onFoldersChange();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to create folder');
-    }
-  };
-
-  const startEditing = (folder: { id: string; name: string; color: string }) => {
-    setEditingFolderId(folder.id);
-    setEditName(folder.name);
-    setEditColor(folder.color);
-    setIsAdding(false);
-  };
-
-  const cancelEditing = () => {
-    setEditingFolderId(null);
-    setEditName('');
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editingFolderId || !editName.trim()) return;
-
-    try {
-      const { error } = await supabase
-        .from('folders')
-        .update({ name: editName.trim(), color: editColor })
-        .eq('id', editingFolderId);
-
-      if (error) throw error;
-
-      toast.success('Type updated!');
-      setEditingFolderId(null);
-      setEditName('');
-      onFoldersChange();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to update type');
-    }
-  };
-
-  const handleDeleteFolder = async (id: string) => {
-    try {
-      const { error } = await supabase.from('folders').delete().eq('id', id);
-      if (error) throw error;
-      
-      if (selectedFolder === id) {
-        onSelectFolder(null);
-      }
-      toast.success('Folder deleted');
-      onFoldersChange();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to delete folder');
-    }
-  };
+  const {
+    sortedFolders,
+    isAdding,
+    setIsAdding,
+    newFolderName,
+    setNewFolderName,
+    selectedColor,
+    setSelectedColor,
+    editingFolderId,
+    editName,
+    setEditName,
+    editColor,
+    setEditColor,
+    handleAddFolder,
+    startEditing,
+    cancelEditing,
+    handleSaveEdit,
+    handleDeleteFolder,
+    moveFolder,
+  } = useFolderManagement(folders, onFoldersChange);
 
   const toggleExpand = (folderId: string) => {
     setExpandedFolder(expandedFolder === folderId ? null : folderId);
@@ -122,6 +57,11 @@ export function FolderList({
 
   const getRestaurantsInFolder = (folderId: string) => {
     return restaurants.filter(r => r.folder_id === folderId);
+  };
+
+  const handleDelete = (id: string) => {
+    if (selectedFolder === id) onSelectFolder(null);
+    handleDeleteFolder(id);
   };
 
   return (
@@ -191,7 +131,7 @@ export function FolderList({
           All Restaurants
         </button>
 
-        {sortByTypeOrder(folders, (f) => f.name).map((folder) => {
+        {sortedFolders.map((folder, index) => {
           const folderRestaurants = getRestaurantsInFolder(folder.id);
           const isExpanded = expandedFolder === folder.id;
           const isEditing = editingFolderId === folder.id;
@@ -233,7 +173,7 @@ export function FolderList({
           return (
             <div key={folder.id}>
               <div
-                className={`group flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                className={`group flex items-center gap-1 px-3 py-2 rounded-lg text-sm transition-colors ${
                   selectedFolder === folder.id
                     ? 'bg-primary text-primary-foreground'
                     : 'hover:bg-muted'
@@ -253,33 +193,55 @@ export function FolderList({
                 )}
                 <button
                   onClick={() => onSelectFolder(folder.id)}
-                  className="flex-1 flex items-center gap-2 text-left"
+                  className="flex-1 flex items-center gap-2 text-left min-w-0"
                 >
                   <div
-                    className="w-3 h-3 rounded-full"
+                    className="w-3 h-3 rounded-full shrink-0"
                     style={{ backgroundColor: folder.color }}
                   />
                   <span className="truncate">{folder.name}</span>
-                  <span className="text-xs opacity-60">({folderRestaurants.length})</span>
+                  <span className="text-xs opacity-60 shrink-0">({folderRestaurants.length})</span>
                 </button>
-                <button
-                  onClick={() => startEditing(folder)}
-                  className={`opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted-foreground/20 ${
-                    selectedFolder === folder.id ? 'hover:bg-primary-foreground/20' : ''
-                  }`}
-                  aria-label="Edit type"
-                >
-                  <Pencil className="h-3 w-3" />
-                </button>
-                <button
-                  onClick={() => handleDeleteFolder(folder.id)}
-                  className={`opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/20 ${
-                    selectedFolder === folder.id ? 'hover:bg-primary-foreground/20' : ''
-                  }`}
-                  aria-label="Delete type"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
+                <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  <button
+                    onClick={() => moveFolder(folder.id, 'up')}
+                    disabled={index === 0}
+                    className={`p-1 rounded hover:bg-muted-foreground/20 disabled:opacity-30 disabled:pointer-events-none ${
+                      selectedFolder === folder.id ? 'hover:bg-primary-foreground/20' : ''
+                    }`}
+                    aria-label="Move up"
+                  >
+                    <ChevronUp className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={() => moveFolder(folder.id, 'down')}
+                    disabled={index === sortedFolders.length - 1}
+                    className={`p-1 rounded hover:bg-muted-foreground/20 disabled:opacity-30 disabled:pointer-events-none ${
+                      selectedFolder === folder.id ? 'hover:bg-primary-foreground/20' : ''
+                    }`}
+                    aria-label="Move down"
+                  >
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={() => startEditing(folder)}
+                    className={`p-1 rounded hover:bg-muted-foreground/20 ${
+                      selectedFolder === folder.id ? 'hover:bg-primary-foreground/20' : ''
+                    }`}
+                    aria-label="Edit type"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(folder.id)}
+                    className={`p-1 rounded hover:bg-destructive/20 ${
+                      selectedFolder === folder.id ? 'hover:bg-primary-foreground/20' : ''
+                    }`}
+                    aria-label="Delete type"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
               </div>
 
               {/* Expanded restaurant list */}

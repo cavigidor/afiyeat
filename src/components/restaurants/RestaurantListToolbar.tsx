@@ -5,6 +5,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Pencil } from 'lucide-react';
 import { ListViewToggle } from '@/components/shared/ListViewToggle';
 import type { ViewMode } from '@/hooks/useViewMode';
 import type { RestaurantSortBy } from '@/hooks/useRestaurantListControls';
@@ -18,6 +20,12 @@ interface RestaurantListToolbarProps {
   viewMode: ViewMode;
   onViewModeChange: (v: ViewMode) => void;
   showTypeFilter?: boolean;
+  // When true (only used on My List while "Modify" is active), the type
+  // filter dropdown is replaced by a button that opens the type management
+  // sheet instead - filtering isn't useful mid-edit, and this is the only
+  // entry point into type management on mobile (the sidebar is desktop-only).
+  manageMode?: boolean;
+  onOpenManageTypes?: () => void;
 }
 
 export function RestaurantListToolbar({
@@ -29,26 +37,35 @@ export function RestaurantListToolbar({
   viewMode,
   onViewModeChange,
   showTypeFilter = true,
+  manageMode = false,
+  onOpenManageTypes,
 }: RestaurantListToolbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {showTypeFilter && availableTypes.length > 0 && (
-        <Select
-          value={typeFilter ?? 'all'}
-          onValueChange={(v) => onTypeFilterChange(v === 'all' ? null : v)}
-        >
-          <SelectTrigger className="w-[130px] h-9">
-            <SelectValue placeholder="Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            {availableTypes.map((t) => (
-              <SelectItem key={t} value={t}>
-                {t}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {showTypeFilter && manageMode ? (
+        <Button variant="outline" size="sm" className="h-9" onClick={onOpenManageTypes}>
+          <Pencil className="h-3.5 w-3.5 mr-2" />
+          Edit Types
+        </Button>
+      ) : (
+        showTypeFilter && availableTypes.length > 0 && (
+          <Select
+            value={typeFilter ?? 'all'}
+            onValueChange={(v) => onTypeFilterChange(v === 'all' ? null : v)}
+          >
+            <SelectTrigger className="w-[130px] h-9">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              {availableTypes.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )
       )}
 
       <Select value={sortBy} onValueChange={(v) => onSortByChange(v as RestaurantSortBy)}>

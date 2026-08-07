@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Map, Plus, Check, Clock, Search, FileDown } from 'lucide-react';
+import { Loader2, Map, Plus, Check, Clock, Search, FileDown, Pencil } from 'lucide-react';
 import { exportListAsPdf } from '@/lib/exportPdf';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
@@ -19,9 +19,9 @@ import { RestaurantListToolbar } from '@/components/restaurants/RestaurantListTo
 import { AddRestaurantDialog } from '@/components/restaurants/AddRestaurantDialog';
 import { EditRestaurantDialog } from '@/components/restaurants/EditRestaurantDialog';
 import { FolderList } from '@/components/folders/FolderList';
+import { ManageTypesSheet } from '@/components/folders/ManageTypesSheet';
 import { useViewMode } from '@/hooks/useViewMode';
 import type { RestaurantSortBy } from '@/hooks/useRestaurantListControls';
-import { compareTypeNames } from '@/lib/typeOrder';
 import { toast } from 'sonner';
 
 interface Restaurant {
@@ -45,6 +45,7 @@ interface Folder {
   name: string;
   color: string;
   icon: string;
+  sort_order: number | null;
 }
 
 async function fetchMyRestaurants(userId: string): Promise<Restaurant[]> {
@@ -63,9 +64,14 @@ async function fetchMyRestaurants(userId: string): Promise<Restaurant[]> {
 }
 
 async function fetchMyFolders(userId: string): Promise<Folder[]> {
-  const { data, error } = await supabase.from('folders').select('*').eq('user_id', userId);
+  const { data, error } = await supabase
+    .from('folders')
+    .select('*')
+    .eq('user_id', userId)
+    .order('sort_order', { ascending: true, nullsFirst: false })
+    .order('name', { ascending: true });
   if (error) throw error;
-  return (data || []).sort((a, b) => compareTypeNames(a.name, b.name));
+  return data || [];
 }
 
 async function fetchMapboxTokenValue(): Promise<string | null> {
@@ -89,6 +95,8 @@ export default function MyList() {
   const [viewMode, setViewMode] = useViewMode('mylist');
   const [detailRestaurant, setDetailRestaurant] = useState<Restaurant | null>(null);
   const [focusedRestaurantId, setFocusedRestaurantId] = useState<string | null>(null);
+  const [modifyMode, setModifyMode] = useState(false);
+  const [manageTypesOpen, setManageTypesOpen] = useState(false);
   const mapFlyToRef = useRef<((lat: number, lng: number, restaurantId: string) => void) | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
 
@@ -231,6 +239,14 @@ export default function MyList() {
           <h1 className="text-2xl sm:text-3xl font-bold">My List</h1>
           <div className="flex items-center gap-2">
             <Button
+              variant={modifyMode ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setModifyMode((m) => !m)}
+            >
+              <Pencil className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">{modifyMode ? 'Done' : 'Modify'}</span>
+            </Button>
+            <Button
               variant="outline"
               size="sm"
               onClick={() => exportListAsPdf(restaurants, folders)}
@@ -309,6 +325,8 @@ export default function MyList() {
                     onSortByChange={setSortBy}
                     viewMode={viewMode}
                     onViewModeChange={setViewMode}
+                    manageMode={modifyMode}
+                    onOpenManageTypes={() => setManageTypesOpen(true)}
                   />
                 </div>
 
@@ -345,6 +363,7 @@ export default function MyList() {
                             onMarkVisited={() => handleMarkVisited(restaurant.id)}
                             onEdit={() => handleEdit(restaurant)}
                             onDelete={() => handleDelete(restaurant.id)}
+                            quickDelete={modifyMode}
                           />
                         ))}
                       </div>
@@ -353,14 +372,15 @@ export default function MyList() {
                         {toGoList.map((restaurant) => (
                           <div
                             key={restaurant.id}
-                            onClick={() => handleRestaurantClick(restaurant)}
-                            className="cursor-pointer"
+                            onClick={modifyMode ? undefined : () => handleRestaurantClick(restaurant)}
+                            className={modifyMode ? '' : 'cursor-pointer'}
                           >
                             <RestaurantCard
                               restaurant={restaurant}
                               onMarkVisited={() => handleMarkVisited(restaurant.id)}
                               onEdit={() => handleEdit(restaurant)}
                               onDelete={() => handleDelete(restaurant.id)}
+                              quickDelete={modifyMode}
                             />
                           </div>
                         ))}
@@ -388,6 +408,7 @@ export default function MyList() {
                             onFlyTo={() => handleRestaurantClick(restaurant)}
                             onEdit={() => handleEdit(restaurant)}
                             onDelete={() => handleDelete(restaurant.id)}
+                            quickDelete={modifyMode}
                           />
                         ))}
                       </div>
@@ -396,13 +417,14 @@ export default function MyList() {
                         {wentToList.map((restaurant) => (
                           <div
                             key={restaurant.id}
-                            onClick={() => handleRestaurantClick(restaurant)}
-                            className="cursor-pointer"
+                            onClick={modifyMode ? undefined : () => handleRestaurantClick(restaurant)}
+                            className={modifyMode ? '' : 'cursor-pointer'}
                           >
                             <RestaurantCard
                               restaurant={restaurant}
                               onEdit={() => handleEdit(restaurant)}
                               onDelete={() => handleDelete(restaurant.id)}
+                              quickDelete={modifyMode}
                             />
                           </div>
                         ))}
@@ -441,6 +463,13 @@ export default function MyList() {
           </div>
         </div>
       </main>
+
+      <ManageTypesSheet
+        open={manageTypesOpen}
+        onOpenChange={setManageTypesOpen}
+        folders={folders}
+        onFoldersChange={invalidateFolders}
+      />
 
       <AddRestaurantDialog
         open={addDialogOpen}

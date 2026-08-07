@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MapPin, Star, DollarSign, MoreHorizontal, Check, Clock, Loader2 } from 'lucide-react';
+import { MapPin, Star, DollarSign, MoreHorizontal, Check, Clock, Loader2, X } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,9 +27,12 @@ interface RestaurantCardProps {
   onEdit?: () => void;
   onDelete?: () => void;
   onMarkVisited?: () => void;
+  // "Modify" mode on My List - shows a plain X badge instead of the normal
+  // menu, for quick one-tap mass deletion.
+  quickDelete?: boolean;
 }
 
-export function RestaurantCard({ restaurant, onEdit, onDelete, onMarkVisited }: RestaurantCardProps) {
+export function RestaurantCard({ restaurant, onEdit, onDelete, onMarkVisited, quickDelete }: RestaurantCardProps) {
   const firstImageUrl = restaurant.images?.[0]?.image_url;
   const { signedUrl: firstImage, loading: imageLoading } = useSignedImageUrl(firstImageUrl);
   const [imgFailed, setImgFailed] = useState(false);
@@ -64,36 +67,53 @@ export function RestaurantCard({ restaurant, onEdit, onDelete, onMarkVisited }: 
           </Badge>
         )}
         <div className="absolute top-3 right-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          {quickDelete ? (
+            onDelete && (
               <Button
-                variant="secondary"
+                variant="destructive"
                 size="icon"
-                aria-label="Restaurant options"
-                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                aria-label="Delete restaurant"
+                className="h-8 w-8"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
               >
-                <MoreHorizontal className="h-4 w-4" />
+                <X className="h-4 w-4" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {restaurant.status === 'to_go' && onMarkVisited && (
-                <DropdownMenuItem onClick={onMarkVisited}>
-                  <Check className="mr-2 h-4 w-4" />
-                  Mark as Been There
-                </DropdownMenuItem>
-              )}
-              {onEdit && (
-                <DropdownMenuItem onClick={onEdit}>
-                  Edit
-                </DropdownMenuItem>
-              )}
-              {onDelete && (
-                <DropdownMenuItem onClick={onDelete} className="text-destructive">
-                  Delete
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            )
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  aria-label="Restaurant options"
+                  className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {restaurant.status === 'to_go' && onMarkVisited && (
+                  <DropdownMenuItem onClick={onMarkVisited}>
+                    <Check className="mr-2 h-4 w-4" />
+                    Mark as Been There
+                  </DropdownMenuItem>
+                )}
+                {onEdit && (
+                  <DropdownMenuItem onClick={onEdit}>
+                    Edit
+                  </DropdownMenuItem>
+                )}
+                {onDelete && (
+                  <DropdownMenuItem onClick={onDelete} className="text-destructive">
+                    Delete
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
       <CardContent className="p-4">

@@ -1,7 +1,7 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MapPin, Star, DollarSign, MoreHorizontal, Check, Clock, Navigation } from 'lucide-react';
+import { MapPin, Star, DollarSign, MoreHorizontal, Check, Clock, Navigation, X } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +26,9 @@ interface RestaurantListRowProps {
   onEdit?: () => void;
   onDelete?: () => void;
   onMarkVisited?: () => void;
+  // "Modify" mode on My List - shows a plain X button instead of the
+  // normal menu, for quick one-tap mass deletion.
+  quickDelete?: boolean;
 }
 
 export function RestaurantListRow({
@@ -35,17 +38,18 @@ export function RestaurantListRow({
   onEdit,
   onDelete,
   onMarkVisited,
+  quickDelete,
 }: RestaurantListRowProps) {
   const hasMenu = !!(onEdit || onDelete || onMarkVisited);
 
   return (
     <Card
       className="flex items-center gap-3 p-3 cursor-pointer hover:shadow-md hover:border-primary/40 transition-all"
-      onClick={onOpenDetail}
+      onClick={quickDelete ? undefined : onOpenDetail}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') onOpenDetail();
+        if (!quickDelete && (e.key === 'Enter' || e.key === ' ')) onOpenDetail();
       }}
     >
       <div
@@ -109,34 +113,51 @@ export function RestaurantListRow({
           </Button>
         )}
 
-        {hasMenu && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Restaurant options"
-                className="h-8 w-8"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-              {restaurant.status === 'to_go' && onMarkVisited && (
-                <DropdownMenuItem onClick={onMarkVisited}>
-                  <Check className="mr-2 h-4 w-4" />
-                  Mark as Been There
-                </DropdownMenuItem>
-              )}
-              {onEdit && <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>}
-              {onDelete && (
-                <DropdownMenuItem onClick={onDelete} className="text-destructive">
-                  Delete
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+        {quickDelete ? (
+          onDelete && (
+            <Button
+              variant="destructive"
+              size="icon"
+              aria-label="Delete restaurant"
+              className="h-8 w-8"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )
+        ) : (
+          hasMenu && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Restaurant options"
+                  className="h-8 w-8"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                {restaurant.status === 'to_go' && onMarkVisited && (
+                  <DropdownMenuItem onClick={onMarkVisited}>
+                    <Check className="mr-2 h-4 w-4" />
+                    Mark as Been There
+                  </DropdownMenuItem>
+                )}
+                {onEdit && <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>}
+                {onDelete && (
+                  <DropdownMenuItem onClick={onDelete} className="text-destructive">
+                    Delete
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
         )}
       </div>
     </Card>
