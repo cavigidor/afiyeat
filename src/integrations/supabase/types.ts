@@ -607,6 +607,48 @@ export type Database = {
           },
         ]
       }
+      shared_list_item_comments: {
+        Row: {
+          comment: string
+          created_at: string
+          id: string
+          item_id: string
+          list_id: string
+          user_id: string
+        }
+        Insert: {
+          comment: string
+          created_at?: string
+          id?: string
+          item_id: string
+          list_id: string
+          user_id: string
+        }
+        Update: {
+          comment?: string
+          created_at?: string
+          id?: string
+          item_id?: string
+          list_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_list_item_comments_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "shared_list_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_list_item_comments_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "shared_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shared_list_items: {
         Row: {
           added_by: string
