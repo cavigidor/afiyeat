@@ -57,13 +57,13 @@ export function CustomListItemRow({
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-        {list.value_field === 'rating' && item.rating != null && (
+        {list.show_rating && item.rating != null && (
           <div className="hidden sm:flex items-center gap-1 text-sm">
             <Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" />
             {item.rating}/10
           </div>
         )}
-        {list.value_field === 'price' && item.price_level && (
+        {list.show_price && item.price_level && (
           <div className="hidden sm:flex items-center">
             {Array.from({ length: 4 }).map((_, i) => (
               <DollarSign

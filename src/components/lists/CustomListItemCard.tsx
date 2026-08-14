@@ -173,15 +173,15 @@ export function CustomListItemCard({ item, list, onEdit, onDelete, onToggleStatu
             )}
           </Badge>
         </div>
-        {(list.value_field !== 'none') && (
+        {(list.show_price || list.show_rating) && (
           <div className="flex items-center gap-4 mt-3">
-            {list.value_field === 'rating' && item.rating != null && (
+            {list.show_rating && item.rating != null && (
               <div className="flex items-center gap-1">
                 <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
                 <span className="text-sm">{item.rating}/10</span>
               </div>
             )}
-            {list.value_field === 'price' && item.price_level && (
+            {list.show_price && item.price_level && (
               <div className="flex items-center">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <DollarSign

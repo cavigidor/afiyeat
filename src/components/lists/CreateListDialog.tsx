@@ -22,7 +22,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { FOLDER_COLORS } from '@/hooks/useFolderManagement';
 
-export type ValueField = 'none' | 'price' | 'rating';
+export type PriceMode = 'manual' | 'dollar';
+export type RatingMode = 'scale_10' | 'stars_5' | 'manual';
 
 export interface CustomList {
   id: string;
@@ -30,7 +31,10 @@ export interface CustomList {
   icon: string;
   color: string;
   show_location: boolean;
-  value_field: ValueField;
+  show_price: boolean;
+  price_mode: PriceMode;
+  show_rating: boolean;
+  rating_mode: RatingMode;
   show_notes: boolean;
   show_photos: boolean;
   status_todo_label: string;
@@ -70,7 +74,10 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
   const [icon, setIcon] = useState(LIST_ICONS[0]);
   const [color, setColor] = useState(FOLDER_COLORS[0]);
   const [showLocation, setShowLocation] = useState(true);
-  const [valueField, setValueField] = useState<ValueField>('price');
+  const [showPrice, setShowPrice] = useState(true);
+  const [priceMode, setPriceMode] = useState<PriceMode>('dollar');
+  const [showRating, setShowRating] = useState(false);
+  const [ratingMode, setRatingMode] = useState<RatingMode>('scale_10');
   const [showNotes, setShowNotes] = useState(true);
   const [showPhotos, setShowPhotos] = useState(true);
   const [todoLabel, setTodoLabel] = useState('');
@@ -85,7 +92,10 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
       setIcon(editList.icon);
       setColor(editList.color);
       setShowLocation(editList.show_location);
-      setValueField(editList.value_field);
+      setShowPrice(editList.show_price);
+      setPriceMode(editList.price_mode);
+      setShowRating(editList.show_rating);
+      setRatingMode(editList.rating_mode);
       setShowNotes(editList.show_notes);
       setShowPhotos(editList.show_photos);
       setTodoLabel(editList.status_todo_label);
@@ -95,7 +105,10 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
       setIcon(LIST_ICONS[0]);
       setColor(FOLDER_COLORS[0]);
       setShowLocation(true);
-      setValueField('price');
+      setShowPrice(true);
+      setPriceMode('dollar');
+      setShowRating(false);
+      setRatingMode('scale_10');
       setShowNotes(true);
       setShowPhotos(true);
       setTodoLabel('');
@@ -116,7 +129,10 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
       icon,
       color,
       show_location: showLocation,
-      value_field: valueField,
+      show_price: showPrice,
+      price_mode: priceMode,
+      show_rating: showRating,
+      rating_mode: ratingMode,
       show_notes: showNotes,
       show_photos: showPhotos,
       status_todo_label: todoLabel.trim() || 'To Do',
@@ -228,25 +244,43 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
               <Switch checked={showLocation} onCheckedChange={setShowLocation} />
             </div>
 
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                {valueField === 'rating' ? (
-                  <Star className="h-4 w-4 text-muted-foreground shrink-0" />
-                ) : (
-                  <DollarSign className="h-4 w-4 text-muted-foreground shrink-0" />
-                )}
-                <p className="text-sm">Price / rating indicator</p>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <DollarSign className="h-4 w-4 text-muted-foreground shrink-0" />
+                <p className="text-sm">Price</p>
               </div>
-              <Select value={valueField} onValueChange={(v) => setValueField(v as ValueField)}>
-                <SelectTrigger className="ml-6 w-[calc(100%-1.5rem)]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Off</SelectItem>
-                  <SelectItem value="price">Price ($ - $$$$)</SelectItem>
-                  <SelectItem value="rating">Rating (0-10)</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Select value={priceMode} onValueChange={(v) => setPriceMode(v as PriceMode)}>
+                  <SelectTrigger className="w-[130px] h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="dollar">$ - $$$$</SelectItem>
+                    <SelectItem value="manual">Manual</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Switch checked={showPrice} onCheckedChange={setShowPrice} />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <Star className="h-4 w-4 text-muted-foreground shrink-0" />
+                <p className="text-sm">Rating</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select value={ratingMode} onValueChange={(v) => setRatingMode(v as RatingMode)}>
+                  <SelectTrigger className="w-[130px] h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="scale_10">0-10</SelectItem>
+                    <SelectItem value="stars_5">5 stars</SelectItem>
+                    <SelectItem value="manual">Manual</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Switch checked={showRating} onCheckedChange={setShowRating} />
+              </div>
             </div>
 
             <div className="flex items-center justify-between gap-3">
