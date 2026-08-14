@@ -55,6 +55,15 @@ CREATE INDEX idx_custom_list_items_list_id ON public.custom_list_items(list_id);
 CREATE INDEX idx_custom_list_items_user_id ON public.custom_list_items(user_id);
 CREATE INDEX idx_custom_list_item_images_item_id ON public.custom_list_item_images(item_id);
 
+-- Explicit grants (PostgREST/the Data API needs these on top of RLS) -
+-- matches the pattern the shared_lists migration already uses.
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.custom_lists TO authenticated;
+GRANT ALL ON public.custom_lists TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.custom_list_items TO authenticated;
+GRANT ALL ON public.custom_list_items TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.custom_list_item_images TO authenticated;
+GRANT ALL ON public.custom_list_item_images TO service_role;
+
 ALTER TABLE public.custom_lists ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.custom_list_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.custom_list_item_images ENABLE ROW LEVEL SECURITY;
@@ -86,6 +95,12 @@ CREATE TRIGGER update_custom_list_items_updated_at BEFORE UPDATE ON public.custo
 -- custom lists aren't a shared/social feature, view access is owner-only
 -- (no "shared with followers" clause like restaurant-images has).
 -- 8MB file_size_limit matches imageValidation.ts's MAX_FILE_SIZE.
+--
+-- NOTE: storage.buckets isn't writable via a plain SQL migration in every
+-- environment (the SQL editor's role doesn't have insert rights on it) - if
+-- this INSERT fails, create the bucket by hand instead: Storage -> New
+-- bucket -> id "custom-list-images", private, 8MB file size limit - then
+-- run just the CREATE POLICY statements below.
 INSERT INTO storage.buckets (id, name, public, file_size_limit) VALUES ('custom-list-images', 'custom-list-images', false, 8388608);
 
 CREATE POLICY "Users can view their own custom list images" ON storage.objects FOR SELECT TO authenticated
