@@ -33,10 +33,13 @@ export function PushNotificationManager() {
     void initPushNotifications(async (token) => {
       if (cancelled) return;
       currentDeviceToken = token;
-      const { error } = await supabase.from('device_tokens').upsert(
-        { user_id: userId, token, platform },
-        { onConflict: 'token' },
-      );
+      // Goes through a SECURITY DEFINER RPC (not a direct table upsert) so
+      // the row's owner is always taken from auth.uid() server-side, never
+      // a client-supplied user_id - see the claim_device_token migration.
+      const { error } = await supabase.rpc('claim_device_token', {
+        p_token: token,
+        p_platform: platform,
+      });
       if (error) {
         console.error('Failed to save device token:', error);
       }

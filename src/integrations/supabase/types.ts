@@ -807,6 +807,10 @@ export type Database = {
     }
     Functions: {
       can_view_profile: { Args: { profile_user_id: string }; Returns: boolean }
+      claim_device_token: {
+        Args: { p_platform: string; p_token: string }
+        Returns: undefined
+      }
       get_explore_places: {
         Args: { p_mode?: string }
         Returns: {
