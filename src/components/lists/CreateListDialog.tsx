@@ -50,7 +50,18 @@ interface CreateListDialogProps {
 // A generic, non-food-specific icon set (unlike the restaurant folder
 // system's food emojis) since these lists are for anything - movies, beers,
 // books, whatever the user wants to track.
-const LIST_ICONS = ['📋', '🎬', '🍺', '📚', '🎮', '🍷', '✈️', '🎵', '☕', '🏋️', '🛍️', '🐾'];
+const LIST_ICONS = ['📋', '🎬', '📺', '🍺', '📚', '🎮', '🍷', '✈️', '🎵', '☕', '🏋️', '🛍️', '🐾'];
+
+// A blank "List name" field with no other context is a hard place to start,
+// so offer a few concrete, common ideas as one-tap chips. Picking one fills
+// in both the name and a matching icon, rather than just the text, so it
+// reads as a real starting point rather than a random label.
+const LIST_SUGGESTIONS: { label: string; icon: string }[] = [
+  { label: 'Movies', icon: '🎬' },
+  { label: 'Shows', icon: '📺' },
+  { label: 'Concerts', icon: '🎵' },
+  { label: 'Books', icon: '📚' },
+];
 
 export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: CreateListDialogProps) {
   const { user } = useAuth();
@@ -144,6 +155,21 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
               onChange={(e) => setName(e.target.value)}
               autoFocus
             />
+            {!isEditing && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                <span className="text-xs text-muted-foreground mr-0.5">Need ideas?</span>
+                {LIST_SUGGESTIONS.map((s) => (
+                  <button
+                    key={s.label}
+                    type="button"
+                    onClick={() => { setName(s.label); setIcon(s.icon); }}
+                    className="text-xs px-2.5 py-1 rounded-full bg-muted/60 hover:bg-muted transition-colors"
+                  >
+                    {s.icon} {s.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
