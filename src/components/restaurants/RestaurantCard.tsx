@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import { getFolderIcon } from '@/lib/folderIcons';
+import { AddedByBadge, type AddedByInfo } from '@/components/shared/AddedByBadge';
 
 interface RestaurantCardProps {
   restaurant: {
@@ -30,9 +31,11 @@ interface RestaurantCardProps {
   // "Modify" mode on My List - shows a plain X badge instead of the normal
   // menu, for quick one-tap mass deletion.
   quickDelete?: boolean;
+  // Shared Lists only - who added this item.
+  addedBy?: AddedByInfo;
 }
 
-export function RestaurantCard({ restaurant, onEdit, onDelete, onMarkVisited, quickDelete }: RestaurantCardProps) {
+export function RestaurantCard({ restaurant, onEdit, onDelete, onMarkVisited, quickDelete, addedBy }: RestaurantCardProps) {
   const firstImageUrl = restaurant.images?.[0]?.image_url;
   const { signedUrl: firstImage, loading: imageLoading } = useSignedImageUrl(firstImageUrl);
   const [imgFailed, setImgFailed] = useState(false);
@@ -172,6 +175,11 @@ export function RestaurantCard({ restaurant, onEdit, onDelete, onMarkVisited, qu
         </div>
         {restaurant.notes && (
           <p className="text-sm text-muted-foreground mt-3 line-clamp-2">{restaurant.notes}</p>
+        )}
+        {addedBy && (
+          <div className="mt-3 pt-3 border-t">
+            <AddedByBadge addedBy={addedBy} />
+          </div>
         )}
       </CardContent>
     </Card>

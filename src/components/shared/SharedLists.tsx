@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { RestaurantCard } from '@/components/restaurants/RestaurantCard';
 import { RestaurantListRow } from '@/components/restaurants/RestaurantListRow';
-import { RestaurantDetailDialog, type DetailRestaurant } from '@/components/restaurants/RestaurantDetailDialog';
+import { SharedItemDetailDialog } from './SharedItemDetailDialog';
 import {
   Select,
   SelectContent,
@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ListViewToggle } from '@/components/shared/ListViewToggle';
+import type { AddedByInfo } from '@/components/shared/AddedByBadge';
 import { useViewMode } from '@/hooks/useViewMode';
 import type { RestaurantSortBy } from '@/hooks/useRestaurantListControls';
 import { useAuth } from '@/contexts/AuthContext';
@@ -57,6 +58,10 @@ interface SharedListsProps {
 export function SharedLists({ following }: SharedListsProps) {
   const { user } = useAuth();
   const [lists, setLists] = useState<SharedList[]>([]);
+  // Profiles for BOTH members of every list (not just "the other person"),
+  // so "added by" can be resolved for either side, including the current
+  // user themselves.
+  const [profilesById, setProfilesById] = useState<Record<string, Profile>>({});
   const [loadingLists, setLoadingLists] = useState(true);
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [items, setItems] = useState<SharedItem[]>([]);
@@ -88,21 +93,22 @@ export function SharedLists({ following }: SharedListsProps) {
     }
 
     const rows = data || [];
-    const partnerIds = rows.map((r) => (r.user_a === user.id ? r.user_b : r.user_a));
-    const profilesById: Record<string, Profile> = {};
-    if (partnerIds.length > 0) {
+    const allUserIds = Array.from(new Set(rows.flatMap((r) => [r.user_a, r.user_b])));
+    const byId: Record<string, Profile> = {};
+    if (allUserIds.length > 0) {
       const { data: profs } = await supabase
         .from('profiles')
         .select('id, user_id, username, display_name, avatar_url')
-        .in('user_id', partnerIds);
+        .in('user_id', allUserIds);
       (profs || []).forEach((p) => {
-        profilesById[p.user_id] = p;
+        byId[p.user_id] = p;
       });
     }
+    setProfilesById(byId);
 
     const withPartner: SharedList[] = rows.map((r) => {
       const partnerId = r.user_a === user.id ? r.user_b : r.user_a;
-      return { ...r, partner: profilesById[partnerId] || null };
+      return { ...r, partner: byId[partnerId] || null };
     });
 
     setLists(withPartner);
@@ -121,7 +127,7 @@ export function SharedLists({ following }: SharedListsProps) {
     setLoadingItems(true);
     const { data, error } = await supabase
       .from('shared_list_items')
-      .select('id, name, address, latitude, longitude, status, rating, price_level, notes')
+      .select('id, name, address, latitude, longitude, status, rating, price_level, notes, added_by')
       .eq('list_id', selectedListId)
       .order('created_at', { ascending: false });
 
@@ -177,6 +183,19 @@ export function SharedLists({ following }: SharedListsProps) {
 
   const partnerLabel = (l: SharedList) =>
     l.partner?.display_name || l.partner?.username || 'a friend';
+
+  // "Added by" info for an item - resolves to "You" for the current user
+  // (own profile might not have display_name/username set, so this avoids
+  // ever showing a blank chip for your own additions) or the other
+  // member's profile otherwise.
+  const addedByInfo = (item: SharedItem): AddedByInfo | undefined => {
+    if (!item.added_by || !user) return undefined;
+    if (item.added_by === user.id) {
+      return { label: 'You', avatarUrl: profilesById[user.id]?.avatar_url };
+    }
+    const p = profilesById[item.added_by];
+    return { label: p?.display_name || p?.username || 'Partner', avatarUrl: p?.avatar_url };
+  };
 
   const sortItems = (list: SharedItem[]) =>
     [...list].sort((a, b) => {
@@ -351,21 +370,24 @@ export function SharedLists({ following }: SharedListsProps) {
                         onMarkVisited={
                           item.status === 'to_go' ? () => handleMarkVisited(item.id) : undefined
                         }
+                        addedBy={addedByInfo(item)}
                       />
                     ))}
                   </div>
                 ) : (
                   <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2">
                     {currentList.map((item) => (
-                      <RestaurantCard
-                        key={item.id}
-                        restaurant={item}
-                        onEdit={() => setEditItem(item)}
-                        onDelete={() => handleDeleteItem(item.id)}
-                        onMarkVisited={
-                          item.status === 'to_go' ? () => handleMarkVisited(item.id) : undefined
-                        }
-                      />
+                      <div key={item.id} onClick={() => setDetailItem(item)} className="cursor-pointer">
+                        <RestaurantCard
+                          restaurant={item}
+                          onEdit={() => setEditItem(item)}
+                          onDelete={() => handleDeleteItem(item.id)}
+                          onMarkVisited={
+                            item.status === 'to_go' ? () => handleMarkVisited(item.id) : undefined
+                          }
+                          addedBy={addedByInfo(item)}
+                        />
+                      </div>
                     ))}
                   </div>
                 )}
@@ -406,26 +428,32 @@ export function SharedLists({ following }: SharedListsProps) {
         onSuccess={fetchItems}
       />
 
-      <RestaurantDetailDialog
-        restaurant={detailItem as DetailRestaurant | null}
-        onOpenChange={(open) => !open && setDetailItem(null)}
-        onEdit={() => {
-          if (detailItem) setEditItem(detailItem);
-          setDetailItem(null);
-        }}
-        onDelete={() => {
-          if (detailItem) handleDeleteItem(detailItem.id);
-          setDetailItem(null);
-        }}
-        onMarkVisited={
-          detailItem?.status === 'to_go'
-            ? () => {
-                handleMarkVisited(detailItem.id);
-                setDetailItem(null);
-              }
-            : undefined
-        }
-      />
+      {user && selectedListId && (
+        <SharedItemDetailDialog
+          item={detailItem}
+          listId={selectedListId}
+          currentUserId={user.id}
+          profilesById={profilesById}
+          addedBy={detailItem ? addedByInfo(detailItem) : undefined}
+          onOpenChange={(open) => !open && setDetailItem(null)}
+          onEdit={() => {
+            if (detailItem) setEditItem(detailItem);
+            setDetailItem(null);
+          }}
+          onDelete={() => {
+            if (detailItem) handleDeleteItem(detailItem.id);
+            setDetailItem(null);
+          }}
+          onMarkVisited={
+            detailItem?.status === 'to_go'
+              ? () => {
+                  handleMarkVisited(detailItem.id);
+                  setDetailItem(null);
+                }
+              : undefined
+          }
+        />
+      )}
 
       <AlertDialog open={!!deleteListId} onOpenChange={(o) => !o && setDeleteListId(null)}>
         <AlertDialogContent>

@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { AddedByBadge, type AddedByInfo } from '@/components/shared/AddedByBadge';
 
 export interface RestaurantRowData {
   id: string;
@@ -29,6 +30,8 @@ interface RestaurantListRowProps {
   // "Modify" mode on My List - shows a plain X button instead of the
   // normal menu, for quick one-tap mass deletion.
   quickDelete?: boolean;
+  // Shared Lists only - who added this item.
+  addedBy?: AddedByInfo;
 }
 
 export function RestaurantListRow({
@@ -39,6 +42,7 @@ export function RestaurantListRow({
   onDelete,
   onMarkVisited,
   quickDelete,
+  addedBy,
 }: RestaurantListRowProps) {
   const hasMenu = !!(onEdit || onDelete || onMarkVisited);
 
@@ -71,6 +75,11 @@ export function RestaurantListRow({
             <MapPin className="h-3 w-3 flex-shrink-0" />
             {restaurant.address}
           </p>
+        )}
+        {addedBy && (
+          <div className="mt-0.5">
+            <AddedByBadge addedBy={addedBy} />
+          </div>
         )}
       </div>
 

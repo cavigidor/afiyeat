@@ -23,6 +23,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { PriceLevelPicker } from '@/components/restaurants/PriceLevelPicker';
 import { PRICE_LABELS } from './EmojiSlider';
+import { isDuplicateSharedItem } from '@/lib/duplicateRestaurant';
 
 interface PlaceResult {
   id: string;
@@ -224,6 +225,14 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
       return;
     }
     setLoading(true);
+
+    const duplicate = await isDuplicateSharedItem(listId, { name, latitude, longitude });
+    if (duplicate) {
+      toast.error("This is already on this list. Add it again if it's a different location.");
+      setLoading(false);
+      return;
+    }
+
     const { error } = await supabase.from('shared_list_items').insert({
       list_id: listId,
       added_by: user.id,

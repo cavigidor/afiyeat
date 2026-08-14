@@ -32,6 +32,7 @@ export interface SharedItem {
   rating: number | null;
   price_level: number | null;
   notes: string | null;
+  added_by?: string;
 }
 
 interface EditSharedItemDialogProps {

@@ -26,6 +26,7 @@ import { validateImageFile, compressImage, MAX_IMAGES_PER_ITEM } from '@/lib/ima
 import { PriceLevelPicker } from '@/components/restaurants/PriceLevelPicker';
 import { useSignedImageUrls } from '@/hooks/useSignedImageUrl';
 import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
+import { isDuplicateCustomListItem } from '@/lib/duplicateRestaurant';
 import type { CustomList } from './CreateListDialog';
 
 const PRICE_LABELS = ['<$30', '<$50', '<$100', '$100+'];
@@ -236,6 +237,19 @@ export function AddCustomListItemDialog({
     }
     setLoading(true);
     try {
+      if (!isEditing) {
+        const duplicate = await isDuplicateCustomListItem(list.id, {
+          name,
+          latitude: list.show_location ? latitude : null,
+          longitude: list.show_location ? longitude : null,
+        });
+        if (duplicate) {
+          toast.error("This is already on this list. Add it again if it's a different location.");
+          setLoading(false);
+          return;
+        }
+      }
+
       const payload = {
         name: name.trim(),
         address: list.show_location ? address.trim() || null : null,
