@@ -168,12 +168,12 @@ export function EditRecipeDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh]">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Edit Recipe</DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[calc(90vh-100px)] pr-4">
+        <ScrollArea className="max-h-[calc(100dvh-2rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-100px)] pr-4">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Image Upload */}
             <div className="space-y-2">

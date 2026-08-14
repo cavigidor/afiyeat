@@ -62,7 +62,7 @@ export function RecipeDetailDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[90vh]">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <div className="flex items-start justify-between gap-4">
               <DialogTitle className="text-2xl">{recipe.title}</DialogTitle>
@@ -88,7 +88,7 @@ export function RecipeDetailDialog({
             </div>
           </DialogHeader>
 
-          <ScrollArea className="max-h-[calc(90vh-120px)] pr-4">
+          <ScrollArea className="max-h-[calc(100dvh-2rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-120px)] pr-4">
             <div className="space-y-6">
               {/* Image */}
               <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">

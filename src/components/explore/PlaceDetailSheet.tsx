@@ -59,7 +59,7 @@ export function PlaceDetailSheet({ place, mode, onOpenChange }: PlaceDetailSheet
 
   return (
     <Sheet open={!!place} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl">
+      <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-2xl">
         {displayPlace && (
           <>
             <SheetHeader className="text-left">

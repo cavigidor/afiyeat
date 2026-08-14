@@ -64,7 +64,7 @@ export function RestaurantDetailDialog({
 
   return (
     <Dialog open={!!restaurant} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 flex-wrap pr-6">
             {restaurant.name}

@@ -49,7 +49,7 @@ export function ManageTypesSheet({ open, onOpenChange, folders, onFoldersChange 
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl" showCloseButton={false}>
+      <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-2xl" showCloseButton={false}>
         <SheetHeader className="text-left">
           <div className="flex items-center justify-between">
             <SheetTitle>Edit Types</SheetTitle>

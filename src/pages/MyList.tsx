@@ -130,8 +130,15 @@ export default function MyList() {
 
   const invalidateRestaurants = () =>
     queryClient.invalidateQueries({ queryKey: ['restaurants', user?.id] });
-  const invalidateFolders = () =>
+  // Restaurants embed their folder's name/color/icon via a join at fetch
+  // time, so editing a folder (e.g. its emoji) needs to invalidate the
+  // restaurants cache too - otherwise the sidebar picks up the change
+  // (it re-fetches folders directly) but the map pins stay stale, since
+  // they're built from the already-cached restaurants array.
+  const invalidateFolders = () => {
     queryClient.invalidateQueries({ queryKey: ['folders', user?.id] });
+    invalidateRestaurants();
+  };
 
   const priceFilter = selectedPriceLevel[0];
 
