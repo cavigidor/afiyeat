@@ -43,6 +43,18 @@ interface MyPlace {
   price_level: number | null;
 }
 
+interface MyListOption {
+  id: string;
+  name: string;
+  icon: string;
+}
+
+// The "pick from mine" source: either the My Restaurants table, or one of
+// the user's My Lists (custom_lists) - both are queried into the same
+// MyPlace shape below, so the rest of the picker UI doesn't need to care
+// which one it's showing.
+const RESTAURANTS_SOURCE = 'restaurants';
+
 interface AddSharedItemDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -68,7 +80,10 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [sessionToken] = useState(() => crypto.randomUUID());
 
+  const [myLists, setMyLists] = useState<MyListOption[]>([]);
+  const [sourceListId, setSourceListId] = useState<string>(RESTAURANTS_SOURCE);
   const [myPlaces, setMyPlaces] = useState<MyPlace[]>([]);
+  const [loadingMine, setLoadingMine] = useState(false);
   const [mineSearch, setMineSearch] = useState('');
 
   const priceEmojiIndex = useMemo(() => Math.floor(Math.random() * 10), [open]);
@@ -85,6 +100,7 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
     setSearchResults([]);
     setShowResults(false);
     setMineSearch('');
+    setSourceListId(RESTAURANTS_SOURCE);
   };
 
   useEffect(() => {
@@ -97,18 +113,46 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
     }
   }, [open, userLocation]);
 
+  // The list of pickable sources - My Restaurants plus every My Lists list -
+  // only needs loading once per dialog open, independent of which one is
+  // currently selected.
+  useEffect(() => {
+    const loadLists = async () => {
+      if (!open || !user) return;
+      const { data } = await supabase
+        .from('custom_lists')
+        .select('id, name, icon')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      setMyLists(data || []);
+    };
+    loadLists();
+  }, [open, user]);
+
   useEffect(() => {
     const loadMine = async () => {
       if (!open || !user) return;
-      const { data } = await supabase
-        .from('restaurants')
-        .select('id, name, address, latitude, longitude, price_level')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-      setMyPlaces(data || []);
+      setLoadingMine(true);
+      if (sourceListId === RESTAURANTS_SOURCE) {
+        const { data } = await supabase
+          .from('restaurants')
+          .select('id, name, address, latitude, longitude, price_level')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        setMyPlaces(data || []);
+      } else {
+        const { data } = await supabase
+          .from('custom_list_items')
+          .select('id, name, address, latitude, longitude, price_level')
+          .eq('list_id', sourceListId)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        setMyPlaces(data || []);
+      }
+      setLoadingMine(false);
     };
     loadMine();
-  }, [open, user]);
+  }, [open, user, sourceListId]);
 
   useEffect(() => {
     if (searchQuery.length < 2) {
@@ -237,7 +281,7 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
             </TabsTrigger>
             <TabsTrigger value="mine" className="flex-1 min-w-0 gap-1.5 px-2 sm:px-3">
               <Plus className="h-4 w-4 shrink-0" />
-              <span className="truncate">From My List</span>
+              <span className="truncate">My Lists</span>
             </TabsTrigger>
           </TabsList>
 
@@ -280,19 +324,39 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
           </TabsContent>
 
           <TabsContent value="mine" className="space-y-2">
-            <Label>Pick from your saved places</Label>
+            <Label>Pick from</Label>
+            <Select value={sourceListId} onValueChange={setSourceListId}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={RESTAURANTS_SOURCE}>🍽️ My Restaurants</SelectItem>
+                {myLists.map((l) => (
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.icon} {l.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search your list..."
+                placeholder="Search this list..."
                 value={mineSearch}
                 onChange={(e) => setMineSearch(e.target.value)}
                 className="pl-10"
               />
             </div>
             <div className="max-h-[200px] overflow-y-auto rounded-md border">
-              {filteredMine.length === 0 ? (
-                <p className="text-sm text-muted-foreground p-3">No matching saved places.</p>
+              {loadingMine ? (
+                <div className="flex justify-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredMine.length === 0 ? (
+                <p className="text-sm text-muted-foreground p-3">
+                  {mineSearch.trim() ? 'No matching items.' : 'Nothing in this list yet.'}
+                </p>
               ) : (
                 filteredMine.map((p) => (
                   <button
