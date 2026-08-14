@@ -27,7 +27,7 @@ async function fetchMyLists(userId: string): Promise<CustomList[]> {
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return (data || []) as CustomList[];
+  return (data || []) as unknown as CustomList[];
 }
 
 // One lightweight query for every item's list_id (rather than one COUNT
