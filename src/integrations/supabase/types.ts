@@ -50,6 +50,148 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_list_item_images: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string
+          item_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url: string
+          item_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string
+          item_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_list_item_images_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "custom_list_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_list_items: {
+        Row: {
+          address: string | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          latitude: number | null
+          list_id: string
+          longitude: number | null
+          name: string
+          notes: string | null
+          price_level: number | null
+          rating: number | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          latitude?: number | null
+          list_id: string
+          longitude?: number | null
+          name: string
+          notes?: string | null
+          price_level?: number | null
+          rating?: number | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          latitude?: number | null
+          list_id?: string
+          longitude?: number | null
+          name?: string
+          notes?: string | null
+          price_level?: number | null
+          rating?: number | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_list_items_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "custom_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_lists: {
+        Row: {
+          color: string
+          created_at: string
+          icon: string
+          id: string
+          name: string
+          show_location: boolean
+          show_notes: boolean
+          show_photos: boolean
+          sort_order: number | null
+          status_done_label: string
+          status_todo_label: string
+          updated_at: string
+          user_id: string
+          value_field: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          icon?: string
+          id?: string
+          name: string
+          show_location?: boolean
+          show_notes?: boolean
+          show_photos?: boolean
+          sort_order?: number | null
+          status_done_label?: string
+          status_todo_label?: string
+          updated_at?: string
+          user_id: string
+          value_field?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          icon?: string
+          id?: string
+          name?: string
+          show_location?: boolean
+          show_notes?: boolean
+          show_photos?: boolean
+          sort_order?: number | null
+          status_done_label?: string
+          status_todo_label?: string
+          updated_at?: string
+          user_id?: string
+          value_field?: string
+        }
+        Relationships: []
+      }
       device_tokens: {
         Row: {
           created_at: string

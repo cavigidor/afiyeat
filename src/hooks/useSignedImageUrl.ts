@@ -21,8 +21,8 @@ export function useSignedImageUrl(url: string | null | undefined) {
         return;
       }
 
-      // If it's not a storage URL, use it directly
-      if (!url.includes('restaurant-images')) {
+      // If it's not a recognized private-bucket storage URL, use it directly
+      if (!url.includes('restaurant-images') && !url.includes('custom-list-images')) {
         setSignedUrl(url);
         setLoading(false);
         return;
@@ -84,8 +84,8 @@ export function useSignedImageUrls(urls: (string | null | undefined)[]) {
           urls.map(async (url) => {
             if (!url) return null;
             
-            // If it's not a storage URL, use it directly
-            if (!url.includes('restaurant-images')) {
+            // If it's not a recognized private-bucket storage URL, use it directly
+            if (!url.includes('restaurant-images') && !url.includes('custom-list-images')) {
               return url;
             }
             

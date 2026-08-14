@@ -4,6 +4,9 @@ const MAX_FILE_SIZE = 8 * 1024 * 1024; // 8MB - checked AFTER compression below,
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
 export const MAX_IMAGES_PER_RESTAURANT = 5;
+// Same cap, just named for the generic My Lists feature (custom list items)
+// rather than restaurants specifically.
+export const MAX_IMAGES_PER_ITEM = 5;
 
 export function validateImageFile(file: File): string | null {
   if (file.size > MAX_FILE_SIZE) {

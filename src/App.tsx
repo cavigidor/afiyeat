@@ -15,6 +15,8 @@ import Explore from "./pages/Explore";
 import PublicProfile from "./pages/PublicProfile";
 
 import MyList from "./pages/MyList";
+import MyLists from "./pages/MyLists";
+import CustomListDetail from "./pages/CustomListDetail";
 import News from "./pages/News";
 import Profile from "./pages/Profile";
 import Recipes from "./pages/Recipes";
@@ -67,6 +69,8 @@ const App = () => {
 
             <Route path="/news" element={<News />} />
             <Route path="/my-list" element={<MyList />} />
+            <Route path="/my-lists" element={<MyLists />} />
+            <Route path="/my-lists/:listId" element={<CustomListDetail />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/recipes" element={<Recipes />} />
             <Route path="/cellar" element={<Cellar />} />
