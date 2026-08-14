@@ -219,18 +219,25 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
         onOpenChange(o);
       }}
     >
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Add Place to Shared List</DialogTitle>
         </DialogHeader>
 
         <Tabs defaultValue="search" className="space-y-4">
           <TabsList className="w-full">
-            <TabsTrigger value="search" className="flex-1">
-              <Search className="h-4 w-4 mr-1.5" /> Search
+            {/* min-w-0 lets these shrink below their content width (flex
+                items default to min-width:auto, which was forcing "From My
+                List" wider than the tab bar on narrow phones and pushing
+                the dialog into horizontal overflow); truncate on the label
+                keeps that clipping graceful instead of just cutting text off. */}
+            <TabsTrigger value="search" className="flex-1 min-w-0 gap-1.5 px-2 sm:px-3">
+              <Search className="h-4 w-4 shrink-0" />
+              <span className="truncate">Search</span>
             </TabsTrigger>
-            <TabsTrigger value="mine" className="flex-1">
-              <Plus className="h-4 w-4 mr-1.5" /> From My List
+            <TabsTrigger value="mine" className="flex-1 min-w-0 gap-1.5 px-2 sm:px-3">
+              <Plus className="h-4 w-4 shrink-0" />
+              <span className="truncate">From My List</span>
             </TabsTrigger>
           </TabsList>
 
