@@ -24,10 +24,12 @@ import { toast } from 'sonner';
 import { isNative, capturePhoto } from '@/lib/native';
 import { validateImageFile, compressImage, MAX_IMAGES_PER_ITEM } from '@/lib/imageValidation';
 import { PriceLevelPicker } from '@/components/restaurants/PriceLevelPicker';
+import { StarRatingPicker } from '@/components/lists/StarRatingPicker';
 import { useSignedImageUrls } from '@/hooks/useSignedImageUrl';
 import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
 import { isDuplicateCustomListItem } from '@/lib/duplicateRestaurant';
 import type { CustomList } from './CreateListDialog';
+import type { ManagedListType } from '@/hooks/useListTypeManagement';
 
 const PRICE_LABELS = ['<$30', '<$50', '<$100', '$100+'];
 
@@ -49,9 +51,13 @@ export interface CustomListItem {
   latitude: number | null;
   longitude: number | null;
   price_level: number | null;
+  price_manual: number | null;
   rating: number | null;
+  rating_manual: number | null;
   notes: string | null;
   status: 'todo' | 'done';
+  type_id: string | null;
+  type?: { name: string; color: string; icon: string | null } | null;
   images?: { id: string; image_url: string }[];
 }
 
@@ -59,6 +65,10 @@ interface AddCustomListItemDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   list: CustomList;
+  // Types available to assign this item to - empty when the list has none
+  // set up yet (see ListTypesManager, managed from the list page's Modify
+  // mode).
+  types?: ManagedListType[];
   onSuccess: () => void;
   // Presence of this triggers edit mode (same fields, pre-filled).
   editItem?: CustomListItem | null;
@@ -68,6 +78,7 @@ export function AddCustomListItemDialog({
   open,
   onOpenChange,
   list,
+  types = [],
   onSuccess,
   editItem,
 }: AddCustomListItemDialogProps) {
@@ -78,8 +89,11 @@ export function AddCustomListItemDialog({
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [status, setStatus] = useState<'todo' | 'done'>('todo');
+  const [typeId, setTypeId] = useState<string | null>(null);
   const [priceLevel, setPriceLevel] = useState<number | null>(null);
+  const [priceManual, setPriceManual] = useState('');
   const [rating, setRating] = useState<number | null>(null);
+  const [ratingManual, setRatingManual] = useState('');
   const [notes, setNotes] = useState('');
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
@@ -103,8 +117,11 @@ export function AddCustomListItemDialog({
       setLatitude(editItem.latitude);
       setLongitude(editItem.longitude);
       setStatus(editItem.status);
+      setTypeId(editItem.type_id ?? null);
       setPriceLevel(editItem.price_level);
+      setPriceManual(editItem.price_manual != null ? String(editItem.price_manual) : '');
       setRating(editItem.rating);
+      setRatingManual(editItem.rating_manual != null ? String(editItem.rating_manual) : '');
       setNotes(editItem.notes || '');
       setExistingImages(editItem.images || []);
     } else {
@@ -113,8 +130,11 @@ export function AddCustomListItemDialog({
       setLatitude(null);
       setLongitude(null);
       setStatus('todo');
+      setTypeId(null);
       setPriceLevel(null);
+      setPriceManual('');
       setRating(null);
+      setRatingManual('');
       setNotes('');
       setExistingImages([]);
     }
@@ -250,13 +270,25 @@ export function AddCustomListItemDialog({
         }
       }
 
+      const parsedPriceManual = priceManual.trim() ? parseFloat(priceManual) : null;
+      const parsedRatingManual = ratingManual.trim() ? parseFloat(ratingManual) : null;
+
       const payload = {
         name: name.trim(),
         address: list.show_location ? address.trim() || null : null,
         latitude: list.show_location ? latitude : null,
         longitude: list.show_location ? longitude : null,
-        price_level: list.value_field === 'price' ? priceLevel : null,
-        rating: list.value_field === 'rating' ? rating : null,
+        type_id: typeId,
+        price_level: list.show_price && list.price_mode === 'dollar' ? priceLevel : null,
+        price_manual:
+          list.show_price && list.price_mode === 'manual' && parsedPriceManual != null && !Number.isNaN(parsedPriceManual)
+            ? parsedPriceManual
+            : null,
+        rating: list.show_rating && list.rating_mode !== 'manual' ? rating : null,
+        rating_manual:
+          list.show_rating && list.rating_mode === 'manual' && parsedRatingManual != null && !Number.isNaN(parsedRatingManual)
+            ? parsedRatingManual
+            : null,
         notes: list.show_notes ? notes.trim() || null : null,
         status,
         completed_at: status === 'done' ? new Date().toISOString() : null,
@@ -390,25 +422,93 @@ export function AddCustomListItemDialog({
             </Select>
           </div>
 
-          {list.value_field === 'price' && (
-            <div className="space-y-1">
-              <Label>
-                Price: {priceLevel ? `${'$'.repeat(priceLevel)} (${PRICE_LABELS[priceLevel - 1]})` : 'Not set'}
-              </Label>
-              <PriceLevelPicker value={priceLevel} onChange={setPriceLevel} labels={PRICE_LABELS} />
+          {types.length > 0 && (
+            <div className="space-y-2">
+              <Label>Type</Label>
+              <Select
+                value={typeId ?? '__none__'}
+                onValueChange={(v) => setTypeId(v === '__none__' ? null : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No Type</SelectItem>
+                  {types.map((type) => (
+                    <SelectItem key={type.id} value={type.id}>
+                      <div className="flex items-center gap-2">
+                        {type.icon ? (
+                          <span className="text-xs leading-none">{type.icon}</span>
+                        ) : (
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: type.color }} />
+                        )}
+                        {type.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
 
-          {list.value_field === 'rating' && (
+          {list.show_price && (
+            <div className="space-y-1">
+              {list.price_mode === 'dollar' ? (
+                <>
+                  <Label>
+                    Price: {priceLevel ? `${'$'.repeat(priceLevel)} (${PRICE_LABELS[priceLevel - 1]})` : 'Not set'}
+                  </Label>
+                  <PriceLevelPicker value={priceLevel} onChange={setPriceLevel} labels={PRICE_LABELS} />
+                </>
+              ) : (
+                <>
+                  <Label>Price</Label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="any"
+                    placeholder="e.g. 12.50"
+                    value={priceManual}
+                    onChange={(e) => setPriceManual(e.target.value)}
+                  />
+                </>
+              )}
+            </div>
+          )}
+
+          {list.show_rating && (
             <div className="space-y-3">
-              <Label>Rating: {rating ?? 'Not rated'}/10</Label>
-              <Slider
-                value={[rating ?? 5]}
-                onValueChange={(v) => setRating(v[0])}
-                min={0}
-                max={10}
-                step={1}
-              />
+              {list.rating_mode === 'scale_10' && (
+                <>
+                  <Label>Rating: {rating ?? 'Not rated'}/10</Label>
+                  <Slider
+                    value={[rating ?? 5]}
+                    onValueChange={(v) => setRating(v[0])}
+                    min={0}
+                    max={10}
+                    step={1}
+                  />
+                </>
+              )}
+              {list.rating_mode === 'stars_5' && (
+                <>
+                  <Label>Rating: {rating ? `${rating}/5` : 'Not rated'}</Label>
+                  <StarRatingPicker value={rating} onChange={setRating} />
+                </>
+              )}
+              {list.rating_mode === 'manual' && (
+                <>
+                  <Label>Rating</Label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="any"
+                    placeholder="e.g. 8.5"
+                    value={ratingManual}
+                    onChange={(e) => setRatingManual(e.target.value)}
+                  />
+                </>
+              )}
             </div>
           )}
 

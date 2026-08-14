@@ -14,6 +14,19 @@ import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
 import type { CustomList } from './CreateListDialog';
 import type { CustomListItem } from './AddCustomListItemDialog';
 
+function formatPrice(item: CustomListItem, list: CustomList): string | null {
+  if (!list.show_price) return null;
+  if (list.price_mode === 'dollar') return item.price_level ? '$'.repeat(item.price_level) : null;
+  return item.price_manual != null ? `$${item.price_manual}` : null;
+}
+
+function formatRating(item: CustomListItem, list: CustomList): string | null {
+  if (!list.show_rating) return null;
+  if (list.rating_mode === 'scale_10') return item.rating != null ? `${item.rating}/10` : null;
+  if (list.rating_mode === 'stars_5') return item.rating != null ? `${item.rating}/5` : null;
+  return item.rating_manual != null ? `${item.rating_manual}` : null;
+}
+
 interface CustomListItemCardProps {
   item: CustomListItem;
   list: CustomList;
@@ -49,9 +62,11 @@ export function CustomListItemCard({ item, list, onEdit, onDelete, onToggleStatu
           ) : (
             <div
               className="w-full h-full flex items-center justify-center"
-              style={{ background: `linear-gradient(135deg, ${list.color}22, ${list.color}11)` }}
+              style={{
+                background: `linear-gradient(135deg, ${item.type?.color || list.color}22, ${item.type?.color || list.color}11)`,
+              }}
             >
-              <span className="text-5xl">{list.icon}</span>
+              <span className="text-5xl">{item.type?.icon || list.icon}</span>
             </div>
           )}
           <div className="absolute top-3 right-3">
@@ -104,7 +119,15 @@ export function CustomListItemCard({ item, list, onEdit, onDelete, onToggleStatu
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-lg truncate">{item.name}</h3>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <h3 className="font-semibold text-lg truncate">{item.name}</h3>
+              {item.type && (
+                <Badge variant="outline" className="gap-1 shrink-0 font-normal text-xs px-1.5 py-0">
+                  {item.type.icon && <span className="leading-none">{item.type.icon}</span>}
+                  {item.type.name}
+                </Badge>
+              )}
+            </div>
             {list.show_location && item.address && (
               <p className="text-sm text-muted-foreground truncate flex items-center gap-1 mt-1">
                 <MapPin className="h-3 w-3 flex-shrink-0" />
@@ -173,15 +196,15 @@ export function CustomListItemCard({ item, list, onEdit, onDelete, onToggleStatu
             )}
           </Badge>
         </div>
-        {(list.value_field !== 'none') && (
+        {(list.show_price || list.show_rating) && (
           <div className="flex items-center gap-4 mt-3">
-            {list.value_field === 'rating' && item.rating != null && (
+            {formatRating(item, list) && (
               <div className="flex items-center gap-1">
                 <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                <span className="text-sm">{item.rating}/10</span>
+                <span className="text-sm">{formatRating(item, list)}</span>
               </div>
             )}
-            {list.value_field === 'price' && item.price_level && (
+            {list.show_price && list.price_mode === 'dollar' && item.price_level && (
               <div className="flex items-center">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <DollarSign
@@ -189,6 +212,12 @@ export function CustomListItemCard({ item, list, onEdit, onDelete, onToggleStatu
                     className={`h-4 w-4 -ml-1 first:ml-0 ${i < item.price_level! ? 'text-primary' : 'text-muted'}`}
                   />
                 ))}
+              </div>
+            )}
+            {list.show_price && list.price_mode === 'manual' && formatPrice(item, list) && (
+              <div className="flex items-center gap-1">
+                <DollarSign className="h-4 w-4 text-primary" />
+                <span className="text-sm">{formatPrice(item, list)}</span>
               </div>
             )}
           </div>

@@ -20,9 +20,9 @@ import { Loader2, MapPin, DollarSign, Star, StickyNote, ImageIcon } from 'lucide
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { FOLDER_COLORS } from '@/hooks/useFolderManagement';
 
-export type ValueField = 'none' | 'price' | 'rating';
+export type PriceMode = 'manual' | 'dollar';
+export type RatingMode = 'scale_10' | 'stars_5' | 'manual';
 
 export interface CustomList {
   id: string;
@@ -30,7 +30,10 @@ export interface CustomList {
   icon: string;
   color: string;
   show_location: boolean;
-  value_field: ValueField;
+  show_price: boolean;
+  price_mode: PriceMode;
+  show_rating: boolean;
+  rating_mode: RatingMode;
   show_notes: boolean;
   show_photos: boolean;
   status_todo_label: string;
@@ -47,15 +50,10 @@ interface CreateListDialogProps {
   editList?: CustomList | null;
 }
 
-// A generic, non-food-specific icon set (unlike the restaurant folder
-// system's food emojis) since these lists are for anything - movies, beers,
-// books, whatever the user wants to track.
-const LIST_ICONS = ['📋', '🎬', '📺', '🍺', '📚', '🎮', '🍷', '✈️', '🎵', '☕', '🏋️', '🛍️', '🐾'];
-
 // A blank "List name" field with no other context is a hard place to start,
-// so offer a few concrete, common ideas as one-tap chips. Picking one fills
-// in both the name and a matching icon, rather than just the text, so it
-// reads as a real starting point rather than a random label.
+// so offer a few concrete, common ideas as one-tap chips - just fills in the
+// name text, nothing else (icon/color are no longer list-level settings; see
+// the per-list Types feature on the list's own page for that).
 const LIST_SUGGESTIONS: { label: string; icon: string }[] = [
   { label: 'Movies', icon: '🎬' },
   { label: 'Shows', icon: '📺' },
@@ -67,10 +65,11 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState('');
-  const [icon, setIcon] = useState(LIST_ICONS[0]);
-  const [color, setColor] = useState(FOLDER_COLORS[0]);
   const [showLocation, setShowLocation] = useState(true);
-  const [valueField, setValueField] = useState<ValueField>('price');
+  const [showPrice, setShowPrice] = useState(true);
+  const [priceMode, setPriceMode] = useState<PriceMode>('dollar');
+  const [showRating, setShowRating] = useState(false);
+  const [ratingMode, setRatingMode] = useState<RatingMode>('scale_10');
   const [showNotes, setShowNotes] = useState(true);
   const [showPhotos, setShowPhotos] = useState(true);
   const [todoLabel, setTodoLabel] = useState('');
@@ -82,20 +81,22 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
     if (!open) return;
     if (editList) {
       setName(editList.name);
-      setIcon(editList.icon);
-      setColor(editList.color);
       setShowLocation(editList.show_location);
-      setValueField(editList.value_field);
+      setShowPrice(editList.show_price);
+      setPriceMode(editList.price_mode);
+      setShowRating(editList.show_rating);
+      setRatingMode(editList.rating_mode);
       setShowNotes(editList.show_notes);
       setShowPhotos(editList.show_photos);
       setTodoLabel(editList.status_todo_label);
       setDoneLabel(editList.status_done_label);
     } else {
       setName('');
-      setIcon(LIST_ICONS[0]);
-      setColor(FOLDER_COLORS[0]);
       setShowLocation(true);
-      setValueField('price');
+      setShowPrice(true);
+      setPriceMode('dollar');
+      setShowRating(false);
+      setRatingMode('scale_10');
       setShowNotes(true);
       setShowPhotos(true);
       setTodoLabel('');
@@ -113,10 +114,11 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
 
     const payload = {
       name: name.trim(),
-      icon,
-      color,
       show_location: showLocation,
-      value_field: valueField,
+      show_price: showPrice,
+      price_mode: priceMode,
+      show_rating: showRating,
+      rating_mode: ratingMode,
       show_notes: showNotes,
       show_photos: showPhotos,
       status_todo_label: todoLabel.trim() || 'To Do',
@@ -162,7 +164,7 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
                   <button
                     key={s.label}
                     type="button"
-                    onClick={() => { setName(s.label); setIcon(s.icon); }}
+                    onClick={() => setName(s.label)}
                     className="text-xs px-2.5 py-1 rounded-full bg-muted/60 hover:bg-muted transition-colors"
                   >
                     {s.icon} {s.label}
@@ -170,45 +172,6 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
                 ))}
               </div>
             )}
-          </div>
-
-          <div className="space-y-2">
-            <Label>Icon</Label>
-            <div className="flex flex-wrap gap-2">
-              {LIST_ICONS.map((emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => setIcon(emoji)}
-                  className={`w-10 h-10 rounded-lg text-lg flex items-center justify-center border-2 transition-colors ${
-                    icon === emoji ? 'border-primary bg-primary/10' : 'border-transparent bg-muted/50 hover:bg-muted'
-                  }`}
-                  aria-label={`Icon ${emoji}`}
-                  aria-pressed={icon === emoji}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Color</Label>
-            <div className="flex flex-wrap gap-1.5">
-              {FOLDER_COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setColor(c)}
-                  className={`w-7 h-7 rounded-full transition-transform ${
-                    color === c ? 'ring-2 ring-primary ring-offset-2' : ''
-                  }`}
-                  style={{ backgroundColor: c }}
-                  aria-label={`Color ${c}`}
-                  aria-pressed={color === c}
-                />
-              ))}
-            </div>
           </div>
 
           <div className="space-y-3 rounded-lg border p-3">
@@ -229,24 +192,46 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
             </div>
 
             <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                {valueField === 'rating' ? (
-                  <Star className="h-4 w-4 text-muted-foreground shrink-0" />
-                ) : (
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
                   <DollarSign className="h-4 w-4 text-muted-foreground shrink-0" />
-                )}
-                <p className="text-sm">Price / rating indicator</p>
+                  <p className="text-sm">Price</p>
+                </div>
+                <Switch checked={showPrice} onCheckedChange={setShowPrice} />
               </div>
-              <Select value={valueField} onValueChange={(v) => setValueField(v as ValueField)}>
-                <SelectTrigger className="ml-6 w-[calc(100%-1.5rem)]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Off</SelectItem>
-                  <SelectItem value="price">Price ($ - $$$$)</SelectItem>
-                  <SelectItem value="rating">Rating (0-10)</SelectItem>
-                </SelectContent>
-              </Select>
+              {showPrice && (
+                <Select value={priceMode} onValueChange={(v) => setPriceMode(v as PriceMode)}>
+                  <SelectTrigger className="ml-6 w-[calc(100%-1.5rem)]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="dollar">Dollar signs ($ - $$$$)</SelectItem>
+                    <SelectItem value="manual">Manual entry</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Star className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <p className="text-sm">Rating</p>
+                </div>
+                <Switch checked={showRating} onCheckedChange={setShowRating} />
+              </div>
+              {showRating && (
+                <Select value={ratingMode} onValueChange={(v) => setRatingMode(v as RatingMode)}>
+                  <SelectTrigger className="ml-6 w-[calc(100%-1.5rem)]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="scale_10">Scale of 1-10</SelectItem>
+                    <SelectItem value="stars_5">5 stars</SelectItem>
+                    <SelectItem value="manual">Manual entry</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             <div className="flex items-center justify-between gap-3">
@@ -276,6 +261,13 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
               <Input placeholder="Done" value={doneLabel} onChange={(e) => setDoneLabel(e.target.value)} />
             </div>
           </div>
+
+          {isEditing && (
+            <p className="text-xs text-muted-foreground">
+              Manage this list's types (color-coded categories with map pin emoji) from the list
+              page itself - tap Modify, then Types.
+            </p>
+          )}
 
           <Button className="w-full" onClick={handleSubmit} disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
