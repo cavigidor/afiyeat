@@ -167,7 +167,7 @@ export default function CustomListDetail() {
     );
   }
 
-  const hasValueSort = list.value_field !== 'none';
+  const hasValueSort = list.show_price || list.show_rating;
 
   return (
     <div className="min-h-screen bg-background">
@@ -245,13 +245,13 @@ export default function CustomListDetail() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="name">Name (A-Z)</SelectItem>
-                        {list.value_field === 'price' && (
+                        {list.show_price && (
                           <>
                             <SelectItem value="price_asc">Price: Low to High</SelectItem>
                             <SelectItem value="price_desc">Price: High to Low</SelectItem>
                           </>
                         )}
-                        {list.value_field === 'rating' && (
+                        {list.show_rating && (
                           <SelectItem value="rating_desc">Rating: High to Low</SelectItem>
                         )}
                       </SelectContent>

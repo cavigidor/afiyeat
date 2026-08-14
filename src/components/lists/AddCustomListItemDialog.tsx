@@ -255,8 +255,10 @@ export function AddCustomListItemDialog({
         address: list.show_location ? address.trim() || null : null,
         latitude: list.show_location ? latitude : null,
         longitude: list.show_location ? longitude : null,
-        price_level: list.value_field === 'price' ? priceLevel : null,
-        rating: list.value_field === 'rating' ? rating : null,
+        price_level: list.show_price && list.price_mode === 'dollar' ? priceLevel : null,
+        rating: list.show_rating && list.rating_mode === 'scale_10' ? rating : null,
+        price_manual: list.show_price && list.price_mode === 'manual' ? null : null,
+        rating_manual: list.show_rating && list.rating_mode === 'manual' ? null : null,
         notes: list.show_notes ? notes.trim() || null : null,
         status,
         completed_at: status === 'done' ? new Date().toISOString() : null,
@@ -390,7 +392,7 @@ export function AddCustomListItemDialog({
             </Select>
           </div>
 
-          {list.value_field === 'price' && (
+          {list.show_price && list.price_mode === 'dollar' && (
             <div className="space-y-1">
               <Label>
                 Price: {priceLevel ? `${'$'.repeat(priceLevel)} (${PRICE_LABELS[priceLevel - 1]})` : 'Not set'}
@@ -399,7 +401,7 @@ export function AddCustomListItemDialog({
             </div>
           )}
 
-          {list.value_field === 'rating' && (
+          {list.show_rating && list.rating_mode === 'scale_10' && (
             <div className="space-y-3">
               <Label>Rating: {rating ?? 'Not rated'}/10</Label>
               <Slider
