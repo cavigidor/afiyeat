@@ -56,7 +56,7 @@ async function fetchList(listId: string, userId: string): Promise<CustomList | n
     .eq('user_id', userId)
     .maybeSingle();
   if (error) throw error;
-  return data as CustomList | null;
+  return data as unknown as CustomList | null;
 }
 
 async function fetchItems(listId: string): Promise<CustomListItem[]> {
