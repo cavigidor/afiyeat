@@ -94,8 +94,11 @@ export type Database = {
           name: string
           notes: string | null
           price_level: number | null
+          price_manual: number | null
           rating: number | null
+          rating_manual: number | null
           status: string
+          type_id: string | null
           updated_at: string
           user_id: string
         }
@@ -110,8 +113,11 @@ export type Database = {
           name: string
           notes?: string | null
           price_level?: number | null
+          price_manual?: number | null
           rating?: number | null
+          rating_manual?: number | null
           status?: string
+          type_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -126,14 +132,65 @@ export type Database = {
           name?: string
           notes?: string | null
           price_level?: number | null
+          price_manual?: number | null
           rating?: number | null
+          rating_manual?: number | null
           status?: string
+          type_id?: string | null
           updated_at?: string
           user_id?: string
         }
         Relationships: [
           {
             foreignKeyName: "custom_list_items_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "custom_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_list_items_type_id_fkey"
+            columns: ["type_id"]
+            isOneToOne: false
+            referencedRelation: "custom_list_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_list_types: {
+        Row: {
+          color: string
+          created_at: string
+          icon: string | null
+          id: string
+          list_id: string
+          name: string
+          sort_order: number | null
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          list_id: string
+          name: string
+          sort_order?: number | null
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          list_id?: string
+          name?: string
+          sort_order?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_list_types_list_id_fkey"
             columns: ["list_id"]
             isOneToOne: false
             referencedRelation: "custom_lists"
@@ -148,15 +205,18 @@ export type Database = {
           icon: string
           id: string
           name: string
+          price_mode: string
+          rating_mode: string
           show_location: boolean
           show_notes: boolean
           show_photos: boolean
+          show_price: boolean
+          show_rating: boolean
           sort_order: number | null
           status_done_label: string
           status_todo_label: string
           updated_at: string
           user_id: string
-          value_field: string
         }
         Insert: {
           color?: string
@@ -164,15 +224,18 @@ export type Database = {
           icon?: string
           id?: string
           name: string
+          price_mode?: string
+          rating_mode?: string
           show_location?: boolean
           show_notes?: boolean
           show_photos?: boolean
+          show_price?: boolean
+          show_rating?: boolean
           sort_order?: number | null
           status_done_label?: string
           status_todo_label?: string
           updated_at?: string
           user_id: string
-          value_field?: string
         }
         Update: {
           color?: string
@@ -180,15 +243,18 @@ export type Database = {
           icon?: string
           id?: string
           name?: string
+          price_mode?: string
+          rating_mode?: string
           show_location?: boolean
           show_notes?: boolean
           show_photos?: boolean
+          show_price?: boolean
+          show_rating?: boolean
           sort_order?: number | null
           status_done_label?: string
           status_todo_label?: string
           updated_at?: string
           user_id?: string
-          value_field?: string
         }
         Relationships: []
       }
