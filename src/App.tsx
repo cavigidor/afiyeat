@@ -20,7 +20,6 @@ import CustomListDetail from "./pages/CustomListDetail";
 import News from "./pages/News";
 import Profile from "./pages/Profile";
 import Recipes from "./pages/Recipes";
-import Cellar from "./pages/Cellar";
 import NotFound from "./pages/NotFound";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
@@ -73,7 +72,6 @@ const App = () => {
             <Route path="/my-lists/:listId" element={<CustomListDetail />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/recipes" element={<Recipes />} />
-            <Route path="/cellar" element={<Cellar />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/reset-password" element={<ResetPassword />} />
