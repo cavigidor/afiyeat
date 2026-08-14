@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
 import type { CustomList } from './CreateListDialog';
 import type { CustomListItem } from './AddCustomListItemDialog';
 
@@ -76,6 +77,18 @@ export function CustomListItemRow({
           {isDone ? <Check className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
           <span className="hidden sm:inline">{isDone ? list.status_done_label : list.status_todo_label}</span>
         </Badge>
+
+        {list.show_location && !quickDelete && (
+          <GetDirectionsButton
+            latitude={item.latitude}
+            longitude={item.longitude}
+            address={item.address}
+            name={item.name}
+            variant="ghost"
+            iconOnly
+            className="h-8 w-8"
+          />
+        )}
 
         {quickDelete ? (
           onDelete && (

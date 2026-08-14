@@ -16,11 +16,14 @@ import {
 } from 'lucide-react';
 import { useSignedImageUrls } from '@/hooks/useSignedImageUrl';
 import { getFolderIcon } from '@/lib/folderIcons';
+import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
 
 export interface DetailRestaurant {
   id: string;
   name: string;
   address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   rating?: number | null;
   price_level?: number | null;
   status: string;
@@ -129,10 +132,19 @@ export function RestaurantDetailDialog({
 
         <div className="space-y-3">
           {restaurant.address && (
-            <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-              <MapPin className="h-4 w-4 flex-shrink-0" />
-              {restaurant.address}
-            </p>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <p className="text-sm text-muted-foreground flex items-center gap-1.5 min-w-0">
+                <MapPin className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">{restaurant.address}</span>
+              </p>
+              <GetDirectionsButton
+                latitude={restaurant.latitude}
+                longitude={restaurant.longitude}
+                address={restaurant.address}
+                name={restaurant.name}
+                size="sm"
+              />
+            </div>
           )}
 
           <div className="flex items-center gap-4 flex-wrap">

@@ -26,6 +26,8 @@ export interface SharedItem {
   id: string;
   name: string;
   address: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   status: string;
   rating: number | null;
   price_level: number | null;

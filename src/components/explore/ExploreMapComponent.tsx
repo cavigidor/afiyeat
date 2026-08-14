@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { useMapCenter } from '@/hooks/useMapCenter';
 import { getCurrentPosition } from '@/lib/native';
+import { getDirectionsPopupHtml } from '@/lib/directions';
 import { formatCategory, toNumber, type ExplorePlace } from './ExplorePlaceCard';
 
 interface ExploreMapComponentProps {
@@ -133,6 +134,7 @@ export function ExploreMapComponent({ token, places, onSelectPlace, flyToMeRef }
               <h3 class="font-semibold">${safeName}</h3>
               ${categoryLabel ? `<p class="text-xs text-gray-500">${categoryLabel}</p>` : ''}
               ${ratingLine}
+              ${getDirectionsPopupHtml({ latitude: place.latitude, longitude: place.longitude, address: place.address, name: place.name })}
             </div>
           `);
 

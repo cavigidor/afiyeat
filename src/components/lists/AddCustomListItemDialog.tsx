@@ -25,6 +25,7 @@ import { isNative, capturePhoto } from '@/lib/native';
 import { validateImageFile, compressImage, MAX_IMAGES_PER_ITEM } from '@/lib/imageValidation';
 import { PriceLevelPicker } from '@/components/restaurants/PriceLevelPicker';
 import { useSignedImageUrls } from '@/hooks/useSignedImageUrl';
+import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
 import type { CustomList } from './CreateListDialog';
 
 const PRICE_LABELS = ['<$30', '<$50', '<$100', '$100+'];
@@ -348,7 +349,16 @@ export function AddCustomListItemDialog({
 
           {list.show_location && (
             <div className="space-y-2">
-              <Label>Address</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label>Address</Label>
+                <GetDirectionsButton
+                  latitude={latitude}
+                  longitude={longitude}
+                  address={address}
+                  name={name}
+                  size="sm"
+                />
+              </div>
               <Input placeholder="123 Main St, City" value={address} onChange={(e) => setAddress(e.target.value)} />
             </div>
           )}

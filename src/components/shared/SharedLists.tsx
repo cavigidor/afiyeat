@@ -121,7 +121,7 @@ export function SharedLists({ following }: SharedListsProps) {
     setLoadingItems(true);
     const { data, error } = await supabase
       .from('shared_list_items')
-      .select('id, name, address, status, rating, price_level, notes')
+      .select('id, name, address, latitude, longitude, status, rating, price_level, notes')
       .eq('list_id', selectedListId)
       .order('created_at', { ascending: false });
 

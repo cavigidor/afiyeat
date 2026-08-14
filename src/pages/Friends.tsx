@@ -16,6 +16,7 @@ import { Search, UserPlus, UserMinus, Loader2, Users, Sparkles, Map, Check, Cloc
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useMapCenter } from '@/hooks/useMapCenter';
+import { getDirectionsPopupHtml } from '@/lib/directions';
 import { useViewMode } from '@/hooks/useViewMode';
 import type { RestaurantSortBy } from '@/hooks/useRestaurantListControls';
 import { ListViewToggle } from '@/components/shared/ListViewToggle';
@@ -824,6 +825,7 @@ function FriendsMapComponent({ token, restaurants, focusedRestaurantId, onFocusR
             <h3 class="font-semibold">${safeName}</h3>
             ${safeAddress ? `<p class="text-sm text-gray-600">${safeAddress}</p>` : ''}
             ${restaurant.rating ? `<p class="text-sm">Rating: ${restaurant.rating}/10</p>` : ''}
+            ${getDirectionsPopupHtml({ latitude: restaurant.latitude, longitude: restaurant.longitude, address: restaurant.address, name: restaurant.name })}
           </div>
         `);
 

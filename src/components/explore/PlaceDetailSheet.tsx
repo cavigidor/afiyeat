@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, MapPin, Star, DollarSign } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCategory, toNumber, type ExplorePlace } from './ExplorePlaceCard';
+import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
 
 interface PlaceComment {
   user_id: string;
@@ -69,10 +70,19 @@ export function PlaceDetailSheet({ place, mode, onOpenChange }: PlaceDetailSheet
             </SheetHeader>
 
             {displayPlace.address && (
-              <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                <MapPin className="h-3 w-3 flex-shrink-0" />
-                {displayPlace.address}
-              </p>
+              <div className="flex items-center justify-between gap-2 flex-wrap mt-1">
+                <p className="text-sm text-muted-foreground flex items-center gap-1 min-w-0">
+                  <MapPin className="h-3 w-3 flex-shrink-0" />
+                  <span className="truncate">{displayPlace.address}</span>
+                </p>
+                <GetDirectionsButton
+                  latitude={displayPlace.latitude}
+                  longitude={displayPlace.longitude}
+                  address={displayPlace.address}
+                  name={displayPlace.name}
+                  size="sm"
+                />
+              </div>
             )}
 
             <div className="flex items-center gap-4 mt-3">

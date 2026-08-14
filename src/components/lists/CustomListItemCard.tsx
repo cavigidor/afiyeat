@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
+import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
 import type { CustomList } from './CreateListDialog';
 import type { CustomListItem } from './AddCustomListItemDialog';
 
@@ -111,6 +112,17 @@ export function CustomListItemCard({ item, list, onEdit, onDelete, onToggleStatu
               </p>
             )}
           </div>
+          {list.show_location && (
+            <GetDirectionsButton
+              latitude={item.latitude}
+              longitude={item.longitude}
+              address={item.address}
+              name={item.name}
+              variant="ghost"
+              iconOnly
+              className="h-8 w-8 shrink-0"
+            />
+          )}
           {!showImageArea ? (
             quickDelete ? (
               onDelete && (

@@ -22,6 +22,7 @@ import { FolderList } from '@/components/folders/FolderList';
 import { ManageTypesSheet } from '@/components/folders/ManageTypesSheet';
 import { useViewMode } from '@/hooks/useViewMode';
 import type { RestaurantSortBy } from '@/hooks/useRestaurantListControls';
+import { getDirectionsPopupHtml } from '@/lib/directions';
 import { toast } from 'sonner';
 
 interface Restaurant {
@@ -616,6 +617,7 @@ function MapComponent({ token, restaurants, focusedRestaurantId, onFocusRestaura
           <div class="p-2">
             <h3 class="font-semibold">${safeName}</h3>
             ${safeAddress ? `<p class="text-sm text-gray-600">${safeAddress}</p>` : ''}
+            ${getDirectionsPopupHtml({ latitude: restaurant.latitude, longitude: restaurant.longitude, address: restaurant.address, name: restaurant.name })}
           </div>
         `);
 
