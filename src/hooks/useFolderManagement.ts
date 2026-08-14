@@ -7,6 +7,7 @@ export interface ManagedFolder {
   id: string;
   name: string;
   color: string;
+  icon?: string | null;
   sort_order?: number | null;
 }
 
@@ -14,6 +15,13 @@ export const FOLDER_COLORS = [
   '#E91E63', '#9C27B0', '#673AB7', '#3F51B5',
   '#2196F3', '#00BCD4', '#009688', '#4CAF50',
   '#8BC34A', '#CDDC39', '#FFC107', '#FF9800',
+];
+
+// Quick-pick suggestions for the type's map-pin emoji - not exhaustive
+// (the field takes any emoji typed/pasted in directly), just common
+// restaurant-type starting points.
+export const TYPE_ICON_SUGGESTIONS = [
+  '🍕', '🍔', '🍣', '🌮', '🍜', '🥗', '🍰', '☕', '🍺', '🍷', '🥐', '🍱',
 ];
 
 // Shared add/rename/delete/reorder logic for restaurant types (folders),
@@ -26,9 +34,11 @@ export function useFolderManagement(folders: ManagedFolder[], onFoldersChange: (
   const [isAdding, setIsAdding] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [selectedColor, setSelectedColor] = useState(FOLDER_COLORS[0]);
+  const [selectedIcon, setSelectedIcon] = useState('');
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState(FOLDER_COLORS[0]);
+  const [editIcon, setEditIcon] = useState('');
 
   const sortedFolders = [...folders].sort((a, b) => {
     const ao = a.sort_order ?? Number.MAX_SAFE_INTEGER;
@@ -48,6 +58,7 @@ export function useFolderManagement(folders: ManagedFolder[], onFoldersChange: (
         user_id: user.id,
         name: newFolderName.trim(),
         color: selectedColor,
+        icon: selectedIcon.trim() || null,
         sort_order: nextOrder,
       });
 
@@ -55,6 +66,7 @@ export function useFolderManagement(folders: ManagedFolder[], onFoldersChange: (
 
       toast.success('Type created!');
       setNewFolderName('');
+      setSelectedIcon('');
       setIsAdding(false);
       onFoldersChange();
     } catch (error: any) {
@@ -66,12 +78,14 @@ export function useFolderManagement(folders: ManagedFolder[], onFoldersChange: (
     setEditingFolderId(folder.id);
     setEditName(folder.name);
     setEditColor(folder.color);
+    setEditIcon(folder.icon || '');
     setIsAdding(false);
   };
 
   const cancelEditing = () => {
     setEditingFolderId(null);
     setEditName('');
+    setEditIcon('');
   };
 
   const handleSaveEdit = async () => {
@@ -80,7 +94,7 @@ export function useFolderManagement(folders: ManagedFolder[], onFoldersChange: (
     try {
       const { error } = await supabase
         .from('folders')
-        .update({ name: editName.trim(), color: editColor })
+        .update({ name: editName.trim(), color: editColor, icon: editIcon.trim() || null })
         .eq('id', editingFolderId);
 
       if (error) throw error;
@@ -88,6 +102,7 @@ export function useFolderManagement(folders: ManagedFolder[], onFoldersChange: (
       toast.success('Type updated!');
       setEditingFolderId(null);
       setEditName('');
+      setEditIcon('');
       onFoldersChange();
     } catch (error: any) {
       toast.error(error.message || 'Failed to update type');
@@ -138,11 +153,15 @@ export function useFolderManagement(folders: ManagedFolder[], onFoldersChange: (
     setNewFolderName,
     selectedColor,
     setSelectedColor,
+    selectedIcon,
+    setSelectedIcon,
     editingFolderId,
     editName,
     setEditName,
     editColor,
     setEditColor,
+    editIcon,
+    setEditIcon,
     handleAddFolder,
     startEditing,
     cancelEditing,

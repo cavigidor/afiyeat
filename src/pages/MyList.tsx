@@ -23,6 +23,7 @@ import { ManageTypesSheet } from '@/components/folders/ManageTypesSheet';
 import { useViewMode } from '@/hooks/useViewMode';
 import type { RestaurantSortBy } from '@/hooks/useRestaurantListControls';
 import { getDirectionsPopupHtml } from '@/lib/directions';
+import { createPinElement } from '@/lib/mapPin';
 import { toast } from 'sonner';
 
 interface Restaurant {
@@ -37,7 +38,7 @@ interface Restaurant {
   notes: string | null;
   user_id: string;
   folder_id: string | null;
-  folder?: { name: string; color: string } | null;
+  folder?: { name: string; color: string; icon?: string | null } | null;
   images?: { image_url: string; id: string }[];
 }
 
@@ -54,7 +55,7 @@ async function fetchMyRestaurants(userId: string): Promise<Restaurant[]> {
     .from('restaurants')
     .select(`
       *,
-      folder:folders(name, color),
+      folder:folders(name, color, icon),
       images:restaurant_images(image_url, id)
     `)
     .eq('user_id', userId)
@@ -177,7 +178,7 @@ export default function MyList() {
       .eq('id', restaurantId)
       .select(`
         *,
-        folder:folders(name, color),
+        folder:folders(name, color, icon),
         images:restaurant_images(image_url, id)
       `)
       .single();
@@ -600,14 +601,12 @@ function MapComponent({ token, restaurants, focusedRestaurantId, onFocusRestaura
 
       restaurantsWithLocation.forEach(restaurant => {
         const isFocused = focusedRestaurantId === restaurant.id;
-        
-        const el = document.createElement('div');
-        el.className = `flex items-center justify-center shadow-lg cursor-pointer transition-all duration-300 ${
-          isFocused 
-            ? 'w-12 h-12 bg-primary rounded-full ring-4 ring-primary/30 scale-110' 
-            : 'w-8 h-8 bg-primary rounded-full hover:scale-110'
-        }`;
-        el.innerHTML = `<svg class="${isFocused ? 'w-6 h-6' : 'w-4 h-4'}" fill="white" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`;
+
+        const el = createPinElement({
+          color: restaurant.folder?.color,
+          icon: restaurant.folder?.icon,
+          focused: isFocused,
+        });
 
         // Sanitize for XSS prevention
         const safeName = restaurant.name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -621,7 +620,7 @@ function MapComponent({ token, restaurants, focusedRestaurantId, onFocusRestaura
           </div>
         `);
 
-        const marker = new mapboxgl.Marker(el)
+        const marker = new mapboxgl.Marker(el, { anchor: 'bottom' })
           .setLngLat([restaurant.longitude!, restaurant.latitude!])
           .setPopup(popup)
           .addTo(mapRef.current);

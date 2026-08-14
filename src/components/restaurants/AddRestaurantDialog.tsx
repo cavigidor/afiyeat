@@ -62,7 +62,7 @@ interface PlaceResult {
 interface AddRestaurantDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  folders: { id: string; name: string; color: string }[];
+  folders: { id: string; name: string; color: string; icon?: string | null }[];
   onSuccess: () => void;
   onCreateType?: () => void;
 }
@@ -559,10 +559,14 @@ export function AddRestaurantDialog({
                             {folders.map((folder) => (
                               <SelectItem key={folder.id} value={folder.id}>
                                 <div className="flex items-center gap-2">
-                                  <div
-                                    className="w-3 h-3 rounded-full"
-                                    style={{ backgroundColor: folder.color }}
-                                  />
+                                  {folder.icon ? (
+                                    <span className="text-xs leading-none">{folder.icon}</span>
+                                  ) : (
+                                    <div
+                                      className="w-3 h-3 rounded-full"
+                                      style={{ backgroundColor: folder.color }}
+                                    />
+                                  )}
                                   {folder.name}
                                 </div>
                               </SelectItem>

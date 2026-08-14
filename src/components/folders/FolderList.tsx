@@ -1,7 +1,12 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, Folder, X, Check, Trash2, Pencil, ChevronUp, ChevronDown, ChevronRight, MapPin } from 'lucide-react';
-import { useFolderManagement, FOLDER_COLORS, type ManagedFolder } from '@/hooks/useFolderManagement';
+import {
+  useFolderManagement,
+  FOLDER_COLORS,
+  TYPE_ICON_SUGGESTIONS,
+  type ManagedFolder,
+} from '@/hooks/useFolderManagement';
 import { useState } from 'react';
 
 interface Restaurant {
@@ -38,11 +43,15 @@ export function FolderList({
     setNewFolderName,
     selectedColor,
     setSelectedColor,
+    selectedIcon,
+    setSelectedIcon,
     editingFolderId,
     editName,
     setEditName,
     editColor,
     setEditColor,
+    editIcon,
+    setEditIcon,
     handleAddFolder,
     startEditing,
     cancelEditing,
@@ -100,6 +109,27 @@ export function FolderList({
               />
             ))}
           </div>
+          <Input
+            placeholder="Pin emoji (optional)"
+            value={selectedIcon}
+            maxLength={4}
+            onChange={(e) => setSelectedIcon(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddFolder()}
+          />
+          <div className="flex flex-wrap gap-1">
+            {TYPE_ICON_SUGGESTIONS.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => setSelectedIcon(emoji)}
+                className={`w-7 h-7 flex items-center justify-center rounded-md text-base transition-colors ${
+                  selectedIcon === emoji ? 'bg-primary/20 ring-1 ring-primary' : 'hover:bg-muted-foreground/10'
+                }`}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
           <div className="flex gap-2">
             <Button size="sm" onClick={handleAddFolder} className="flex-1">
               <Check className="h-4 w-4 mr-1" /> Add
@@ -110,6 +140,7 @@ export function FolderList({
               onClick={() => {
                 setIsAdding(false);
                 setNewFolderName('');
+                setSelectedIcon('');
               }}
             >
               <X className="h-4 w-4" />
@@ -158,6 +189,27 @@ export function FolderList({
                     />
                   ))}
                 </div>
+                <Input
+                  placeholder="Pin emoji (optional)"
+                  value={editIcon}
+                  maxLength={4}
+                  onChange={(e) => setEditIcon(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
+                />
+                <div className="flex flex-wrap gap-1">
+                  {TYPE_ICON_SUGGESTIONS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => setEditIcon(emoji)}
+                      className={`w-7 h-7 flex items-center justify-center rounded-md text-base transition-colors ${
+                        editIcon === emoji ? 'bg-primary/20 ring-1 ring-primary' : 'hover:bg-muted-foreground/10'
+                      }`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
                 <div className="flex gap-2">
                   <Button size="sm" onClick={handleSaveEdit} className="flex-1">
                     <Check className="h-4 w-4 mr-1" /> Save
@@ -195,10 +247,19 @@ export function FolderList({
                   onClick={() => onSelectFolder(folder.id)}
                   className="flex-1 flex items-center gap-2 text-left min-w-0"
                 >
-                  <div
-                    className="w-3 h-3 rounded-full shrink-0"
-                    style={{ backgroundColor: folder.color }}
-                  />
+                  {folder.icon ? (
+                    <span
+                      className="w-4 h-4 flex items-center justify-center text-[11px] leading-none rounded-full shrink-0"
+                      style={{ backgroundColor: folder.color }}
+                    >
+                      {folder.icon}
+                    </span>
+                  ) : (
+                    <div
+                      className="w-3 h-3 rounded-full shrink-0"
+                      style={{ backgroundColor: folder.color }}
+                    />
+                  )}
                   <span className="truncate">{folder.name}</span>
                   <span className="text-xs opacity-60 shrink-0">({folderRestaurants.length})</span>
                 </button>

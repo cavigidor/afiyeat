@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useMapCenter } from '@/hooks/useMapCenter';
 import { getDirectionsPopupHtml } from '@/lib/directions';
+import { createPinElement } from '@/lib/mapPin';
 import { useViewMode } from '@/hooks/useViewMode';
 import type { RestaurantSortBy } from '@/hooks/useRestaurantListControls';
 import { ListViewToggle } from '@/components/shared/ListViewToggle';
@@ -103,7 +104,7 @@ async function fetchUserRestaurantsFor(profileUserId: string): Promise<any[]> {
     .from('restaurants')
     .select(`
       *,
-      folder:folders(name, color),
+      folder:folders(name, color, icon),
       images:restaurant_images(image_url)
     `)
     .eq('user_id', profileUserId)
@@ -555,7 +556,7 @@ export default function Friends() {
                     {/* Restaurant list with search + folder filter */}
                     {(() => {
                       const statusFiltered = statusFilteredRestaurants;
-                      const folderMap: Record<string, { name: string; color: string }> = {};
+                      const folderMap: Record<string, { name: string; color: string; icon?: string | null }> = {};
                       statusFiltered.forEach(r => {
                         if (r.folder?.name && !folderMap[r.folder.name]) {
                           folderMap[r.folder.name] = r.folder;
@@ -808,14 +809,12 @@ function FriendsMapComponent({ token, restaurants, focusedRestaurantId, onFocusR
 
       restaurantsWithLocation.forEach(restaurant => {
         const isFocused = focusedRestaurantId === restaurant.id;
-        
-        const el = document.createElement('div');
-        el.className = `flex items-center justify-center shadow-lg cursor-pointer transition-all duration-300 ${
-          isFocused 
-            ? 'w-12 h-12 bg-primary rounded-full ring-4 ring-primary/30 scale-110' 
-            : 'w-8 h-8 bg-primary rounded-full hover:scale-110'
-        }`;
-        el.innerHTML = `<svg class="${isFocused ? 'w-6 h-6' : 'w-4 h-4'}" fill="white" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`;
+
+        const el = createPinElement({
+          color: restaurant.folder?.color,
+          icon: restaurant.folder?.icon,
+          focused: isFocused,
+        });
 
         const safeName = restaurant.name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
         const safeAddress = restaurant.address?.replace(/</g, '&lt;').replace(/>/g, '&gt;') || '';
@@ -829,7 +828,7 @@ function FriendsMapComponent({ token, restaurants, focusedRestaurantId, onFocusR
           </div>
         `);
 
-        const marker = new mapboxgl.Marker(el)
+        const marker = new mapboxgl.Marker(el, { anchor: 'bottom' })
           .setLngLat([restaurant.longitude!, restaurant.latitude!])
           .setPopup(popup)
           .addTo(mapRef.current);

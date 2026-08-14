@@ -2,7 +2,12 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from '@/comp
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, X, Check, Trash2, Pencil, ChevronUp, ChevronDown } from 'lucide-react';
-import { useFolderManagement, FOLDER_COLORS, type ManagedFolder } from '@/hooks/useFolderManagement';
+import {
+  useFolderManagement,
+  FOLDER_COLORS,
+  TYPE_ICON_SUGGESTIONS,
+  type ManagedFolder,
+} from '@/hooks/useFolderManagement';
 
 interface ManageTypesSheetProps {
   open: boolean;
@@ -25,11 +30,15 @@ export function ManageTypesSheet({ open, onOpenChange, folders, onFoldersChange 
     setNewFolderName,
     selectedColor,
     setSelectedColor,
+    selectedIcon,
+    setSelectedIcon,
     editingFolderId,
     editName,
     setEditName,
     editColor,
     setEditColor,
+    editIcon,
+    setEditIcon,
     handleAddFolder,
     startEditing,
     cancelEditing,
@@ -77,6 +86,27 @@ export function ManageTypesSheet({ open, onOpenChange, folders, onFoldersChange 
                       />
                     ))}
                   </div>
+                  <Input
+                    placeholder="Pin emoji (optional)"
+                    value={editIcon}
+                    maxLength={4}
+                    onChange={(e) => setEditIcon(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
+                  />
+                  <div className="flex flex-wrap gap-1">
+                    {TYPE_ICON_SUGGESTIONS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => setEditIcon(emoji)}
+                        className={`w-7 h-7 flex items-center justify-center rounded-md text-base transition-colors ${
+                          editIcon === emoji ? 'bg-primary/20 ring-1 ring-primary' : 'hover:bg-muted-foreground/10'
+                        }`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
                   <div className="flex gap-2">
                     <Button size="sm" onClick={handleSaveEdit} className="flex-1">
                       <Check className="h-4 w-4 mr-1" /> Save
@@ -96,10 +126,12 @@ export function ManageTypesSheet({ open, onOpenChange, folders, onFoldersChange 
               >
                 <button
                   onClick={() => startEditing(folder)}
-                  className="w-5 h-5 rounded-full shrink-0 ring-1 ring-inset ring-black/10"
+                  className="w-5 h-5 flex items-center justify-center text-[11px] leading-none rounded-full shrink-0 ring-1 ring-inset ring-black/10"
                   style={{ backgroundColor: folder.color }}
-                  aria-label={`Change color for ${folder.name}`}
-                />
+                  aria-label={`Change color/emoji for ${folder.name}`}
+                >
+                  {folder.icon || ''}
+                </button>
                 <span className="flex-1 truncate">{folder.name}</span>
                 <div className="flex items-center shrink-0">
                   <Button
@@ -166,6 +198,27 @@ export function ManageTypesSheet({ open, onOpenChange, folders, onFoldersChange 
                   />
                 ))}
               </div>
+              <Input
+                placeholder="Pin emoji (optional)"
+                value={selectedIcon}
+                maxLength={4}
+                onChange={(e) => setSelectedIcon(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddFolder()}
+              />
+              <div className="flex flex-wrap gap-1">
+                {TYPE_ICON_SUGGESTIONS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => setSelectedIcon(emoji)}
+                    className={`w-7 h-7 flex items-center justify-center rounded-md text-base transition-colors ${
+                      selectedIcon === emoji ? 'bg-primary/20 ring-1 ring-primary' : 'hover:bg-muted-foreground/10'
+                    }`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
               <div className="flex gap-2">
                 <Button size="sm" onClick={handleAddFolder} className="flex-1">
                   <Check className="h-4 w-4 mr-1" /> Add
@@ -176,6 +229,7 @@ export function ManageTypesSheet({ open, onOpenChange, folders, onFoldersChange 
                   onClick={() => {
                     setIsAdding(false);
                     setNewFolderName('');
+                    setSelectedIcon('');
                   }}
                 >
                   <X className="h-4 w-4" />
