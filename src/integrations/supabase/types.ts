@@ -811,6 +811,20 @@ export type Database = {
         Args: { p_platform: string; p_token: string }
         Returns: undefined
       }
+      get_explore_lists: {
+        Args: { p_mode?: string }
+        Returns: {
+          avatar_url: string
+          display_name: string
+          is_anonymous: boolean
+          item_count: number
+          list_icon: string
+          list_id: string
+          list_name: string
+          user_id: string
+          username: string
+        }[]
+      }
       get_explore_places: {
         Args: { p_mode?: string }
         Returns: {
