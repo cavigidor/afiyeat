@@ -11,9 +11,11 @@ import { Loader2, Map as MapIcon, List as ListIcon, Compass, LocateFixed } from 
 import { ExploreMapComponent } from '@/components/explore/ExploreMapComponent';
 import { ExplorePlaceCard, type ExplorePlace } from '@/components/explore/ExplorePlaceCard';
 import { PlaceDetailSheet } from '@/components/explore/PlaceDetailSheet';
+import { ExploreListCard, type ExploreList } from '@/components/explore/ExploreListCard';
 
 type ExploreMode = 'friends' | 'all';
 type ExploreView = 'map' | 'list';
+type ExploreContentType = 'restaurants' | 'lists';
 
 async function fetchMapboxTokenValue(): Promise<string | null> {
   const { data, error } = await supabase.functions.invoke('get-mapbox-token');
@@ -27,9 +29,16 @@ async function fetchExplorePlaces(mode: ExploreMode): Promise<ExplorePlace[]> {
   return (data || []) as ExplorePlace[];
 }
 
+async function fetchExploreLists(mode: ExploreMode): Promise<ExploreList[]> {
+  const { data, error } = await supabase.rpc('get_explore_lists', { p_mode: mode });
+  if (error) throw error;
+  return (data || []) as ExploreList[];
+}
+
 export default function Explore() {
   const { user, session, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const [contentType, setContentType] = useState<ExploreContentType>('restaurants');
   const [mode, setMode] = useState<ExploreMode>('all');
   const [view, setView] = useState<ExploreView>('map');
   const [selectedPlace, setSelectedPlace] = useState<ExplorePlace | null>(null);
@@ -56,7 +65,13 @@ export default function Explore() {
   const { data: places = [], isLoading: placesLoading } = useQuery({
     queryKey: ['explore-places', mode],
     queryFn: () => fetchExplorePlaces(mode),
-    enabled: !!user,
+    enabled: !!user && contentType === 'restaurants',
+  });
+
+  const { data: lists = [], isLoading: listsLoading } = useQuery({
+    queryKey: ['explore-lists', mode],
+    queryFn: () => fetchExploreLists(mode),
+    enabled: !!user && contentType === 'lists',
   });
 
   if (authLoading) {
@@ -72,36 +87,69 @@ export default function Explore() {
       <Navbar />
 
       <main className="container py-4 sm:py-8 px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
-            <Compass className="h-6 w-6 sm:h-7 sm:w-7" />
-            Explore
-          </h1>
+        <div className="flex flex-col gap-3 mb-4 sm:mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+              <Compass className="h-6 w-6 sm:h-7 sm:w-7" />
+              Explore
+            </h1>
 
-          <div className="flex items-center gap-2">
-            <Tabs value={mode} onValueChange={(v) => setMode(v as ExploreMode)}>
-              <TabsList>
-                <TabsTrigger value="all">All Nearby</TabsTrigger>
-                <TabsTrigger value="friends">Friends</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Tabs value={mode} onValueChange={(v) => setMode(v as ExploreMode)}>
+                <TabsList>
+                  <TabsTrigger value="all">All Nearby</TabsTrigger>
+                  <TabsTrigger value="friends">Friends</TabsTrigger>
+                </TabsList>
+              </Tabs>
 
-            <Tabs value={view} onValueChange={(v) => setView(v as ExploreView)}>
-              <TabsList>
-                <TabsTrigger value="map" className="gap-1.5">
-                  <MapIcon className="h-3.5 w-3.5" />
-                  Map
-                </TabsTrigger>
-                <TabsTrigger value="list" className="gap-1.5">
-                  <ListIcon className="h-3.5 w-3.5" />
-                  List
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+              {contentType === 'restaurants' && (
+                <Tabs value={view} onValueChange={(v) => setView(v as ExploreView)}>
+                  <TabsList>
+                    <TabsTrigger value="map" className="gap-1.5">
+                      <MapIcon className="h-3.5 w-3.5" />
+                      Map
+                    </TabsTrigger>
+                    <TabsTrigger value="list" className="gap-1.5">
+                      <ListIcon className="h-3.5 w-3.5" />
+                      List
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              )}
+            </div>
           </div>
+
+          <Tabs value={contentType} onValueChange={(v) => setContentType(v as ExploreContentType)}>
+            <TabsList>
+              <TabsTrigger value="restaurants">Restaurants</TabsTrigger>
+              <TabsTrigger value="lists">Other Lists</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
-        {placesLoading || mapboxLoading ? (
+        {contentType === 'lists' ? (
+          listsLoading ? (
+            <div className="flex items-center justify-center py-24">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : lists.length === 0 ? (
+            <div className="text-center py-24 bg-card rounded-xl">
+              <Compass className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+              <h3 className="text-lg font-medium mb-2">Nothing to explore yet</h3>
+              <p className="text-muted-foreground">
+                {mode === 'friends'
+                  ? 'Lists made by people you follow will show up here.'
+                  : 'Lists made by you and public profiles will show up here.'}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {lists.map((list) => (
+                <ExploreListCard key={list.list_id} list={list} />
+              ))}
+            </div>
+          )
+        ) : placesLoading || mapboxLoading ? (
           <div className="flex items-center justify-center py-24">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>

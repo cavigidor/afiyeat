@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navbar } from '@/components/layout/Navbar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RestaurantCard } from '@/components/restaurants/RestaurantCard';
 import { RestaurantListRow } from '@/components/restaurants/RestaurantListRow';
@@ -13,9 +14,17 @@ import { useRestaurantListControls } from '@/hooks/useRestaurantListControls';
 import { useViewMode } from '@/hooks/useViewMode';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, UserPlus, UserMinus, Lock, ArrowLeft, Check, Clock } from 'lucide-react';
+import { Loader2, UserPlus, UserMinus, Lock, ArrowLeft, Check, Clock, ListChecks } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
+
+interface PublicListSummary {
+  id: string;
+  name: string;
+  icon: string | null;
+  color: string;
+  item_count: number;
+}
 
 interface PublicProfileData {
   id: string;
@@ -62,12 +71,35 @@ async function fetchPublicRestaurants(userId: string): Promise<any[]> {
   return data || [];
 }
 
+// RLS on custom_lists/custom_list_items now allows this the same way it
+// already allows restaurants (owner, or public profile, or accepted
+// follower) - so a plain client-side query works here without a dedicated
+// RPC, same as fetchPublicRestaurants above.
+async function fetchPublicLists(userId: string): Promise<PublicListSummary[]> {
+  const [{ data: lists, error: listsError }, { data: items, error: itemsError }] = await Promise.all([
+    supabase
+      .from('custom_lists')
+      .select('id, name, icon, color')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false }),
+    supabase.from('custom_list_items').select('list_id').eq('user_id', userId),
+  ]);
+  if (listsError) throw listsError;
+  if (itemsError) throw itemsError;
+  const counts: Record<string, number> = {};
+  (items || []).forEach((row) => {
+    counts[row.list_id] = (counts[row.list_id] || 0) + 1;
+  });
+  return (lists || []).map((l) => ({ ...l, item_count: counts[l.id] || 0 }));
+}
+
 export default function PublicProfile() {
   const { userId } = useParams<{ userId: string }>();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<'went_to' | 'to_go'>('went_to');
+  const [contentTab, setContentTab] = useState<'restaurants' | 'lists'>('restaurants');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -94,6 +126,17 @@ export default function PublicProfile() {
     queryKey: ['public-restaurants', userId],
     queryFn: () => fetchPublicRestaurants(userId!),
     enabled: !!userId && canViewRestaurants,
+  });
+
+  // Same privacy math as restaurants (owner/public/accepted-follower), now
+  // mirrored in the custom_lists RLS policies too - reusing canViewRestaurants
+  // here since the underlying rule is identical, not restaurant-specific.
+  const canViewLists = canViewRestaurants;
+
+  const { data: publicLists = [], isLoading: listsLoading } = useQuery({
+    queryKey: ['public-lists', userId],
+    queryFn: () => fetchPublicLists(userId!),
+    enabled: !!userId && canViewLists && contentTab === 'lists',
   });
 
   const invalidateFollow = () => {
@@ -214,63 +257,110 @@ export default function PublicProfile() {
               Follow {profile.display_name || profile.username} to see their lists.
             </p>
           </div>
-        ) : restaurantsLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : restaurants.length === 0 ? (
-          <div className="text-center py-16 bg-card rounded-xl">
-            <p className="text-muted-foreground">No restaurants added yet.</p>
-          </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'went_to' | 'to_go')}>
-                <TabsList>
-                  <TabsTrigger value="went_to" className="gap-1.5">
-                    <Check className="h-3.5 w-3.5" /> Been There
-                  </TabsTrigger>
-                  <TabsTrigger value="to_go" className="gap-1.5">
-                    <Clock className="h-3.5 w-3.5" /> To Go
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
+            <Tabs value={contentTab} onValueChange={(v) => setContentTab(v as 'restaurants' | 'lists')}>
+              <TabsList>
+                <TabsTrigger value="restaurants">Restaurants</TabsTrigger>
+                <TabsTrigger value="lists">Lists</TabsTrigger>
+              </TabsList>
+            </Tabs>
 
-              <RestaurantListToolbar
-                availableTypes={availableTypes}
-                typeFilter={typeFilter}
-                onTypeFilterChange={setTypeFilter}
-                sortBy={sortBy}
-                onSortByChange={setSortBy}
-                viewMode={viewMode}
-                onViewModeChange={setViewMode}
-              />
-            </div>
+            {contentTab === 'restaurants' ? (
+              restaurantsLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : restaurants.length === 0 ? (
+                <div className="text-center py-16 bg-card rounded-xl">
+                  <p className="text-muted-foreground">No restaurants added yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'went_to' | 'to_go')}>
+                      <TabsList>
+                        <TabsTrigger value="went_to" className="gap-1.5">
+                          <Check className="h-3.5 w-3.5" /> Been There
+                        </TabsTrigger>
+                        <TabsTrigger value="to_go" className="gap-1.5">
+                          <Clock className="h-3.5 w-3.5" /> To Go
+                        </TabsTrigger>
+                      </TabsList>
+                    </Tabs>
 
-            {filteredRestaurants.length === 0 ? (
-              <div className="text-center py-12 bg-card rounded-xl">
-                <p className="text-muted-foreground">
-                  {statusFilteredRestaurants.length === 0
-                    ? statusFilter === 'went_to'
-                      ? 'No places marked as Been There yet'
-                      : 'No places on their To Go list'
-                    : 'No restaurants match your filters'}
-                </p>
+                    <RestaurantListToolbar
+                      availableTypes={availableTypes}
+                      typeFilter={typeFilter}
+                      onTypeFilterChange={setTypeFilter}
+                      sortBy={sortBy}
+                      onSortByChange={setSortBy}
+                      viewMode={viewMode}
+                      onViewModeChange={setViewMode}
+                    />
+                  </div>
+
+                  {filteredRestaurants.length === 0 ? (
+                    <div className="text-center py-12 bg-card rounded-xl">
+                      <p className="text-muted-foreground">
+                        {statusFilteredRestaurants.length === 0
+                          ? statusFilter === 'went_to'
+                            ? 'No places marked as Been There yet'
+                            : 'No places on their To Go list'
+                          : 'No restaurants match your filters'}
+                      </p>
+                    </div>
+                  ) : viewMode === 'list' ? (
+                    <div className="space-y-2">
+                      {filteredRestaurants.map((restaurant) => (
+                        <RestaurantListRow
+                          key={restaurant.id}
+                          restaurant={restaurant}
+                          onOpenDetail={() => setDetailRestaurant(restaurant)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {filteredRestaurants.map((restaurant) => (
+                        <RestaurantCard key={restaurant.id} restaurant={restaurant} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            ) : listsLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
-            ) : viewMode === 'list' ? (
-              <div className="space-y-2">
-                {filteredRestaurants.map((restaurant) => (
-                  <RestaurantListRow
-                    key={restaurant.id}
-                    restaurant={restaurant}
-                    onOpenDetail={() => setDetailRestaurant(restaurant)}
-                  />
-                ))}
+            ) : publicLists.length === 0 ? (
+              <div className="text-center py-16 bg-card rounded-xl">
+                <p className="text-muted-foreground">No lists yet.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredRestaurants.map((restaurant) => (
-                  <RestaurantCard key={restaurant.id} restaurant={restaurant} />
+              <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {publicLists.map((list) => (
+                  <Card
+                    key={list.id}
+                    className="cursor-pointer hover:shadow-md transition-shadow overflow-hidden"
+                    onClick={() => navigate(`/u/${userId}/lists/${list.id}`)}
+                  >
+                    <div className="h-1.5" style={{ backgroundColor: list.color }} />
+                    <CardContent className="p-4 flex items-center gap-3">
+                      <div
+                        className="w-11 h-11 rounded-lg flex items-center justify-center text-xl shrink-0"
+                        style={{ backgroundColor: `${list.color}22` }}
+                      >
+                        {list.icon || <ListChecks className="h-5 w-5 text-muted-foreground" />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate">{list.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {list.item_count} item{list.item_count === 1 ? '' : 's'}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             )}

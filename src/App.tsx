@@ -13,6 +13,7 @@ import Friends from "./pages/Friends";
 import Search from "./pages/Search";
 import Explore from "./pages/Explore";
 import PublicProfile from "./pages/PublicProfile";
+import PublicListDetail from "./pages/PublicListDetail";
 
 import MyList from "./pages/MyList";
 import MyLists from "./pages/MyLists";
@@ -65,6 +66,7 @@ const App = () => {
             <Route path="/search" element={<Search />} />
             <Route path="/explore" element={<Explore />} />
             <Route path="/u/:userId" element={<PublicProfile />} />
+            <Route path="/u/:userId/lists/:listId" element={<PublicListDetail />} />
 
             <Route path="/news" element={<News />} />
             <Route path="/my-list" element={<MyList />} />
