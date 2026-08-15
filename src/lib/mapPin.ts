@@ -11,6 +11,16 @@
 // `new mapboxgl.Marker(el, { anchor: 'bottom' })` so Mapbox anchors the
 // wrapper's bottom-center (i.e. the pin's point) at the coordinate, not
 // the wrapper's visual center.
+//
+// IMPORTANT: the returned element is the one Mapbox hands straight to
+// `new mapboxgl.Marker(el)`, which repositions the marker every pan/zoom
+// frame by writing directly to *that same element's* inline `transform`.
+// A CSS transition on `transform` anywhere on this root element fights
+// that - the browser tweens toward each new position instead of snapping,
+// so pins visibly lag and drift during any camera movement. That's why
+// the hover-scale effect lives on an inner `scaleWrap` child instead of
+// the root: Mapbox never touches that child's transform, so it's safe to
+// transition/scale.
 
 export interface PinOptions {
   color?: string | null;
@@ -29,11 +39,21 @@ export function createPinElement({ color, icon, focused = false }: PinOptions): 
   const pinColor = color || FALLBACK_COLOR;
 
   const wrap = document.createElement('div');
-  wrap.className = 'transition-transform duration-300 hover:scale-110';
   wrap.style.position = 'relative';
   wrap.style.width = `${size}px`;
   wrap.style.height = `${wrapHeight}px`;
   wrap.style.cursor = 'pointer';
+
+  // Mapbox positions the marker by writing to `wrap`'s transform directly
+  // (see the note above) - the hover/transition effect goes on this inner
+  // child instead, which Mapbox never writes to, so it's free to animate.
+  const scaleWrap = document.createElement('div');
+  scaleWrap.className = 'transition-transform duration-300 hover:scale-110';
+  scaleWrap.style.position = 'absolute';
+  scaleWrap.style.top = '0';
+  scaleWrap.style.left = '0';
+  scaleWrap.style.width = `${size}px`;
+  scaleWrap.style.height = `${wrapHeight}px`;
 
   const head = document.createElement('div');
   head.style.position = 'absolute';
@@ -70,8 +90,9 @@ export function createPinElement({ color, icon, focused = false }: PinOptions): 
     content.innerHTML = `<svg width="${glyphSize}" height="${glyphSize}" fill="white" viewBox="0 0 24 24"><path d="${PIN_GLYPH_PATH}"/></svg>`;
   }
 
-  wrap.appendChild(head);
-  wrap.appendChild(content);
+  scaleWrap.appendChild(head);
+  scaleWrap.appendChild(content);
+  wrap.appendChild(scaleWrap);
 
   return wrap;
 }
