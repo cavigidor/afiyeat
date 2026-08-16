@@ -25,6 +25,8 @@ const APNS_HOST =
 
 interface SendPushRequest {
   user_id?: string;
+  user_ids?: string[];
+  broadcast?: boolean;
   title: string;
   body: string;
   data?: Record<string, unknown>;
@@ -88,26 +90,62 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+// Which device_tokens rows a request is allowed to send to.
+//   - "single": exactly one user_id (self-serve test push, or notify_user()
+//     targeting one person).
+//   - "multi": an explicit list of user_ids (admin-triggered, targeted).
+//   - "broadcast": every row in device_tokens, regardless of user (admin-
+//     triggered, everyone).
+type AuthResult =
+  | { ok: true; mode: "single"; targetUserId: string }
+  | { ok: true; mode: "multi"; targetUserIds: string[] }
+  | { ok: true; mode: "broadcast" }
+  | { ok: false; status: number; error: string };
+
 // This function has `verify_jwt = false` in config.toml, so it does its own
-// auth below rather than relying on the API gateway. Two ways in:
+// auth below rather than relying on the API gateway. Three ways in:
 //   1. x-internal-secret header matching INTERNAL_PUSH_SECRET - used by
 //      notify_user() (a Postgres trigger/cron function) to send a push to
-//      *any* user_id. Deliberately a narrow, single-purpose secret rather
-//      than the service-role key, so a leak of it can only ever be used to
-//      send push notifications, not read/write the whole database.
-//   2. A regular Supabase auth JWT - a logged-in user hitting this directly
+//      *any single* user_id. Deliberately a narrow, single-purpose secret
+//      rather than the service-role key, so a leak of it can only ever be
+//      used to send push notifications, not read/write the whole database.
+//   2. x-admin-secret header matching ADMIN_PUSH_SECRET - a separate,
+//      Cem-only secret (never used by any DB trigger/cron) for manually
+//      pushing a message from a terminal or from Claude, to either every
+//      device (broadcast: true) or a specific list of user_ids. Kept
+//      distinct from INTERNAL_PUSH_SECRET so this manual/broadcast path
+//      can be rotated independently without touching the automated one.
+//   3. A regular Supabase auth JWT - a logged-in user hitting this directly
 //      can only ever send a test push to themselves.
-async function authorizeRequest(
-  req: Request,
-): Promise<{ ok: true; targetUserId: string } | { ok: false; status: number; error: string }> {
+async function authorizeRequest(req: Request): Promise<AuthResult> {
   const internalSecret = req.headers.get("x-internal-secret");
-  const expectedSecret = Deno.env.get("INTERNAL_PUSH_SECRET");
-  if (expectedSecret && internalSecret === expectedSecret) {
+  const expectedInternalSecret = Deno.env.get("INTERNAL_PUSH_SECRET");
+  if (expectedInternalSecret && internalSecret === expectedInternalSecret) {
     const body = await req.json().catch(() => ({}));
     if (!body.user_id) {
       return { ok: false, status: 400, error: "user_id is required" };
     }
-    return { ok: true, targetUserId: body.user_id };
+    return { ok: true, mode: "single", targetUserId: body.user_id };
+  }
+
+  const adminSecret = req.headers.get("x-admin-secret");
+  const expectedAdminSecret = Deno.env.get("ADMIN_PUSH_SECRET");
+  if (expectedAdminSecret && adminSecret === expectedAdminSecret) {
+    const body: SendPushRequest = await req.json().catch(() => ({} as SendPushRequest));
+    if (body.broadcast) {
+      return { ok: true, mode: "broadcast" };
+    }
+    if (Array.isArray(body.user_ids) && body.user_ids.length > 0) {
+      return { ok: true, mode: "multi", targetUserIds: body.user_ids };
+    }
+    if (body.user_id) {
+      return { ok: true, mode: "single", targetUserId: body.user_id };
+    }
+    return {
+      ok: false,
+      status: 400,
+      error: "Provide broadcast: true, user_ids: [...], or user_id",
+    };
   }
 
   const authHeader = req.headers.get("authorization") ?? "";
@@ -122,7 +160,7 @@ async function authorizeRequest(
     return { ok: false, status: 401, error: "Invalid authorization" };
   }
 
-  return { ok: true, targetUserId: data.user.id };
+  return { ok: true, mode: "single", targetUserId: data.user.id };
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -142,8 +180,6 @@ const handler = async (req: Request): Promise<Response> => {
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
-    const targetUserId = auth.targetUserId;
-
     const body: SendPushRequest = await req.json();
     if (!body.title || !body.body) {
       return new Response(JSON.stringify({ error: "title and body are required" }), {
@@ -154,10 +190,15 @@ const handler = async (req: Request): Promise<Response> => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: tokens, error: tokensError } = await supabase
-      .from("device_tokens")
-      .select("id, token")
-      .eq("user_id", targetUserId);
+    let tokensQuery = supabase.from("device_tokens").select("id, token");
+    if (auth.mode === "single") {
+      tokensQuery = tokensQuery.eq("user_id", auth.targetUserId);
+    } else if (auth.mode === "multi") {
+      tokensQuery = tokensQuery.in("user_id", auth.targetUserIds);
+    }
+    // mode === "broadcast": no filter, every registered device.
+
+    const { data: tokens, error: tokensError } = await tokensQuery;
 
     if (tokensError) {
       console.error("Failed to load device tokens:", tokensError);
