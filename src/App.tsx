@@ -50,15 +50,6 @@ const App = () => {
     <AuthProvider>
       <PushNotificationManager />
       <TooltipProvider>
-        {/* TEMPORARY - OTA update test marker, remove once the Capgo push
-            is confirmed to reach the phone. Fixed at the very top so it
-            shows above whatever screen the app opens to. */}
-        <div
-          className="fixed top-0 left-0 right-0 z-[9999] bg-pink-500 text-white text-center py-3 px-4 font-semibold"
-          style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}
-        >
-          Hello Elizabeth, I love you
-        </div>
         <Toaster />
         <Sonner />
         <BrowserRouter>
