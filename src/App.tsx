@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { requestStartupPermissions, notifyLiveUpdateReady } from "@/lib/native";
+import { requestStartupPermissions } from "@/lib/native";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -42,11 +42,6 @@ const queryClient = new QueryClient({
 
 const App = () => {
   useEffect(() => {
-    // Fire this first and unconditionally - Capgo waits a short window
-    // after applying a pushed update for this call before assuming the
-    // update is broken and rolling back, so it shouldn't be delayed behind
-    // anything else (like the permission prompts below).
-    void notifyLiveUpdateReady();
     void requestStartupPermissions();
   }, []);
 

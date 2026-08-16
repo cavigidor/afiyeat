@@ -6,13 +6,24 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   plugins: {
     PushNotifications: {
-      presentationOptions: ['badge', 'sound', 'alert'],
+      presentationOptions: [
+        'badge',
+        'sound',
+        'alert'
+      ]
     },
     SplashScreen: {
       launchShowDuration: 1200,
       backgroundColor: '#ffffff',
+      launchAutoHide: false
     },
-  },
+    CapacitorUpdater: {
+      appId: 'com.afiyeat.app',
+      version: '0.0.0',
+      autoUpdate: 'always',
+      autoSplashscreen: true
+    }
+  }
 };
 
 export default config;

@@ -2,20 +2,11 @@ import { Capacitor } from '@capacitor/core';
 
 export const isNative = (): boolean => Capacitor.isNativePlatform();
 
-// Tells Capgo's live-update plugin that this launch succeeded. Must be
-// called on every single app start, as early as possible - if a pushed
-// update actually broke the app, this call never happens, and the plugin
-// auto-rolls back to the last known-good bundle after a short timeout.
-// A no-op on web/dev where the native plugin isn't present.
-export async function notifyLiveUpdateReady(): Promise<void> {
-  if (!isNative()) return;
-  try {
-    const { CapacitorUpdater } = await import('@capgo/capacitor-updater');
-    await CapacitorUpdater.notifyAppReady();
-  } catch (err) {
-    console.error('CapacitorUpdater.notifyAppReady failed:', err);
-  }
-}
+// Note: CapacitorUpdater.notifyAppReady() - telling Capgo's live-update
+// plugin that this launch succeeded - is called directly in main.tsx
+// (added by Capgo's own CLI onboarding), as early as possible at module
+// load time, before React even mounts. Safe to call unconditionally on
+// web too - the plugin's web implementation is a harmless no-op there.
 
 export async function initPushNotifications(
   onToken?: (token: string) => void | Promise<void>,
