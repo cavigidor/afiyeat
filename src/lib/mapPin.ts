@@ -39,7 +39,15 @@ export function createPinElement({ color, icon, focused = false }: PinOptions): 
   const pinColor = color || FALLBACK_COLOR;
 
   const wrap = document.createElement('div');
-  wrap.style.position = 'relative';
+  // Mapbox's own stylesheet (.mapboxgl-marker) requires position: absolute
+  // so each marker's translate-based transform is independent of normal
+  // document flow. An inline style always beats that stylesheet rule, so
+  // setting 'relative' here silently overrode it - this element stayed
+  // partly in-flow, meaning its rendered position depended on its siblings
+  // in the marker layer (how many other markers exist, their heights, DOM
+  // order) on top of Mapbox's own transform. That's what made pins visibly
+  // reshuffle relative to each other on every zoom/pan recalculation.
+  wrap.style.position = 'absolute';
   wrap.style.width = `${size}px`;
   wrap.style.height = `${wrapHeight}px`;
   wrap.style.cursor = 'pointer';
