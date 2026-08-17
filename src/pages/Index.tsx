@@ -12,7 +12,7 @@ export default function Index() {
 
   useEffect(() => {
     if (!loading && user) {
-      navigate('/news');
+      navigate('/foodie');
     }
   }, [user, loading, navigate]);
 

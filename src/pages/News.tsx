@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Navbar } from '@/components/layout/Navbar';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Select,
@@ -127,9 +126,7 @@ export default function News() {
   const recs = items.filter((i) => i.type === 'rec');
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-
+    <>
       {/* Header */}
       <section className="relative overflow-hidden border-b border-border/40">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-accent/20 to-background" />
@@ -219,7 +216,7 @@ export default function News() {
         onOpenChange={(open) => !open && setAddPlaceName(null)}
         placeName={addPlaceName ?? ''}
       />
-    </div>
+    </>
   );
 }
 

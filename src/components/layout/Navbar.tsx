@@ -8,16 +8,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MapPin, Users, LogOut, User, Menu, List, ListChecks, ChefHat, Newspaper, Compass } from 'lucide-react';
+import { Users, LogOut, User, ListChecks, Newspaper, Compass } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { useState } from 'react';
 import logo from '@/assets/logo.png';
 
+// Primary nav on mobile is the fixed bottom tab bar (see BottomTabBar.tsx) -
+// these desktop-only links (hidden md:flex below) mirror the same four
+// destinations for consistency. Profile intentionally isn't one of them;
+// it stays behind the avatar menu on both breakpoints.
 export function Navbar() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
@@ -27,25 +28,15 @@ export function Navbar() {
   const NavLinks = () => (
     <>
       <Link
-        to="/news"
+        to="/foodie"
         className="flex items-center gap-2 text-foreground/80 hover:text-foreground transition-colors"
-        onClick={() => setOpen(false)}
       >
         <Newspaper className="h-4 w-4" />
-        <span>News &amp; Recs</span>
-      </Link>
-      <Link
-        to="/my-list"
-        className="flex items-center gap-2 text-foreground/80 hover:text-foreground transition-colors"
-        onClick={() => setOpen(false)}
-      >
-        <List className="h-4 w-4" />
-        <span>My Restaurants</span>
+        <span>Foodie</span>
       </Link>
       <Link
         to="/my-lists"
         className="flex items-center gap-2 text-foreground/80 hover:text-foreground transition-colors"
-        onClick={() => setOpen(false)}
       >
         <ListChecks className="h-4 w-4" />
         <span>My Lists</span>
@@ -53,7 +44,6 @@ export function Navbar() {
       <Link
         to="/friends"
         className="flex items-center gap-2 text-foreground/80 hover:text-foreground transition-colors"
-        onClick={() => setOpen(false)}
       >
         <Users className="h-4 w-4" />
         <span>Friends</span>
@@ -61,18 +51,9 @@ export function Navbar() {
       <Link
         to="/explore"
         className="flex items-center gap-2 text-foreground/80 hover:text-foreground transition-colors"
-        onClick={() => setOpen(false)}
       >
         <Compass className="h-4 w-4" />
         <span>Explore</span>
-      </Link>
-      <Link
-        to="/recipes"
-        className="flex items-center gap-2 text-foreground/80 hover:text-foreground transition-colors"
-        onClick={() => setOpen(false)}
-      >
-        <ChefHat className="h-4 w-4" />
-        <span>Recipes</span>
       </Link>
     </>
   );
@@ -93,44 +74,29 @@ export function Navbar() {
 
         <div className="flex items-center gap-4">
           {user ? (
-            <>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src="" alt={user.email || ''} />
-                      <AvatarFallback className="bg-primary text-primary-foreground">
-                        {user.email?.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
-                  <DropdownMenuItem onClick={() => navigate('/profile')}>
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Profile</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <Sheet open={open} onOpenChange={setOpen}>
-                <SheetTrigger asChild className="md:hidden">
-                  <Button variant="ghost" size="icon" aria-label="Open navigation menu">
-                    <Menu className="h-5 w-5" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="right" className="w-[300px]">
-                  <nav className="flex flex-col gap-4 mt-8">
-                    <NavLinks />
-                  </nav>
-                </SheetContent>
-              </Sheet>
-            </>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src="" alt={user.email || ''} />
+                    <AvatarFallback className="bg-primary text-primary-foreground">
+                      {user.email?.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuItem onClick={() => navigate('/profile')}>
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
             <div className="flex items-center gap-2">
               <Button variant="ghost" onClick={() => navigate('/auth')}>

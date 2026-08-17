@@ -72,7 +72,7 @@ export default function Auth() {
 
   useEffect(() => {
     if (user) {
-      navigate('/news');
+      navigate('/foodie');
     }
   }, [user, navigate]);
 
@@ -181,7 +181,7 @@ export default function Auth() {
         setActiveTab('signin');
       } else {
         toast.success('Password reset! Welcome back.');
-        navigate('/news');
+        navigate('/foodie');
       }
     } catch (error: any) {
       toast.error(error.message || 'Failed to reset password');
@@ -206,7 +206,7 @@ export default function Auth() {
       }
     } else {
       toast.success('Welcome back!');
-      navigate('/news');
+      navigate('/foodie');
     }
   };
 
@@ -295,7 +295,7 @@ export default function Auth() {
           setActiveTab('signin');
         } else {
           toast.success('Account created! Welcome to Afiyeat!');
-          navigate('/news');
+          navigate('/foodie');
         }
       }
     } catch (error: any) {

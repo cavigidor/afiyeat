@@ -192,3 +192,13 @@ All colors MUST be HSL.
     margin-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
+
+/* Keeps page content clear of the fixed bottom tab bar (see
+   BottomTabBar.tsx, which toggles this class on <body> while signed in).
+   ~56px tab bar height + the home-indicator safe-area inset on top. Only
+   applies below md, matching the tab bar's own md:hidden. */
+@media (max-width: 767px) {
+  body.has-bottom-tabs {
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
+}

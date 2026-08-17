@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Navbar } from '@/components/layout/Navbar';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Plus, Search, ChefHat, ScanLine } from 'lucide-react';
@@ -198,9 +197,7 @@ export default function Recipes() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-
+    <>
       <main className="container py-4 sm:py-8 px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
           <h1 className="text-2xl sm:text-3xl font-bold">Recipes</h1>
@@ -348,6 +345,6 @@ export default function Recipes() {
         }}
         onUpdate={invalidateRecipes}
       />
-    </div>
+    </>
   );
 }

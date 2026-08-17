@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PushNotificationManager } from "@/components/shared/PushNotificationManager";
+import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Friends from "./pages/Friends";
@@ -18,9 +19,8 @@ import PublicListDetail from "./pages/PublicListDetail";
 import MyList from "./pages/MyList";
 import MyLists from "./pages/MyLists";
 import CustomListDetail from "./pages/CustomListDetail";
-import News from "./pages/News";
+import Foodie from "./pages/Foodie";
 import Profile from "./pages/Profile";
-import Recipes from "./pages/Recipes";
 import NotFound from "./pages/NotFound";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
@@ -52,6 +52,7 @@ const App = () => {
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <BottomTabBar />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
@@ -67,12 +68,18 @@ const App = () => {
             <Route path="/u/:userId" element={<PublicProfile />} />
             <Route path="/u/:userId/lists/:listId" element={<PublicListDetail />} />
 
-            <Route path="/news" element={<News />} />
+            {/* News and Recipes used to be their own top-level nav items;
+                both now live as tabs inside Foodie (see nav restructure -
+                Foodie/My Lists/Friends/Explore). Redirect old links/
+                bookmarks rather than keep two ways to reach the same
+                content. */}
+            <Route path="/news" element={<Navigate to="/foodie" replace />} />
+            <Route path="/recipes" element={<Navigate to="/foodie" replace />} />
+            <Route path="/foodie" element={<Foodie />} />
             <Route path="/my-list" element={<MyList />} />
             <Route path="/my-lists" element={<MyLists />} />
             <Route path="/my-lists/:listId" element={<CustomListDetail />} />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/recipes" element={<Recipes />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="*" element={<NotFound />} />
