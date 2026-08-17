@@ -21,6 +21,7 @@ import { Loader2 } from 'lucide-react';
 import { OTPVerification } from '@/components/auth/OTPVerification';
 import { PasswordRequirements, getPasswordStrength } from '@/components/auth/PasswordRequirements';
 import { supabase } from '@/integrations/supabase/client';
+import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError';
 import logo from '@/assets/logo.png';
 import { Seo } from '@/components/Seo';
 
@@ -131,7 +132,7 @@ export default function Auth() {
     });
 
     if (error) {
-      throw new Error(error.message || 'Failed to send verification code');
+      throw new Error(await getEdgeFunctionErrorMessage(error, 'Failed to send verification code'));
     }
 
     if (data?.error) {
@@ -187,7 +188,7 @@ export default function Auth() {
       });
 
       if (error) {
-        throw new Error(error.message || 'Account creation failed');
+        throw new Error(await getEdgeFunctionErrorMessage(error, 'Account creation failed'));
       }
 
       if (data?.error) {
