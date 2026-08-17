@@ -30,6 +30,16 @@ const signInSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
+const resetPasswordSchema = z.object({
+  code: z.string().length(6, 'Enter the 6-digit code'),
+  newPassword: z.string().min(6, 'Password must be at least 6 characters'),
+  confirmNewPassword: z.string(),
+}).refine((data) => data.newPassword === data.confirmNewPassword, {
+  message: "Passwords don't match",
+  path: ['confirmNewPassword'],
+});
+type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;
+
 const signUpSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters').max(20),
   email: z.string().email('Invalid email address'),
@@ -85,24 +95,98 @@ export default function Auth() {
   });
 
   const [forgotMode, setForgotMode] = useState(false);
+  const [forgotStep, setForgotStep] = useState<'email' | 'code'>('email');
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotResending, setForgotResending] = useState(false);
 
-  const handleForgotPassword = async () => {
+  const resetPasswordForm = useForm<ResetPasswordValues>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: { code: '', newPassword: '', confirmNewPassword: '' },
+  });
+
+  const resetForgotFlow = () => {
+    setForgotMode(false);
+    setForgotStep('email');
+    setForgotEmail('');
+    resetPasswordForm.reset();
+  };
+
+  // Sends (or resends) the 6-digit code. Reuses the same send-otp function
+  // as sign-up - it doesn't care why an email needs verifying.
+  const handleSendResetCode = async () => {
     if (!forgotEmail) {
       toast.error('Please enter your email address');
       return;
     }
     setForgotLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    setForgotLoading(false);
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success('Password reset link sent! Check your email.');
-      setForgotMode(false);
+    try {
+      await sendOTP(forgotEmail);
+      toast.success('Verification code sent! Check your email.');
+      setForgotStep('code');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to send verification code');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleResendResetCode = async () => {
+    setForgotResending(true);
+    try {
+      await sendOTP(forgotEmail);
+      toast.success('New verification code sent');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to resend code');
+    } finally {
+      setForgotResending(false);
+    }
+  };
+
+  const handleResetPasswordSubmit = async (values: ResetPasswordValues) => {
+    const strength = getPasswordStrength(values.newPassword);
+    if (strength.score < 2) {
+      toast.error('Please choose a stronger password');
+      return;
+    }
+
+    setForgotLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('reset-password', {
+        body: {
+          email: forgotEmail,
+          otp_code: values.code,
+          new_password: values.newPassword,
+        },
+      });
+
+      if (error) {
+        throw new Error(await getEdgeFunctionErrorMessage(error, 'Failed to reset password'));
+      }
+
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      // Password reset server-side - sign in with it right away.
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: forgotEmail,
+        password: values.newPassword,
+      });
+
+      if (signInError) {
+        toast.success('Password reset! Please sign in.');
+        resetForgotFlow();
+        setActiveTab('signin');
+      } else {
+        toast.success('Password reset! Welcome back.');
+        navigate('/news');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to reset password');
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -290,27 +374,100 @@ export default function Auth() {
 
             <TabsContent value="signin" className="mt-6">
               {forgotMode ? (
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Enter your email and we'll send you a link to reset your password.
-                  </p>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Email</label>
-                    <Input
-                      type="email"
-                      placeholder="you@example.com"
-                      value={forgotEmail}
-                      onChange={(e) => setForgotEmail(e.target.value)}
-                    />
+                forgotStep === 'email' ? (
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Enter your email and we'll send you a 6-digit code to reset your password.
+                    </p>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Email</label>
+                      <Input
+                        type="email"
+                        placeholder="you@example.com"
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                      />
+                    </div>
+                    <Button onClick={handleSendResetCode} className="w-full" disabled={forgotLoading}>
+                      {forgotLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Send Code
+                    </Button>
+                    <Button variant="ghost" className="w-full" onClick={resetForgotFlow}>
+                      Back to Sign In
+                    </Button>
                   </div>
-                  <Button onClick={handleForgotPassword} className="w-full" disabled={forgotLoading}>
-                    {forgotLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Send Reset Link
-                  </Button>
-                  <Button variant="ghost" className="w-full" onClick={() => setForgotMode(false)}>
-                    Back to Sign In
-                  </Button>
-                </div>
+                ) : (
+                  <Form {...resetPasswordForm}>
+                    <form
+                      onSubmit={resetPasswordForm.handleSubmit(handleResetPasswordSubmit)}
+                      className="space-y-4"
+                    >
+                      <p className="text-sm text-muted-foreground">
+                        We sent a 6-digit code to <span className="font-medium">{forgotEmail}</span>
+                      </p>
+                      <FormField
+                        control={resetPasswordForm.control}
+                        name="code"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Verification Code</FormLabel>
+                            <FormControl>
+                              <Input placeholder="123456" inputMode="numeric" maxLength={6} {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={resetPasswordForm.control}
+                        name="newPassword"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>New Password</FormLabel>
+                            <FormControl>
+                              <Input type="password" placeholder="••••••••" {...field} />
+                            </FormControl>
+                            <PasswordRequirements password={field.value} />
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={resetPasswordForm.control}
+                        name="confirmNewPassword"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Confirm New Password</FormLabel>
+                            <FormControl>
+                              <Input type="password" placeholder="••••••••" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button type="submit" className="w-full" disabled={forgotLoading}>
+                        {forgotLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Reset Password
+                      </Button>
+                      <div className="flex flex-col gap-2 text-center text-sm">
+                        <p className="text-muted-foreground">
+                          Didn't receive the code?{' '}
+                          <button
+                            type="button"
+                            onClick={handleResendResetCode}
+                            disabled={forgotResending}
+                            className="text-primary hover:underline disabled:opacity-50"
+                          >
+                            {forgotResending ? 'Sending...' : 'Resend code'}
+                          </button>
+                        </p>
+                        <Button variant="ghost" className="w-full" onClick={resetForgotFlow}>
+                          Back to Sign In
+                        </Button>
+                      </div>
+                    </form>
+                  </Form>
+                )
               ) : (
               <Form {...signInForm}>
                 <form onSubmit={signInForm.handleSubmit(handleSignIn)} className="space-y-4">
