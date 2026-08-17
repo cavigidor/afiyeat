@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navbar } from '@/components/layout/Navbar';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -31,7 +31,8 @@ interface PublicProfileData {
   user_id: string;
   username: string | null;
   display_name: string | null;
-  avatar_url: string | null;
+  avatar_emoji: string;
+  avatar_color: string;
   is_private: boolean;
   bio?: string | null;
 }
@@ -39,7 +40,7 @@ interface PublicProfileData {
 async function fetchPublicProfile(userId: string): Promise<PublicProfileData | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, user_id, username, display_name, avatar_url, is_private, bio')
+    .select('id, user_id, username, display_name, avatar_emoji, avatar_color, is_private, bio')
     .eq('user_id', userId)
     .maybeSingle();
   if (error) throw error;
@@ -215,12 +216,12 @@ export default function PublicProfile() {
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16">
-              <AvatarImage src={profile.avatar_url || ''} />
-              <AvatarFallback className="bg-primary text-primary-foreground text-xl">
-                {(profile.username || profile.display_name || 'U')[0].toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+            <AnimalAvatar
+              emoji={profile.avatar_emoji}
+              color={profile.avatar_color}
+              className="h-16 w-16"
+              emojiClassName="text-3xl"
+            />
             <div>
               <h1 className="text-xl sm:text-2xl font-bold">
                 {profile.display_name || profile.username}

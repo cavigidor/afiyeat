@@ -4,7 +4,7 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,7 +16,8 @@ interface Profile {
   user_id: string;
   username: string | null;
   display_name: string | null;
-  avatar_url: string | null;
+  avatar_emoji: string;
+  avatar_color: string;
   bio: string | null;
   is_private: boolean;
 }
@@ -260,12 +261,12 @@ export default function Search() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src={profile.avatar_url || ''} />
-                      <AvatarFallback className="bg-primary text-primary-foreground">
-                        {(profile.username || profile.display_name || 'U')[0].toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
+                    <AnimalAvatar
+                      emoji={profile.avatar_emoji}
+                      color={profile.avatar_color}
+                      className="h-12 w-12"
+                      emojiClassName="text-2xl"
+                    />
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-semibold">{profile.display_name || profile.username}</p>

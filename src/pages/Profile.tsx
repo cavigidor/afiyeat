@@ -8,7 +8,8 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
+import { ANIMAL_AVATARS, type AnimalAvatarPreset } from '@/lib/animalAvatars';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -39,11 +40,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Camera, Save, LogOut, Lock, Check, X, UserPlus, Trash2 } from 'lucide-react';
+import { Loader2, Pencil, Save, LogOut, Lock, Check, X, UserPlus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { validateImageFile } from '@/lib/imageValidation';
-import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
-import { AvatarCropper } from '@/components/profile/AvatarCropper';
 
 const profileSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters').max(20),
@@ -58,7 +56,8 @@ interface ProfileData {
   id: string;
   username: string | null;
   display_name: string | null;
-  avatar_url: string | null;
+  avatar_emoji: string;
+  avatar_color: string;
   bio: string | null;
   is_private: boolean;
 }
@@ -68,7 +67,8 @@ interface FollowUser {
   user_id: string;
   username: string | null;
   display_name: string | null;
-  avatar_url: string | null;
+  avatar_emoji: string;
+  avatar_color: string;
 }
 
 interface PendingRequest {
@@ -112,7 +112,7 @@ async function fetchPendingRequestsFor(userId: string): Promise<PendingRequest[]
   const followerIds = data.map((f) => f.follower_id);
   const { data: profiles } = await supabase
     .from('profiles')
-    .select('id, user_id, username, display_name, avatar_url')
+    .select('id, user_id, username, display_name, avatar_emoji, avatar_color')
     .in('user_id', followerIds);
 
   return data
@@ -137,7 +137,7 @@ async function fetchFollowersFor(userId: string): Promise<FollowUser[]> {
   const followerIds = followsData.map((f) => f.follower_id);
   const { data: profiles } = await supabase
     .from('profiles')
-    .select('id, user_id, username, display_name, avatar_url')
+    .select('id, user_id, username, display_name, avatar_emoji, avatar_color')
     .in('user_id', followerIds);
 
   return profiles || [];
@@ -156,7 +156,7 @@ async function fetchFollowingListFor(userId: string): Promise<FollowUser[]> {
   const followingIds = followsData.map((f) => f.following_id);
   const { data: profiles } = await supabase
     .from('profiles')
-    .select('id, user_id, username, display_name, avatar_url')
+    .select('id, user_id, username, display_name, avatar_emoji, avatar_color')
     .in('user_id', followingIds);
 
   return profiles || [];
@@ -167,12 +167,11 @@ export default function Profile() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [savingAvatar, setSavingAvatar] = useState(false);
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const [followersDialogOpen, setFollowersDialogOpen] = useState(false);
   const [followingDialogOpen, setFollowingDialogOpen] = useState(false);
   const [requestsDialogOpen, setRequestsDialogOpen] = useState(false);
-  const [cropperFile, setCropperFile] = useState<File | null>(null);
-  const [cropperOpen, setCropperOpen] = useState(false);
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deletingAccount, setDeletingAccount] = useState(false);
@@ -182,9 +181,6 @@ export default function Profile() {
     queryFn: () => fetchProfileFor(user!.id),
     enabled: !!user,
   });
-
-  // Use signed URL for avatar
-  const { signedUrl: avatarSignedUrl } = useSignedImageUrl(profile?.avatar_url);
 
   const form = useForm<ProfileValues>({
     resolver: zodResolver(profileSchema),
@@ -241,53 +237,32 @@ export default function Profile() {
 
   const invalidate = (key: string) => queryClient.invalidateQueries({ queryKey: [key, user?.id] });
 
-  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const validationError = validateImageFile(file);
-    if (validationError) {
-      toast.error(validationError);
-      return;
-    }
-    setCropperFile(file);
-    setCropperOpen(true);
-    // Reset input so the same file can be re-selected
-    e.target.value = '';
-  };
-
-  const handleCroppedUpload = async (blob: Blob) => {
+  const handleSelectAvatar = async (preset: AnimalAvatarPreset) => {
     if (!user || !profile) return;
 
-    setUploadingAvatar(true);
-    try {
-      const fileName = `${user.id}/avatar.jpg`;
+    setSavingAvatar(true);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ avatar_emoji: preset.emoji, avatar_color: preset.color })
+      .eq('id', profile.id);
+    setSavingAvatar(false);
 
-      const { error: uploadError } = await supabase.storage
-        .from('restaurant-images')
-        .upload(fileName, blob, { upsert: true, contentType: 'image/jpeg' });
-
-      if (uploadError) throw uploadError;
-
-      const storagePath = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/restaurant-images/${fileName}`;
-
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ avatar_url: storagePath })
-        .eq('id', profile.id);
-
-      if (updateError) throw updateError;
-
-      queryClient.setQueryData<ProfileData>(['profile', user?.id], (prev) =>
-        prev ? { ...prev, avatar_url: storagePath } : prev,
-      );
-      setCropperOpen(false);
-      toast.success('Avatar updated!');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to upload avatar');
-    } finally {
-      setUploadingAvatar(false);
+    if (error) {
+      toast.error(error.message || 'Failed to update avatar');
+      return;
     }
+
+    queryClient.setQueryData<ProfileData>(['profile', user.id], (prev) =>
+      prev ? { ...prev, avatar_emoji: preset.emoji, avatar_color: preset.color } : prev,
+    );
+    // Shared cache key with Navbar's own-avatar query, so the menu avatar
+    // updates immediately instead of waiting on its own refetch.
+    queryClient.setQueryData(['profile-avatar', user.id], {
+      avatar_emoji: preset.emoji,
+      avatar_color: preset.color,
+    });
+    setAvatarPickerOpen(false);
+    toast.success('Avatar updated!');
   };
 
   const onSubmit = async (values: ProfileValues) => {
@@ -447,26 +422,20 @@ export default function Profile() {
           <CardContent className="pt-6">
             <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 mb-6">
               <div className="relative shrink-0">
-                <Avatar className="h-20 w-20 sm:h-24 sm:w-24">
-                  <AvatarImage src={avatarSignedUrl || ''} />
-                  <AvatarFallback className="bg-primary text-primary-foreground text-xl sm:text-2xl">
-                    {(profile?.username || profile?.display_name || user?.email || 'U')[0].toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <label className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-2 cursor-pointer hover:bg-primary/90 transition-colors">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleAvatarSelect}
-                    className="hidden"
-                    disabled={uploadingAvatar}
-                  />
-                  {uploadingAvatar ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Camera className="h-4 w-4" />
-                  )}
-                </label>
+                <AnimalAvatar
+                  emoji={profile?.avatar_emoji}
+                  color={profile?.avatar_color}
+                  className="h-20 w-20 sm:h-24 sm:w-24"
+                  emojiClassName="text-4xl sm:text-5xl"
+                />
+                <button
+                  type="button"
+                  onClick={() => setAvatarPickerOpen(true)}
+                  className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-2 cursor-pointer hover:bg-primary/90 transition-colors"
+                  aria-label="Change avatar"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
               </div>
               <div className="flex gap-6 sm:gap-8">
                 <div className="text-center">
@@ -668,12 +637,7 @@ export default function Profile() {
                 {followers.map((follower) => (
                   <div key={follower.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={follower.avatar_url || ''} />
-                        <AvatarFallback className="bg-primary text-primary-foreground">
-                          {(follower.username || follower.display_name || 'U')[0].toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
+                      <AnimalAvatar emoji={follower.avatar_emoji} color={follower.avatar_color} className="h-10 w-10" />
                       <div>
                         <p className="font-medium">{follower.display_name || follower.username}</p>
                         {follower.username && <p className="text-sm text-muted-foreground">@{follower.username}</p>}
@@ -712,12 +676,7 @@ export default function Profile() {
                 {following.map((followedUser) => (
                   <div key={followedUser.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={followedUser.avatar_url || ''} />
-                        <AvatarFallback className="bg-primary text-primary-foreground">
-                          {(followedUser.username || followedUser.display_name || 'U')[0].toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
+                      <AnimalAvatar emoji={followedUser.avatar_emoji} color={followedUser.avatar_color} className="h-10 w-10" />
                       <div>
                         <p className="font-medium">{followedUser.display_name || followedUser.username}</p>
                         {followedUser.username && <p className="text-sm text-muted-foreground">@{followedUser.username}</p>}
@@ -752,12 +711,11 @@ export default function Profile() {
                 {pendingRequests.map((request) => (
                   <div key={request.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={request.profile.avatar_url || ''} />
-                        <AvatarFallback className="bg-primary text-primary-foreground">
-                          {(request.profile.username || request.profile.display_name || 'U')[0].toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
+                      <AnimalAvatar
+                        emoji={request.profile.avatar_emoji}
+                        color={request.profile.avatar_color}
+                        className="h-10 w-10"
+                      />
                       <div>
                         <p className="font-medium">{request.profile.display_name || request.profile.username}</p>
                         {request.profile.username && <p className="text-sm text-muted-foreground">@{request.profile.username}</p>}
@@ -789,13 +747,38 @@ export default function Profile() {
         </DialogContent>
       </Dialog>
 
-      <AvatarCropper
-        file={cropperFile}
-        open={cropperOpen}
-        onOpenChange={setCropperOpen}
-        onCropComplete={handleCroppedUpload}
-        saving={uploadingAvatar}
-      />
+      {/* Avatar Picker */}
+      <Dialog open={avatarPickerOpen} onOpenChange={setAvatarPickerOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Choose an avatar</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-5 gap-3 py-2">
+            {ANIMAL_AVATARS.map((preset) => {
+              const selected = profile?.avatar_emoji === preset.emoji;
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => handleSelectAvatar(preset)}
+                  disabled={savingAvatar}
+                  aria-label={preset.label}
+                  className={`rounded-full transition-transform hover:scale-105 ${
+                    selected ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''
+                  }`}
+                >
+                  <AnimalAvatar
+                    emoji={preset.emoji}
+                    color={preset.color}
+                    className="h-14 w-14"
+                    emojiClassName="text-2xl"
+                  />
+                </button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

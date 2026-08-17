@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, MapPin, Star, DollarSign } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,7 +13,8 @@ interface PlaceComment {
   user_id: string;
   username: string | null;
   display_name: string | null;
-  avatar_url: string | null;
+  avatar_emoji: string | null;
+  avatar_color: string | null;
   rating: number | null;
   notes: string | null;
   created_at: string;
@@ -126,20 +127,14 @@ export function PlaceDetailSheet({ place, mode, onOpenChange }: PlaceDetailSheet
                 comments.map((c) => {
                   // Private contributors show up (per-place rating/notes still
                   // count), but their identity is withheld - the RPC already
-                  // nulled username/display_name/avatar_url for them, and
+                  // nulled username/display_name/avatar_emoji/avatar_color for them, and
                   // is_anonymous tells us not to link through to their
                   // profile page either (that page shows the real username,
                   // which would defeat the anonymization above).
-                  const avatarInitial = (c.username || c.display_name || 'U')[0].toUpperCase();
                   const nameLabel = c.display_name || c.username || 'Someone';
 
                   const avatar = (
-                    <Avatar className="h-9 w-9">
-                      <AvatarImage src={c.avatar_url || ''} />
-                      <AvatarFallback className="bg-primary text-primary-foreground">
-                        {avatarInitial}
-                      </AvatarFallback>
-                    </Avatar>
+                    <AnimalAvatar emoji={c.avatar_emoji} color={c.avatar_color} className="h-9 w-9" />
                   );
 
                   return (

@@ -1,7 +1,7 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { Clock, Users, Trash2 } from 'lucide-react';
 import type { Recipe } from '@/pages/Recipes';
 
@@ -64,12 +64,12 @@ export function RecipeListRow({ recipe, isOwner, onDelete, onClick }: RecipeList
         )}
       </div>
 
-      <Avatar className="h-7 w-7 shrink-0">
-        <AvatarImage src={recipe.profile?.avatar_url || undefined} />
-        <AvatarFallback className="text-xs">
-          {(recipe.profile?.display_name || recipe.profile?.username || 'U')[0].toUpperCase()}
-        </AvatarFallback>
-      </Avatar>
+      <AnimalAvatar
+        emoji={recipe.profile?.avatar_emoji}
+        color={recipe.profile?.avatar_color}
+        className="h-7 w-7 shrink-0"
+        emojiClassName="text-xs"
+      />
 
       {isOwner && (
         <Button

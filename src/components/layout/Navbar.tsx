@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,7 +11,17 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Users, LogOut, User, ListChecks, Newspaper, Compass } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import logo from '@/assets/logo.png';
+
+async function fetchOwnAvatar(userId: string) {
+  const { data } = await supabase
+    .from('profiles')
+    .select('avatar_emoji, avatar_color')
+    .eq('user_id', userId)
+    .maybeSingle();
+  return data;
+}
 
 // Primary nav on mobile is the fixed bottom tab bar (see BottomTabBar.tsx) -
 // these desktop-only links (hidden md:flex below) mirror the same four
@@ -19,6 +30,16 @@ import logo from '@/assets/logo.png';
 export function Navbar() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+
+  // Shared cache key with Profile.tsx's avatar picker, which writes
+  // through to this same query on save - so the menu avatar updates
+  // instantly without waiting on a refetch.
+  const { data: ownAvatar } = useQuery({
+    queryKey: ['profile-avatar', user?.id],
+    queryFn: () => fetchOwnAvatar(user!.id),
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const handleSignOut = async () => {
     await signOut();
@@ -77,12 +98,12 @@ export function Navbar() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src="" alt={user.email || ''} />
-                    <AvatarFallback className="bg-primary text-primary-foreground">
-                      {user.email?.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                  <AnimalAvatar
+                    emoji={ownAvatar?.avatar_emoji}
+                    color={ownAvatar?.avatar_color}
+                    className="h-10 w-10"
+                    emojiClassName="text-xl"
+                  />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>

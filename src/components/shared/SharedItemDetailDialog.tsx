@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import {
   MapPin,
   Star,
@@ -25,7 +25,8 @@ import type { SharedItem } from './EditSharedItemDialog';
 interface MiniProfile {
   display_name: string | null;
   username: string | null;
-  avatar_url: string | null;
+  avatar_emoji: string | null;
+  avatar_color: string | null;
 }
 
 interface Comment {
@@ -115,7 +116,7 @@ export function SharedItemDetailDialog({
     const p = profilesById[userId];
     return p?.display_name || p?.username || 'Partner';
   };
-  const commenterAvatar = (userId: string) => profilesById[userId]?.avatar_url;
+  const commenterAvatar = (userId: string) => profilesById[userId];
 
   const formatTimestamp = (iso: string) => {
     const d = new Date(iso);
@@ -229,12 +230,12 @@ export function SharedItemDetailDialog({
               <div className="space-y-3 max-h-[240px] overflow-y-auto pr-1">
                 {comments.map((c) => (
                   <div key={c.id} className="flex gap-2.5">
-                    <Avatar className="h-7 w-7 shrink-0">
-                      <AvatarImage src={commenterAvatar(c.user_id) || ''} />
-                      <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                        {commenterLabel(c.user_id)[0]?.toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
+                    <AnimalAvatar
+                      emoji={commenterAvatar(c.user_id)?.avatar_emoji}
+                      color={commenterAvatar(c.user_id)?.avatar_color}
+                      className="h-7 w-7 shrink-0"
+                      emojiClassName="text-xs"
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline gap-2">
                         <span className="text-sm font-medium">{commenterLabel(c.user_id)}</span>

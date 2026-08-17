@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RestaurantCard } from '@/components/restaurants/RestaurantCard';
@@ -35,7 +35,8 @@ interface Profile {
   user_id: string;
   username: string | null;
   display_name: string | null;
-  avatar_url: string | null;
+  avatar_emoji: string;
+  avatar_color: string;
 }
 
 interface SuggestedProfile extends Profile {
@@ -61,7 +62,7 @@ async function fetchFollowingFor(userId: string): Promise<Profile[]> {
   const followingIds = followsData.map((f) => f.following_id);
   const { data: profilesData, error: profilesError } = await supabase
     .from('profiles')
-    .select('id, user_id, username, display_name, avatar_url')
+    .select('id, user_id, username, display_name, avatar_emoji, avatar_color')
     .in('user_id', followingIds);
 
   if (profilesError) throw profilesError;
@@ -71,7 +72,7 @@ async function fetchFollowingFor(userId: string): Promise<Profile[]> {
 async function fetchSuggestedFor(userId: string): Promise<SuggestedProfile[]> {
   const { data: publicProfiles, error: profilesError } = await supabase
     .from('profiles')
-    .select('id, user_id, username, display_name, avatar_url')
+    .select('id, user_id, username, display_name, avatar_emoji, avatar_color')
     .eq('is_private', false)
     .neq('user_id', userId);
 
@@ -308,12 +309,7 @@ export default function Friends() {
                         className="flex items-center justify-between p-2 rounded-lg hover:bg-muted"
                       >
                         <div className="flex items-center gap-3">
-                          <Avatar className="h-10 w-10">
-                            <AvatarImage src={profile.avatar_url || ''} />
-                            <AvatarFallback className="bg-primary text-primary-foreground">
-                              {(profile.username || profile.display_name || 'U')[0].toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
+                          <AnimalAvatar emoji={profile.avatar_emoji} color={profile.avatar_color} className="h-10 w-10" />
                           <div>
                             <p className="font-medium">
                               {profile.display_name || profile.username}
@@ -375,12 +371,7 @@ export default function Friends() {
                           className="flex items-center justify-between p-2 rounded-lg hover:bg-muted"
                         >
                           <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10">
-                              <AvatarImage src={profile.avatar_url || ''} />
-                              <AvatarFallback className="bg-primary text-primary-foreground">
-                                {(profile.username || profile.display_name || 'U')[0].toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
+                            <AnimalAvatar emoji={profile.avatar_emoji} color={profile.avatar_color} className="h-10 w-10" />
                             <div>
                               <p className="font-medium">
                                 {profile.display_name || profile.username}
@@ -434,18 +425,7 @@ export default function Friends() {
                             : 'hover:bg-muted'
                         }`}
                       >
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage src={profile.avatar_url || ''} />
-                          <AvatarFallback
-                            className={
-                              selectedUser?.id === profile.id
-                                ? 'bg-primary-foreground text-primary'
-                                : 'bg-primary text-primary-foreground'
-                            }
-                          >
-                            {(profile.username || profile.display_name || 'U')[0].toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
+                        <AnimalAvatar emoji={profile.avatar_emoji} color={profile.avatar_color} className="h-10 w-10" />
                         <div className="text-left">
                           <p className="font-medium">
                             {profile.display_name || profile.username}
@@ -476,12 +456,12 @@ export default function Friends() {
               <>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 sm:mb-6">
                   <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10 sm:h-12 sm:w-12">
-                      <AvatarImage src={selectedUser.avatar_url || ''} />
-                      <AvatarFallback className="bg-primary text-primary-foreground">
-                        {(selectedUser.username || selectedUser.display_name || 'U')[0].toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
+                    <AnimalAvatar
+                      emoji={selectedUser.avatar_emoji}
+                      color={selectedUser.avatar_color}
+                      className="h-10 w-10 sm:h-12 sm:w-12"
+                      emojiClassName="text-lg sm:text-xl"
+                    />
                     <div>
                       <h2 className="text-lg sm:text-xl font-bold">
                         {selectedUser.display_name || selectedUser.username}'s List

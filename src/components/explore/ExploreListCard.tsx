@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { ListChecks } from 'lucide-react';
 
 export interface ExploreList {
@@ -11,7 +11,8 @@ export interface ExploreList {
   user_id: string;
   username: string | null;
   display_name: string | null;
-  avatar_url: string | null;
+  avatar_emoji: string | null;
+  avatar_color: string | null;
   is_anonymous: boolean;
 }
 
@@ -39,7 +40,6 @@ export function ExploreListCard({ list }: ExploreListCardProps) {
   const navigate = useNavigate();
   const itemCount = toCount(list.item_count);
   const nameLabel = list.display_name || list.username || 'Anonymous';
-  const avatarInitial = (list.username || list.display_name || 'A')[0].toUpperCase();
 
   return (
     <Card
@@ -72,12 +72,12 @@ export function ExploreListCard({ list }: ExploreListCardProps) {
             list.is_anonymous ? 'cursor-default' : 'hover:underline'
           }`}
         >
-          <Avatar className="h-7 w-7">
-            <AvatarImage src={list.avatar_url || ''} />
-            <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-              {list.is_anonymous ? 'A' : avatarInitial}
-            </AvatarFallback>
-          </Avatar>
+          <AnimalAvatar
+            emoji={list.avatar_emoji}
+            color={list.avatar_color}
+            className="h-7 w-7"
+            emojiClassName="text-xs"
+          />
           <span className={`text-sm max-w-[100px] truncate ${list.is_anonymous ? 'text-muted-foreground' : ''}`}>
             {list.is_anonymous ? 'Anonymous' : nameLabel}
           </span>

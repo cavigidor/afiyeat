@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Map as MapIcon, List as ListIcon, Compass, LocateFixed } from 'lucide-react';
+import { Loader2, Map as MapIcon, List as ListIcon, Compass, LocateFixed, Users2 } from 'lucide-react';
 import { ExploreMapComponent } from '@/components/explore/ExploreMapComponent';
 import { ExplorePlaceCard, type ExplorePlace } from '@/components/explore/ExplorePlaceCard';
 import { PlaceDetailSheet } from '@/components/explore/PlaceDetailSheet';
@@ -97,7 +97,9 @@ export default function Explore() {
             <div className="flex items-center gap-2 flex-wrap">
               <Tabs value={mode} onValueChange={(v) => setMode(v as ExploreMode)}>
                 <TabsList>
-                  <TabsTrigger value="all">All Nearby</TabsTrigger>
+                  <TabsTrigger value="all">
+                    {contentType === 'restaurants' ? 'All around the world' : 'Everyone'}
+                  </TabsTrigger>
                   <TabsTrigger value="friends">Friends</TabsTrigger>
                 </TabsList>
               </Tabs>
@@ -128,27 +130,36 @@ export default function Explore() {
         </div>
 
         {contentType === 'lists' ? (
-          listsLoading ? (
-            <div className="flex items-center justify-center py-24">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : lists.length === 0 ? (
-            <div className="text-center py-24 bg-card rounded-xl">
-              <Compass className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-              <h3 className="text-lg font-medium mb-2">Nothing to explore yet</h3>
-              <p className="text-muted-foreground">
-                {mode === 'friends'
-                  ? 'Lists made by people you follow will show up here.'
-                  : 'Lists made by you and public profiles will show up here.'}
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {lists.map((list) => (
-                <ExploreListCard key={list.list_id} list={list} />
-              ))}
-            </div>
-          )
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+              <Users2 className="h-4 w-4 shrink-0" />
+              {mode === 'friends'
+                ? 'See what people you follow are up to - browse the lists they\'re building.'
+                : "See what people are up to - browse lists other Afiyeat users are building, beyond just restaurants."}
+            </p>
+
+            {listsLoading ? (
+              <div className="flex items-center justify-center py-24">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : lists.length === 0 ? (
+              <div className="text-center py-24 bg-card rounded-xl">
+                <Compass className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                <h3 className="text-lg font-medium mb-2">Nothing to explore yet</h3>
+                <p className="text-muted-foreground">
+                  {mode === 'friends'
+                    ? 'Lists made by people you follow will show up here.'
+                    : 'Lists made by you and public profiles will show up here.'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {lists.map((list) => (
+                  <ExploreListCard key={list.list_id} list={list} />
+                ))}
+              </div>
+            )}
+          </div>
         ) : placesLoading || mapboxLoading ? (
           <div className="flex items-center justify-center py-24">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />

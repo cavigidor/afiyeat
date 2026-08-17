@@ -2,7 +2,7 @@ import { Clock, Users, Thermometer, Trash2, Loader2, ChefHat } from 'lucide-reac
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import type { Recipe } from '@/pages/Recipes';
 
@@ -116,12 +116,12 @@ export function RecipeCard({ recipe, isOwner, onDelete, onClick }: RecipeCardPro
       <CardFooter className="pt-2 border-t">
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-2">
-            <Avatar className="h-6 w-6">
-              <AvatarImage src={recipe.profile?.avatar_url || undefined} />
-              <AvatarFallback>
-                {(recipe.profile?.display_name || recipe.profile?.username || 'U')[0].toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+            <AnimalAvatar
+              emoji={recipe.profile?.avatar_emoji}
+              color={recipe.profile?.avatar_color}
+              className="h-6 w-6"
+              emojiClassName="text-xs"
+            />
             <span className="text-sm text-muted-foreground">
               {recipe.profile?.display_name || recipe.profile?.username || 'Anonymous'}
             </span>

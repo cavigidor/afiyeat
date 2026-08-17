@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AlertDialog,
@@ -40,7 +40,8 @@ interface Profile {
   user_id: string;
   username: string | null;
   display_name: string | null;
-  avatar_url: string | null;
+  avatar_emoji: string;
+  avatar_color: string;
 }
 
 interface SharedList {
@@ -98,7 +99,7 @@ export function SharedLists({ following }: SharedListsProps) {
     if (allUserIds.length > 0) {
       const { data: profs } = await supabase
         .from('profiles')
-        .select('id, user_id, username, display_name, avatar_url')
+        .select('id, user_id, username, display_name, avatar_emoji, avatar_color')
         .in('user_id', allUserIds);
       (profs || []).forEach((p) => {
         byId[p.user_id] = p;
@@ -191,10 +192,18 @@ export function SharedLists({ following }: SharedListsProps) {
   const addedByInfo = (item: SharedItem): AddedByInfo | undefined => {
     if (!item.added_by || !user) return undefined;
     if (item.added_by === user.id) {
-      return { label: 'You', avatarUrl: profilesById[user.id]?.avatar_url };
+      return {
+        label: 'You',
+        avatarEmoji: profilesById[user.id]?.avatar_emoji,
+        avatarColor: profilesById[user.id]?.avatar_color,
+      };
     }
     const p = profilesById[item.added_by];
-    return { label: p?.display_name || p?.username || 'Partner', avatarUrl: p?.avatar_url };
+    return {
+      label: p?.display_name || p?.username || 'Partner',
+      avatarEmoji: p?.avatar_emoji,
+      avatarColor: p?.avatar_color,
+    };
   };
 
   const sortItems = (list: SharedItem[]) =>
@@ -252,18 +261,11 @@ export function SharedLists({ following }: SharedListsProps) {
                       onClick={() => setSelectedListId(l.id)}
                       className="flex items-center gap-3 flex-1 min-w-0 text-left"
                     >
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src={l.partner?.avatar_url || ''} />
-                        <AvatarFallback
-                          className={
-                            selectedListId === l.id
-                              ? 'bg-primary-foreground text-primary'
-                              : 'bg-primary text-primary-foreground'
-                          }
-                        >
-                          {partnerLabel(l)[0].toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
+                      <AnimalAvatar
+                        emoji={l.partner?.avatar_emoji}
+                        color={l.partner?.avatar_color}
+                        className="h-9 w-9"
+                      />
                       <div className="min-w-0">
                         <p className="font-medium truncate">{l.name}</p>
                         <p

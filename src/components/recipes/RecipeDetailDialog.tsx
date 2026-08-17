@@ -6,7 +6,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Clock,
@@ -111,12 +111,7 @@ export function RecipeDetailDialog({
 
               {/* Author */}
               <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={recipe.profile?.avatar_url || undefined} />
-                  <AvatarFallback>
-                    {(recipe.profile?.display_name || recipe.profile?.username || 'U')[0].toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
+                <AnimalAvatar emoji={recipe.profile?.avatar_emoji} color={recipe.profile?.avatar_color} className="h-10 w-10" />
                 <div>
                   <p className="font-medium">
                     {recipe.profile?.display_name || recipe.profile?.username || 'Anonymous'}

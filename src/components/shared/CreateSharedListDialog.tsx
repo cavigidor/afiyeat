@@ -9,7 +9,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,7 +20,8 @@ interface Profile {
   user_id: string;
   username: string | null;
   display_name: string | null;
-  avatar_url: string | null;
+  avatar_emoji: string;
+  avatar_color: string;
 }
 
 interface CreateSharedListDialogProps {
@@ -119,12 +120,7 @@ export function CreateSharedListDialog({
                       friendId === profile.user_id ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
                     }`}
                   >
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={profile.avatar_url || ''} />
-                      <AvatarFallback className="bg-primary text-primary-foreground">
-                        {(profile.username || profile.display_name || 'U')[0].toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
+                    <AnimalAvatar emoji={profile.avatar_emoji} color={profile.avatar_color} className="h-8 w-8" />
                     <span className="font-medium truncate">
                       {profile.display_name || profile.username}
                     </span>

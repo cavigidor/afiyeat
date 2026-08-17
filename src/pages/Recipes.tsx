@@ -42,7 +42,8 @@ export interface Recipe {
   profile?: {
     display_name: string | null;
     username: string | null;
-    avatar_url: string | null;
+    avatar_emoji: string;
+    avatar_color: string;
   } | null;
 }
 
@@ -66,7 +67,7 @@ async function fetchRecipesFor(userId: string, activeTab: string): Promise<Recip
     (data || []).map(async (recipe) => {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('display_name, username, avatar_url')
+        .select('display_name, username, avatar_emoji, avatar_color')
         .eq('user_id', recipe.user_id)
         .maybeSingle();
 
