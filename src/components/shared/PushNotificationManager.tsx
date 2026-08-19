@@ -24,6 +24,19 @@ export function PushNotificationManager() {
   const { user } = useAuth();
   const userId = user?.id;
 
+  // Keeps profiles.timezone reasonably fresh so server-side crons (e.g. the
+  // daily good-morning nudge) can fire at 8am in each user's own timezone
+  // instead of one fixed UTC time for everyone. Runs on every sign-in/cold
+  // start (not just push registration, and not gated on isNative() - web
+  // sessions get a timezone too), so it also picks up a user traveling to
+  // a new timezone next time they open the app.
+  useEffect(() => {
+    if (!userId) return;
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!timeZone) return;
+    void supabase.from('profiles').update({ timezone: timeZone }).eq('user_id', userId);
+  }, [userId]);
+
   useEffect(() => {
     if (!userId || !isNative()) return;
 

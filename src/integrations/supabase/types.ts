@@ -487,6 +487,7 @@ export type Database = {
           display_name: string | null
           id: string
           is_private: boolean
+          timezone: string | null
           updated_at: string
           user_id: string
           username: string | null
@@ -500,6 +501,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           is_private?: boolean
+          timezone?: string | null
           updated_at?: string
           user_id: string
           username?: string | null
@@ -513,6 +515,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           is_private?: boolean
+          timezone?: string | null
           updated_at?: string
           user_id?: string
           username?: string | null
