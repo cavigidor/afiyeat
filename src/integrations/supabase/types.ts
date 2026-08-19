@@ -387,6 +387,21 @@ export type Database = {
         }
         Relationships: []
       }
+      good_morning_sent: {
+        Row: {
+          last_sent_date: string
+          user_id: string
+        }
+        Insert: {
+          last_sent_date: string
+          user_id: string
+        }
+        Update: {
+          last_sent_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       news_items: {
         Row: {
           city: string
@@ -879,6 +894,7 @@ export type Database = {
       }
       seed_default_folders: { Args: { p_user_id: string }; Returns: undefined }
       send_daily_prompt: { Args: never; Returns: undefined }
+      send_good_morning_treat: { Args: never; Returns: undefined }
       send_inactivity_reminders: { Args: never; Returns: undefined }
       send_weekly_digest: { Args: never; Returns: undefined }
       send_weekly_suggestions: { Args: never; Returns: undefined }
