@@ -80,6 +80,7 @@ async function fetchNearbyEvents(
   longitude: number,
   keyword: string,
   dateFilter: EventsDateFilter,
+  radiusMiles: number,
 ): Promise<TicketmasterEvent[]> {
   const { startDateTime, endDateTime } = getEventsDateRange(dateFilter);
   const { data, error } = await supabase.functions.invoke('search-events', {
@@ -89,6 +90,7 @@ async function fetchNearbyEvents(
       keyword: keyword || undefined,
       startDateTime,
       endDateTime,
+      radiusMiles,
     },
   });
   if (error) throw error;
@@ -107,6 +109,11 @@ export default function Explore() {
 
   const [eventsLocation, setEventsLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [eventsLocationDenied, setEventsLocationDenied] = useState(false);
+  // Defaults to a 25mi radius around the device's own location, but
+  // "Search this area" on the map overrides both to whatever's currently
+  // in view - so events are then found by wherever the user last searched,
+  // not always by device GPS.
+  const [eventsRadiusMiles, setEventsRadiusMiles] = useState(25);
   const [eventsView, setEventsView] = useState<ExploreView>('map');
   const [eventsDateFilter, setEventsDateFilter] = useState<EventsDateFilter>('all');
   const [eventsCategory, setEventsCategory] = useState<string | null>(null);
@@ -171,11 +178,17 @@ export default function Explore() {
     ? `${eventsLocation.lat.toFixed(2)},${eventsLocation.lng.toFixed(2)}`
     : null;
   const { data: events = [], isLoading: eventsLoading, isError: eventsErrored } = useQuery({
-    queryKey: ['explore-events', eventsLocationKey, eventsKeyword, eventsDateFilter],
-    queryFn: () => fetchNearbyEvents(eventsLocation!.lat, eventsLocation!.lng, eventsKeyword, eventsDateFilter),
+    queryKey: ['explore-events', eventsLocationKey, eventsRadiusMiles, eventsKeyword, eventsDateFilter],
+    queryFn: () =>
+      fetchNearbyEvents(eventsLocation!.lat, eventsLocation!.lng, eventsKeyword, eventsDateFilter, eventsRadiusMiles),
     enabled: !!user && contentType === 'events' && !!eventsLocation,
     staleTime: 10 * 60 * 1000,
   });
+
+  const handleSearchThisArea = (newCenter: { lat: number; lng: number }, radiusMiles: number) => {
+    setEventsLocation(newCenter);
+    setEventsRadiusMiles(radiusMiles);
+  };
 
   // Category options are derived from whatever Ticketmaster actually
   // returned (Music/Sports/Arts & Theatre/etc), so the pills never offer a
@@ -395,6 +408,7 @@ export default function Explore() {
                               events={filteredEvents}
                               center={eventsLocation}
                               flyToMeRef={eventsFlyToMeRef}
+                              onSearchThisArea={handleSearchThisArea}
                             />
                             <Button
                               type="button"
