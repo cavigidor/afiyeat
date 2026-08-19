@@ -479,43 +479,34 @@ export type Database = {
       }
       profiles: {
         Row: {
-          avatar_color: string
-          avatar_emoji: string
           avatar_url: string | null
           bio: string | null
           created_at: string
           display_name: string | null
           id: string
           is_private: boolean
-          timezone: string | null
           updated_at: string
           user_id: string
           username: string | null
         }
         Insert: {
-          avatar_color?: string
-          avatar_emoji?: string
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
           display_name?: string | null
           id?: string
           is_private?: boolean
-          timezone?: string | null
           updated_at?: string
           user_id: string
           username?: string | null
         }
         Update: {
-          avatar_color?: string
-          avatar_emoji?: string
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
           display_name?: string | null
           id?: string
           is_private?: boolean
-          timezone?: string | null
           updated_at?: string
           user_id?: string
           username?: string | null
@@ -823,8 +814,7 @@ export type Database = {
       get_explore_lists: {
         Args: { p_mode?: string }
         Returns: {
-          avatar_color: string
-          avatar_emoji: string
+          avatar_url: string
           display_name: string
           is_anonymous: boolean
           item_count: number
@@ -853,8 +843,7 @@ export type Database = {
       get_place_comments: {
         Args: { p_mode?: string; p_place_id: string }
         Returns: {
-          avatar_color: string
-          avatar_emoji: string
+          avatar_url: string
           created_at: string
           display_name: string
           is_anonymous: boolean
