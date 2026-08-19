@@ -23,22 +23,31 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Plus, Search, Pencil, Settings, ArrowLeft, Circle, Check, Map } from 'lucide-react';
+import { Loader2, Plus, Search, Pencil, Settings, ArrowLeft, Circle, Check, Map, Share2, Link2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { useViewMode } from '@/hooks/useViewMode';
 import { useMapCenter } from '@/hooks/useMapCenter';
+import { useFollowing } from '@/hooks/useFollowing';
 import { ListViewToggle } from '@/components/shared/ListViewToggle';
 import { CreateListDialog, type CustomList } from '@/components/lists/CreateListDialog';
 import { AddCustomListItemDialog, type CustomListItem } from '@/components/lists/AddCustomListItemDialog';
 import { CustomListItemRow } from '@/components/lists/CustomListItemRow';
 import { CustomListItemCard } from '@/components/lists/CustomListItemCard';
 import { ListTypesManager } from '@/components/lists/ListTypesManager';
+import { ConvertToSharedListDialog } from '@/components/lists/ConvertToSharedListDialog';
 import type { ManagedListType } from '@/hooks/useListTypeManagement';
 import { getPriceSortValue, getRatingSortValue } from '@/lib/customListValues';
 import { getDirectionsPopupHtml } from '@/lib/directions';
 import { createPinElement } from '@/lib/mapPin';
+import { shareListLink } from '@/lib/shareList';
 
 type SortBy = 'name' | 'price_asc' | 'price_desc' | 'rating_desc';
 
@@ -89,6 +98,7 @@ export default function CustomListDetail() {
   const [addOpen, setAddOpen] = useState(false);
   const [editItem, setEditItem] = useState<CustomListItem | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [convertOpen, setConvertOpen] = useState(false);
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'todo' | 'done'>('todo');
   const [searchQuery, setSearchQuery] = useState('');
@@ -129,6 +139,15 @@ export default function CustomListDetail() {
     staleTime: Infinity,
     gcTime: Infinity,
   });
+
+  const { data: following = [] } = useFollowing(user?.id);
+
+  const handleShareLink = async () => {
+    if (!user || !list) return;
+    const result = await shareListLink(user.id, list.id, list.name);
+    if (result === 'copied') toast.success('Link copied to clipboard!');
+    else if (result === 'failed') toast.error('Failed to share link');
+  };
 
   const invalidateItems = () => {
     queryClient.invalidateQueries({ queryKey: ['custom_list_items', listId] });
@@ -240,6 +259,23 @@ export default function CustomListDetail() {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Share list">
+                  <Share2 className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleShareLink}>
+                  <Link2 className="h-4 w-4 mr-2" />
+                  Share Link
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setConvertOpen(true)}>
+                  <Users className="h-4 w-4 mr-2" />
+                  Make a Shared List with a Friend
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="ghost" size="icon" aria-label="List settings" onClick={() => setSettingsOpen(true)}>
               <Settings className="h-4 w-4" />
             </Button>
@@ -419,6 +455,15 @@ export default function CustomListDetail() {
         onOpenChange={setSettingsOpen}
         onSuccess={invalidateList}
         editList={list}
+      />
+
+      <ConvertToSharedListDialog
+        open={convertOpen}
+        onOpenChange={setConvertOpen}
+        list={list}
+        items={items}
+        following={following}
+        onSuccess={(newListId) => navigate('/friends', { state: { tab: 'shared', listId: newListId } })}
       />
 
       <AlertDialog open={!!deleteItemId} onOpenChange={(o) => !o && setDeleteItemId(null)}>

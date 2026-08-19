@@ -54,9 +54,14 @@ interface SharedList {
 
 interface SharedListsProps {
   following: Profile[];
+  // Set when arriving here via a deep link (e.g. "Make a Shared List with a
+  // Friend" from a custom list, or clicking a shared list preview on My
+  // Lists) so the right list is already open instead of landing on the
+  // generic "select a list" empty state.
+  initialSelectedListId?: string;
 }
 
-export function SharedLists({ following }: SharedListsProps) {
+export function SharedLists({ following, initialSelectedListId }: SharedListsProps) {
   const { user } = useAuth();
   const [lists, setLists] = useState<SharedList[]>([]);
   // Profiles for BOTH members of every list (not just "the other person"),
@@ -64,7 +69,7 @@ export function SharedLists({ following }: SharedListsProps) {
   // user themselves.
   const [profilesById, setProfilesById] = useState<Record<string, Profile>>({});
   const [loadingLists, setLoadingLists] = useState(true);
-  const [selectedListId, setSelectedListId] = useState<string | null>(null);
+  const [selectedListId, setSelectedListId] = useState<string | null>(initialSelectedListId ?? null);
   const [items, setItems] = useState<SharedItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [activeTab, setActiveTab] = useState<'to_go' | 'went_to'>('to_go');

@@ -14,11 +14,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Plus, ListChecks, Settings, Trash2, UtensilsCrossed } from 'lucide-react';
+import { Loader2, Plus, ListChecks, Settings, Trash2, UtensilsCrossed, ListPlus, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreateListDialog, type CustomList } from '@/components/lists/CreateListDialog';
+import { CreateSharedListDialog } from '@/components/shared/CreateSharedListDialog';
+import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
+import { useFollowing } from '@/hooks/useFollowing';
 
 async function fetchMyLists(userId: string): Promise<CustomList[]> {
   const { data, error } = await supabase
@@ -59,13 +68,56 @@ async function fetchItemCounts(userId: string): Promise<Record<string, number>> 
   return counts;
 }
 
+interface SharedListPreview {
+  id: string;
+  name: string;
+  partner: {
+    display_name: string | null;
+    username: string | null;
+    avatar_emoji: string;
+    avatar_color: string;
+  } | null;
+}
+
+// Lightweight version of SharedLists.tsx's own fetch - just enough to show
+// a preview card here (name + partner), full item lists still live on the
+// Friends > Shared Lists tab.
+async function fetchSharedLists(userId: string): Promise<SharedListPreview[]> {
+  const { data, error } = await supabase
+    .from('shared_lists')
+    .select('id, name, user_a, user_b')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  const rows = data || [];
+  if (rows.length === 0) return [];
+
+  const partnerIds = Array.from(new Set(rows.map((r) => (r.user_a === userId ? r.user_b : r.user_a))));
+  const { data: profs } = await supabase
+    .from('profiles')
+    .select('user_id, display_name, username, avatar_emoji, avatar_color')
+    .in('user_id', partnerIds);
+  const byId: Record<string, SharedListPreview['partner']> = {};
+  (profs || []).forEach((p) => {
+    byId[p.user_id] = p;
+  });
+
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    partner: byId[r.user_a === userId ? r.user_b : r.user_a] || null,
+  }));
+}
+
 export default function MyLists() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
+  const [createSharedOpen, setCreateSharedOpen] = useState(false);
   const [editList, setEditList] = useState<CustomList | null>(null);
   const [deleteListId, setDeleteListId] = useState<string | null>(null);
+
+  const { data: following = [] } = useFollowing(user?.id);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -91,10 +143,19 @@ export default function MyLists() {
     enabled: !!user,
   });
 
+  const { data: sharedLists = [] } = useQuery({
+    queryKey: ['shared_lists_preview', user?.id],
+    queryFn: () => fetchSharedLists(user!.id),
+    enabled: !!user,
+  });
+
   const invalidateLists = () => {
     queryClient.invalidateQueries({ queryKey: ['custom_lists', user?.id] });
     queryClient.invalidateQueries({ queryKey: ['custom_list_item_counts', user?.id] });
   };
+
+  const invalidateSharedLists = () =>
+    queryClient.invalidateQueries({ queryKey: ['shared_lists_preview', user?.id] });
 
   const handleDeleteList = async () => {
     if (!deleteListId) return;
@@ -128,10 +189,24 @@ export default function MyLists() {
               Everything you're tracking - your restaurants, and any custom list you create.
             </p>
           </div>
-          <Button onClick={() => { setEditList(null); setCreateOpen(true); }} size="sm" className="sm:size-default shrink-0">
-            <Plus className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Create New List</span>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" className="sm:size-default shrink-0">
+                <Plus className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Create New List</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => { setEditList(null); setCreateOpen(true); }}>
+                <ListPlus className="h-4 w-4 mr-2" />
+                Personal List
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setCreateSharedOpen(true)}>
+                <Users className="h-4 w-4 mr-2" />
+                Shared List with a Friend
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {loadingLists ? (
@@ -230,6 +305,38 @@ export default function MyLists() {
             )}
           </div>
         )}
+
+        {sharedLists.length > 0 && (
+          <div className="space-y-3 pt-2">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Shared Lists
+            </h2>
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              {sharedLists.map((sl) => (
+                <Card
+                  key={sl.id}
+                  className="cursor-pointer hover:shadow-md transition-shadow overflow-hidden"
+                  onClick={() => navigate('/friends', { state: { tab: 'shared', listId: sl.id } })}
+                >
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <AnimalAvatar
+                      emoji={sl.partner?.avatar_emoji}
+                      color={sl.partner?.avatar_color}
+                      className="w-11 h-11 shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate">{sl.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        with {sl.partner?.display_name || sl.partner?.username || 'a friend'}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
 
       <CreateListDialog
@@ -237,6 +344,13 @@ export default function MyLists() {
         onOpenChange={setCreateOpen}
         onSuccess={invalidateLists}
         editList={editList}
+      />
+
+      <CreateSharedListDialog
+        open={createSharedOpen}
+        onOpenChange={setCreateSharedOpen}
+        following={following}
+        onSuccess={invalidateSharedLists}
       />
 
       <AlertDialog open={!!deleteListId} onOpenChange={(o) => !o && setDeleteListId(null)}>

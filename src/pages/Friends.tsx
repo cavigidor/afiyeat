@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Navbar } from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -118,8 +118,13 @@ async function fetchUserRestaurantsFor(profileUserId: string): Promise<any[]> {
 export default function Friends() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
-  const [topTab, setTopTab] = useState<'discover' | 'shared'>('discover');
+  // Arriving here via "Share" on a custom list, or a shared-list preview on
+  // My Lists, passes navigation state to land straight on the right tab and
+  // list instead of the default Discover view.
+  const navState = location.state as { tab?: 'discover' | 'shared'; listId?: string } | null;
+  const [topTab, setTopTab] = useState<'discover' | 'shared'>(navState?.tab ?? 'discover');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
@@ -687,7 +692,7 @@ export default function Friends() {
           </TabsContent>
 
           <TabsContent value="shared">
-            <SharedLists following={following} />
+            <SharedLists following={following} initialSelectedListId={navState?.listId} />
           </TabsContent>
         </Tabs>
       </main>
