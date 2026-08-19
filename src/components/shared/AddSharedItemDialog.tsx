@@ -313,7 +313,7 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
               )}
             </div>
             {showResults && searchResults.length > 0 && (
-              <div className="bg-popover border rounded-md shadow-lg max-h-[180px] overflow-y-auto">
+              <div className="bg-popover border rounded-md shadow-lg max-h-[180px] overflow-y-auto overscroll-contain">
                 {searchResults.map((place) => (
                   <button
                     key={place.id}
@@ -357,7 +357,7 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
                 className="pl-10"
               />
             </div>
-            <div className="max-h-[200px] overflow-y-auto rounded-md border">
+            <div className="max-h-[200px] overflow-y-auto overscroll-contain rounded-md border">
               {loadingMine ? (
                 <div className="flex justify-center py-6">
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />

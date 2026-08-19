@@ -293,7 +293,7 @@ export function AddMentionedPlaceDialog({ open, onOpenChange, placeName }: AddMe
               )}
             </div>
             {showResults && searchResults.length > 0 && (
-              <div className="bg-popover border rounded-md shadow-lg max-h-[180px] overflow-y-auto">
+              <div className="bg-popover border rounded-md shadow-lg max-h-[180px] overflow-y-auto overscroll-contain">
                 {searchResults.map((place) => (
                   <button
                     key={place.id}

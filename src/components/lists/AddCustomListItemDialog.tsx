@@ -367,7 +367,7 @@ export function AddCustomListItemDialog({
                 )}
               </div>
               {showResults && searchResults.length > 0 && (
-                <div className="absolute z-50 w-full bg-popover border rounded-md shadow-lg mt-1 max-h-[200px] overflow-y-auto">
+                <div className="absolute z-50 w-full bg-popover border rounded-md shadow-lg mt-1 max-h-[200px] overflow-y-auto overscroll-contain">
                   {searchResults.map((place) => (
                     <button
                       key={place.id}

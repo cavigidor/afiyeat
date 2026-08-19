@@ -428,7 +428,15 @@ export function AddRestaurantDialog({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* Place Search */}
-            <div className="space-y-2">
+            {/* relative here (not just on the input row below) is what
+                anchors the results dropdown's `absolute` positioning to
+                this search field specifically - without it, the dropdown
+                was positioning itself against the Dialog's own fixed
+                container instead, which is also what let touch-scrolling
+                inside the (correctly bounded) list chain into scrolling
+                the whole dialog. overscroll-contain on the list stops that
+                chaining regardless. */}
+            <div className="space-y-2 relative">
               <FormLabel>Search Restaurant</FormLabel>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -446,10 +454,10 @@ export function AddRestaurantDialog({
                   <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
                 )}
               </div>
-              
+
               {/* Search Results Dropdown */}
               {showResults && searchResults.length > 0 && (
-                <div className="absolute z-50 w-full max-w-[468px] bg-popover border rounded-md shadow-lg mt-1 max-h-[200px] overflow-y-auto">
+                <div className="absolute z-50 w-full max-w-[468px] bg-popover border rounded-md shadow-lg mt-1 max-h-[200px] overflow-y-auto overscroll-contain">
                   {searchResults.map((place) => (
                     <button
                       key={place.id}
