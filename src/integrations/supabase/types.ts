@@ -387,6 +387,21 @@ export type Database = {
         }
         Relationships: []
       }
+      good_morning_sent: {
+        Row: {
+          last_sent_date: string
+          user_id: string
+        }
+        Insert: {
+          last_sent_date: string
+          user_id: string
+        }
+        Update: {
+          last_sent_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       news_items: {
         Row: {
           city: string
@@ -479,34 +494,43 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_color: string
+          avatar_emoji: string
           avatar_url: string | null
           bio: string | null
           created_at: string
           display_name: string | null
           id: string
           is_private: boolean
+          timezone: string | null
           updated_at: string
           user_id: string
           username: string | null
         }
         Insert: {
+          avatar_color?: string
+          avatar_emoji?: string
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
           display_name?: string | null
           id?: string
           is_private?: boolean
+          timezone?: string | null
           updated_at?: string
           user_id: string
           username?: string | null
         }
         Update: {
+          avatar_color?: string
+          avatar_emoji?: string
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
           display_name?: string | null
           id?: string
           is_private?: boolean
+          timezone?: string | null
           updated_at?: string
           user_id?: string
           username?: string | null
@@ -814,7 +838,8 @@ export type Database = {
       get_explore_lists: {
         Args: { p_mode?: string }
         Returns: {
-          avatar_url: string
+          avatar_color: string
+          avatar_emoji: string
           display_name: string
           is_anonymous: boolean
           item_count: number
@@ -843,7 +868,8 @@ export type Database = {
       get_place_comments: {
         Args: { p_mode?: string; p_place_id: string }
         Returns: {
-          avatar_url: string
+          avatar_color: string
+          avatar_emoji: string
           created_at: string
           display_name: string
           is_anonymous: boolean
@@ -868,6 +894,7 @@ export type Database = {
       }
       seed_default_folders: { Args: { p_user_id: string }; Returns: undefined }
       send_daily_prompt: { Args: never; Returns: undefined }
+      send_good_morning_treat: { Args: never; Returns: undefined }
       send_inactivity_reminders: { Args: never; Returns: undefined }
       send_weekly_digest: { Args: never; Returns: undefined }
       send_weekly_suggestions: { Args: never; Returns: undefined }
