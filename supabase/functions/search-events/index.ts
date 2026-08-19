@@ -84,7 +84,7 @@ serve(async (req) => {
       );
     }
 
-    const { latitude, longitude, keyword, radiusMiles } = await req.json();
+    const { latitude, longitude, keyword, radiusMiles, startDateTime, endDateTime, category } = await req.json();
 
     if (typeof latitude !== "number" || typeof longitude !== "number") {
       return new Response(
@@ -109,6 +109,22 @@ serve(async (req) => {
     });
     if (keyword && typeof keyword === "string" && keyword.trim().length > 0) {
       params.append("keyword", keyword.trim());
+    }
+    // Ticketmaster wants these as UTC "yyyy-MM-ddTHH:mm:ssZ" - the client
+    // sends full ISO strings (Date#toISOString()), which already match
+    // that shape once the milliseconds are stripped.
+    if (startDateTime && typeof startDateTime === "string") {
+      params.append("startDateTime", startDateTime.replace(/\.\d{3}Z$/, "Z"));
+    }
+    if (endDateTime && typeof endDateTime === "string") {
+      params.append("endDateTime", endDateTime.replace(/\.\d{3}Z$/, "Z"));
+    }
+    // classificationName filters server-side by segment/genre (e.g. "Music",
+    // "Sports") - passed through as-is from the category the user picked
+    // from results already seen, so it always matches a real Ticketmaster
+    // segment name.
+    if (category && typeof category === "string" && category.trim().length > 0) {
+      params.append("classificationName", category.trim());
     }
 
     const url = `https://app.ticketmaster.com/discovery/v2/events.json?${params.toString()}`;
