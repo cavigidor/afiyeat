@@ -7,15 +7,16 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Map as MapIcon, List as ListIcon, Compass, LocateFixed, Users2 } from 'lucide-react';
+import { Loader2, Map as MapIcon, List as ListIcon, Compass, LocateFixed, Users2, CalendarDays, MapPinOff } from 'lucide-react';
 import { ExploreMapComponent } from '@/components/explore/ExploreMapComponent';
 import { ExplorePlaceCard, type ExplorePlace } from '@/components/explore/ExplorePlaceCard';
 import { PlaceDetailSheet } from '@/components/explore/PlaceDetailSheet';
 import { ExploreListCard, type ExploreList } from '@/components/explore/ExploreListCard';
+import { EventCard, type TicketmasterEvent } from '@/components/explore/EventCard';
 
 type ExploreMode = 'friends' | 'all';
 type ExploreView = 'map' | 'list';
-type ExploreContentType = 'restaurants' | 'lists';
+type ExploreContentType = 'restaurants' | 'lists' | 'events';
 
 async function fetchMapboxTokenValue(): Promise<string | null> {
   const { data, error } = await supabase.functions.invoke('get-mapbox-token');
@@ -35,6 +36,14 @@ async function fetchExploreLists(mode: ExploreMode): Promise<ExploreList[]> {
   return (data || []) as ExploreList[];
 }
 
+async function fetchNearbyEvents(latitude: number, longitude: number): Promise<TicketmasterEvent[]> {
+  const { data, error } = await supabase.functions.invoke('search-events', {
+    body: { latitude, longitude },
+  });
+  if (error) throw error;
+  return (data?.events || []) as TicketmasterEvent[];
+}
+
 export default function Explore() {
   const { user, session, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -43,12 +52,30 @@ export default function Explore() {
   const [view, setView] = useState<ExploreView>('map');
   const [selectedPlace, setSelectedPlace] = useState<ExplorePlace | null>(null);
   const flyToMeRef = useRef<(() => void) | null>(null);
+  const [eventsLocation, setEventsLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [eventsLocationDenied, setEventsLocationDenied] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/auth');
     }
   }, [user, authLoading, navigate]);
+
+  // Events are found by device location (not stored user data like
+  // restaurants/lists are), so it's only requested once the Events tab is
+  // actually opened rather than eagerly on page load.
+  useEffect(() => {
+    if (contentType !== 'events' || eventsLocation || eventsLocationDenied) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setEventsLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+      },
+      (error) => {
+        console.log('Location not available for events:', error.message);
+        setEventsLocationDenied(true);
+      },
+    );
+  }, [contentType, eventsLocation, eventsLocationDenied]);
 
   // Doesn't change per-user - shared cache key with Friends.tsx/Profile.tsx.
   // Gated on session (not just user) so it doesn't fire - and permanently
@@ -74,6 +101,18 @@ export default function Explore() {
     enabled: !!user && contentType === 'lists',
   });
 
+  // Rounded to ~1km precision for the cache key so small GPS jitter between
+  // renders doesn't trigger a refetch every time.
+  const eventsLocationKey = eventsLocation
+    ? `${eventsLocation.lat.toFixed(2)},${eventsLocation.lng.toFixed(2)}`
+    : null;
+  const { data: events = [], isLoading: eventsLoading, isError: eventsErrored } = useQuery({
+    queryKey: ['explore-events', eventsLocationKey],
+    queryFn: () => fetchNearbyEvents(eventsLocation!.lat, eventsLocation!.lng),
+    enabled: !!user && contentType === 'events' && !!eventsLocation,
+    staleTime: 10 * 60 * 1000,
+  });
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -94,37 +133,43 @@ export default function Explore() {
               Explore
             </h1>
 
-            <div className="flex items-center gap-2 flex-wrap">
-              <Tabs value={mode} onValueChange={(v) => setMode(v as ExploreMode)}>
-                <TabsList>
-                  <TabsTrigger value="all">
-                    {contentType === 'restaurants' ? 'All around the world' : 'Everyone'}
-                  </TabsTrigger>
-                  <TabsTrigger value="friends">Friends</TabsTrigger>
-                </TabsList>
-              </Tabs>
-
-              {contentType === 'restaurants' && (
-                <Tabs value={view} onValueChange={(v) => setView(v as ExploreView)}>
+            {contentType !== 'events' && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <Tabs value={mode} onValueChange={(v) => setMode(v as ExploreMode)}>
                   <TabsList>
-                    <TabsTrigger value="map" className="gap-1.5">
-                      <MapIcon className="h-3.5 w-3.5" />
-                      Map
+                    <TabsTrigger value="all">
+                      {contentType === 'restaurants' ? 'All around the world' : 'Everyone'}
                     </TabsTrigger>
-                    <TabsTrigger value="list" className="gap-1.5">
-                      <ListIcon className="h-3.5 w-3.5" />
-                      List
-                    </TabsTrigger>
+                    <TabsTrigger value="friends">Friends</TabsTrigger>
                   </TabsList>
                 </Tabs>
-              )}
-            </div>
+
+                {contentType === 'restaurants' && (
+                  <Tabs value={view} onValueChange={(v) => setView(v as ExploreView)}>
+                    <TabsList>
+                      <TabsTrigger value="map" className="gap-1.5">
+                        <MapIcon className="h-3.5 w-3.5" />
+                        Map
+                      </TabsTrigger>
+                      <TabsTrigger value="list" className="gap-1.5">
+                        <ListIcon className="h-3.5 w-3.5" />
+                        List
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                )}
+              </div>
+            )}
           </div>
 
           <Tabs value={contentType} onValueChange={(v) => setContentType(v as ExploreContentType)}>
             <TabsList>
               <TabsTrigger value="restaurants">Restaurants</TabsTrigger>
               <TabsTrigger value="lists">Other Lists</TabsTrigger>
+              <TabsTrigger value="events" className="gap-1.5">
+                <CalendarDays className="h-3.5 w-3.5" />
+                Events
+              </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -156,6 +201,45 @@ export default function Explore() {
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {lists.map((list) => (
                   <ExploreListCard key={list.list_id} list={list} />
+                ))}
+              </div>
+            )}
+          </div>
+        ) : contentType === 'events' ? (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+              <CalendarDays className="h-4 w-4 shrink-0" />
+              Concerts, shows, and things happening near you - powered by Ticketmaster.
+            </p>
+
+            {eventsLocationDenied && !eventsLocation ? (
+              <div className="text-center py-24 bg-card rounded-xl">
+                <MapPinOff className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                <h3 className="text-lg font-medium mb-2">Location access needed</h3>
+                <p className="text-muted-foreground">
+                  Turn on location for Afiyeat to see events happening near you.
+                </p>
+              </div>
+            ) : !eventsLocation || eventsLoading ? (
+              <div className="flex items-center justify-center py-24">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : eventsErrored ? (
+              <div className="text-center py-24 bg-card rounded-xl">
+                <CalendarDays className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                <h3 className="text-lg font-medium mb-2">Couldn't load events</h3>
+                <p className="text-muted-foreground">Give it another try in a moment.</p>
+              </div>
+            ) : events.length === 0 ? (
+              <div className="text-center py-24 bg-card rounded-xl">
+                <CalendarDays className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                <h3 className="text-lg font-medium mb-2">Nothing nearby right now</h3>
+                <p className="text-muted-foreground">Check back later for events near you.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {events.map((event) => (
+                  <EventCard key={event.id} event={event} />
                 ))}
               </div>
             )}
