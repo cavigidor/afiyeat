@@ -34,6 +34,8 @@ import { toast } from 'sonner';
 import { validateImageFile, compressImage, MAX_IMAGES_PER_RESTAURANT } from '@/lib/imageValidation';
 import { isDuplicateRestaurant } from '@/lib/duplicateRestaurant';
 import { PriceLevelPicker } from './PriceLevelPicker';
+import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
+import { PlaceResultsDropdown } from '@/components/shared/PlaceResultsDropdown';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Restaurant name is required'),
@@ -48,16 +50,6 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
-
-interface PlaceResult {
-  id: string;
-  name: string;
-  address: string;
-  latitude: number | null;
-  longitude: number | null;
-  category: string | null;
-  mapboxId?: string;
-}
 
 interface AddRestaurantDialogProps {
   open: boolean;
@@ -145,8 +137,6 @@ export function AddRestaurantDialog({
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<PlaceResult[]>([]);
   // Metadata for the selected place, used to dedupe/aggregate this entry
   // with other users' entries for the same place on the Explore map. Not
   // shown in the form UI, so it's tracked separately rather than as a
@@ -155,11 +145,7 @@ export function AddRestaurantDialog({
     placeId: string | null;
     category: string | null;
   }>({ placeId: null, category: null });
-  const [searching, setSearching] = useState(false);
-  const [showResults, setShowResults] = useState(false);
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [sessionToken] = useState(() => crypto.randomUUID());
-  
+
   // Random emoji index for this session (rating slider only - price is now
   // a plain 4-box picker with no emoji thumb)
   const emojiIndices = useMemo(() => ({
@@ -184,87 +170,25 @@ export function AddRestaurantDialog({
   const watchStatus = form.watch('status');
   const isToGo = watchStatus === 'to_go';
 
-  // Get user's location when dialog opens
-  useEffect(() => {
-    if (open && !userLocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          });
-        },
-        (error) => {
-          console.log('Location not available:', error.message);
-        }
-      );
-    }
-  }, [open, userLocation]);
-
-  // Debounced search with location bias
-  useEffect(() => {
-    if (searchQuery.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-
-    const timeoutId = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const { data, error } = await supabase.functions.invoke('place-search', {
-          body: { 
-            query: searchQuery,
-            latitude: userLocation?.lat,
-            longitude: userLocation?.lng,
-            sessionToken,
-          },
-        });
-
-        if (error) throw error;
-        setSearchResults(data.results || []);
-        setShowResults(true);
-      } catch (error) {
-        console.error('Search error:', error);
-      } finally {
-        setSearching(false);
-      }
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery, userLocation]);
-
-  const selectPlace = async (place: PlaceResult) => {
-    setSearchQuery(place.name);
-    setShowResults(false);
-    setSearchResults([]);
-    setSelectedPlaceMeta({ placeId: place.mapboxId || null, category: place.category });
-
-    if (place.mapboxId && (place.latitude === null || place.longitude === null)) {
-      try {
-        const { data, error } = await supabase.functions.invoke('place-retrieve', {
-          body: { mapboxId: place.mapboxId, sessionToken },
-        });
-
-        if (error) throw error;
-
-        const result = data.result;
-        form.setValue('name', result.name);
-        form.setValue('address', result.address);
-        form.setValue('latitude', result.latitude);
-        form.setValue('longitude', result.longitude);
-        setSelectedPlaceMeta({ placeId: result.id || place.mapboxId || null, category: result.category ?? place.category });
-      } catch (error) {
-        console.error('Retrieve error:', error);
-        form.setValue('name', place.name);
-        form.setValue('address', place.address);
-      }
-    } else {
+  const {
+    searchQuery,
+    setSearchQuery,
+    searchResults,
+    searching,
+    showResults,
+    setShowResults,
+    selectPlace,
+    resetSearch,
+  } = usePlaceAutocomplete({
+    enabled: open,
+    onSelect: (place) => {
       form.setValue('name', place.name);
       form.setValue('address', place.address);
-      form.setValue('latitude', place.latitude || undefined);
-      form.setValue('longitude', place.longitude || undefined);
-    }
-  };
+      form.setValue('latitude', place.latitude ?? undefined);
+      form.setValue('longitude', place.longitude ?? undefined);
+      setSelectedPlaceMeta({ placeId: place.placeId, category: place.category });
+    },
+  });
 
   const addFiles = async (incoming: File[]) => {
     const remainingSlots = MAX_IMAGES_PER_RESTAURANT - images.length;
@@ -396,7 +320,7 @@ export function AddRestaurantDialog({
       form.reset();
       setImages([]);
       setImagePreviews([]);
-      setSearchQuery('');
+      resetSearch();
       setSelectedPlaceMeta({ placeId: null, category: null });
       onOpenChange(false);
       onSuccess();
@@ -413,8 +337,7 @@ export function AddRestaurantDialog({
       form.reset();
       setImages([]);
       setImagePreviews([]);
-      setSearchQuery('');
-      setSearchResults([]);
+      resetSearch();
       setSelectedPlaceMeta({ placeId: null, category: null });
     }
   }, [open, form]);
@@ -457,22 +380,12 @@ export function AddRestaurantDialog({
 
               {/* Search Results Dropdown */}
               {showResults && searchResults.length > 0 && (
-                <div className="absolute z-50 w-full max-w-[468px] bg-popover border rounded-md shadow-lg mt-1 max-h-[200px] overflow-y-auto overscroll-contain">
-                  {searchResults.map((place) => (
-                    <button
-                      key={place.id}
-                      type="button"
-                      className="w-full text-left px-4 py-3 hover:bg-accent transition-colors border-b last:border-b-0"
-                      onClick={() => selectPlace(place)}
-                    >
-                      <div className="font-medium">{place.name}</div>
-                      <div className="text-sm text-muted-foreground flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        {place.address}
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                <PlaceResultsDropdown
+                  results={searchResults}
+                  onSelect={selectPlace}
+                  onClose={() => setShowResults(false)}
+                  className="absolute z-50 w-full max-w-[468px] bg-popover border rounded-md shadow-lg mt-1 max-h-[200px] overflow-y-auto overscroll-contain"
+                />
               )}
               <p className="text-xs text-muted-foreground">
                 Search for a place or enter details manually below

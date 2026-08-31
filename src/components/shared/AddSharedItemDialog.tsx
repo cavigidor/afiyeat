@@ -24,16 +24,8 @@ import { toast } from 'sonner';
 import { PriceLevelPicker } from '@/components/restaurants/PriceLevelPicker';
 import { PRICE_LABELS } from './EmojiSlider';
 import { isDuplicateSharedItem } from '@/lib/duplicateRestaurant';
-
-interface PlaceResult {
-  id: string;
-  name: string;
-  address: string;
-  latitude: number | null;
-  longitude: number | null;
-  category: string | null;
-  mapboxId?: string;
-}
+import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
+import { PlaceResultsDropdown } from '@/components/shared/PlaceResultsDropdown';
 
 interface MyPlace {
   id: string;
@@ -74,12 +66,24 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
   const [priceLevel, setPriceLevel] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<PlaceResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [showResults, setShowResults] = useState(false);
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [sessionToken] = useState(() => crypto.randomUUID());
+  const {
+    searchQuery,
+    setSearchQuery,
+    searchResults,
+    searching,
+    showResults,
+    setShowResults,
+    selectPlace,
+    resetSearch,
+  } = usePlaceAutocomplete({
+    enabled: open,
+    onSelect: (place) => {
+      setName(place.name);
+      setAddress(place.address);
+      setLatitude(place.latitude);
+      setLongitude(place.longitude);
+    },
+  });
 
   const [myLists, setMyLists] = useState<MyListOption[]>([]);
   const [sourceListId, setSourceListId] = useState<string>(RESTAURANTS_SOURCE);
@@ -97,22 +101,10 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
     setStatus('to_go');
     setPriceLevel(null);
     setNotes('');
-    setSearchQuery('');
-    setSearchResults([]);
-    setShowResults(false);
+    resetSearch();
     setMineSearch('');
     setSourceListId(RESTAURANTS_SOURCE);
   };
-
-  useEffect(() => {
-    if (open && !userLocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) =>
-          setUserLocation({ lat: position.coords.latitude, lng: position.coords.longitude }),
-        () => {}
-      );
-    }
-  }, [open, userLocation]);
 
   // The list of pickable sources - My Restaurants plus every My Lists list -
   // only needs loading once per dialog open, independent of which one is
@@ -154,61 +146,6 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
     };
     loadMine();
   }, [open, user, sourceListId]);
-
-  useEffect(() => {
-    if (searchQuery.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-    const timeoutId = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const { data, error } = await supabase.functions.invoke('place-search', {
-          body: {
-            query: searchQuery,
-            latitude: userLocation?.lat,
-            longitude: userLocation?.lng,
-            sessionToken,
-          },
-        });
-        if (error) throw error;
-        setSearchResults(data.results || []);
-        setShowResults(true);
-      } catch (err) {
-        console.error('Search error:', err);
-      } finally {
-        setSearching(false);
-      }
-    }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery, userLocation]);
-
-  const selectPlace = async (place: PlaceResult) => {
-    setSearchQuery(place.name);
-    setShowResults(false);
-    setSearchResults([]);
-
-    if (place.mapboxId && (place.latitude === null || place.longitude === null)) {
-      try {
-        const { data, error } = await supabase.functions.invoke('place-retrieve', {
-          body: { mapboxId: place.mapboxId, sessionToken },
-        });
-        if (error) throw error;
-        const result = data.result;
-        setName(result.name);
-        setAddress(result.address || '');
-        setLatitude(result.latitude ?? null);
-        setLongitude(result.longitude ?? null);
-        return;
-      } catch (err) {
-        console.error('Retrieve error:', err);
-      }
-    }
-    setName(place.name);
-    setAddress(place.address || '');
-    setLatitude(place.latitude);
-    setLongitude(place.longitude);
-  };
 
   const pickMyPlace = (p: MyPlace) => {
     setName(p.name);
@@ -313,22 +250,12 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
               )}
             </div>
             {showResults && searchResults.length > 0 && (
-              <div className="bg-popover border rounded-md shadow-lg max-h-[180px] overflow-y-auto overscroll-contain">
-                {searchResults.map((place) => (
-                  <button
-                    key={place.id}
-                    type="button"
-                    className="w-full text-left px-4 py-3 hover:bg-accent transition-colors border-b last:border-b-0"
-                    onClick={() => selectPlace(place)}
-                  >
-                    <div className="font-medium">{place.name}</div>
-                    <div className="text-sm text-muted-foreground flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      {place.address}
-                    </div>
-                  </button>
-                ))}
-              </div>
+              <PlaceResultsDropdown
+                results={searchResults}
+                onSelect={selectPlace}
+                onClose={() => setShowResults(false)}
+                className="bg-popover border rounded-md shadow-lg max-h-[180px] overflow-y-auto overscroll-contain"
+              />
             )}
           </TabsContent>
 

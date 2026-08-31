@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, MapPin, Search, ImagePlus, X, Camera } from 'lucide-react';
+import { Loader2, Search, ImagePlus, X, Camera } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -28,20 +28,12 @@ import { StarRatingPicker } from '@/components/lists/StarRatingPicker';
 import { useSignedImageUrls } from '@/hooks/useSignedImageUrl';
 import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
 import { isDuplicateCustomListItem } from '@/lib/duplicateRestaurant';
+import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
+import { PlaceResultsDropdown } from '@/components/shared/PlaceResultsDropdown';
 import type { CustomList } from './CreateListDialog';
 import type { ManagedListType } from '@/hooks/useListTypeManagement';
 
 const PRICE_LABELS = ['<$30', '<$50', '<$100', '$100+'];
-
-interface PlaceResult {
-  id: string;
-  name: string;
-  address: string;
-  latitude: number | null;
-  longitude: number | null;
-  category: string | null;
-  mapboxId?: string;
-}
 
 export interface CustomListItem {
   id: string;
@@ -100,14 +92,26 @@ export function AddCustomListItemDialog({
   const [existingImages, setExistingImages] = useState<{ id: string; image_url: string }[]>([]);
   const [removedImageIds, setRemovedImageIds] = useState<string[]>([]);
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<PlaceResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [showResults, setShowResults] = useState(false);
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [sessionToken] = useState(() => crypto.randomUUID());
-
   const isEditing = !!editItem;
+
+  const {
+    searchQuery,
+    setSearchQuery,
+    searchResults,
+    searching,
+    showResults,
+    setShowResults,
+    selectPlace,
+    resetSearch,
+  } = usePlaceAutocomplete({
+    enabled: open && list.show_location,
+    onSelect: (place) => {
+      setName(place.name);
+      setAddress(place.address);
+      setLatitude(place.latitude);
+      setLongitude(place.longitude);
+    },
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -141,68 +145,8 @@ export function AddCustomListItemDialog({
     setImages([]);
     setImagePreviews([]);
     setRemovedImageIds([]);
-    setSearchQuery('');
-    setSearchResults([]);
+    resetSearch();
   }, [open, editItem]);
-
-  useEffect(() => {
-    if (open && list.show_location && !userLocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => setUserLocation({ lat: position.coords.latitude, lng: position.coords.longitude }),
-        () => {},
-      );
-    }
-  }, [open, list.show_location, userLocation]);
-
-  useEffect(() => {
-    if (!list.show_location || searchQuery.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-    const timeoutId = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const { data, error } = await supabase.functions.invoke('place-search', {
-          body: { query: searchQuery, latitude: userLocation?.lat, longitude: userLocation?.lng, sessionToken },
-        });
-        if (error) throw error;
-        setSearchResults(data.results || []);
-        setShowResults(true);
-      } catch (err) {
-        console.error('Search error:', err);
-      } finally {
-        setSearching(false);
-      }
-    }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery, userLocation, list.show_location]);
-
-  const selectPlace = async (place: PlaceResult) => {
-    setSearchQuery(place.name);
-    setShowResults(false);
-    setSearchResults([]);
-
-    if (place.mapboxId && (place.latitude === null || place.longitude === null)) {
-      try {
-        const { data, error } = await supabase.functions.invoke('place-retrieve', {
-          body: { mapboxId: place.mapboxId, sessionToken },
-        });
-        if (error) throw error;
-        const result = data.result;
-        setName(result.name);
-        setAddress(result.address || '');
-        setLatitude(result.latitude ?? null);
-        setLongitude(result.longitude ?? null);
-        return;
-      } catch (err) {
-        console.error('Retrieve error:', err);
-      }
-    }
-    setName(place.name);
-    setAddress(place.address || '');
-    setLatitude(place.latitude);
-    setLongitude(place.longitude);
-  };
 
   const addFiles = async (incoming: File[]) => {
     const remainingSlots = MAX_IMAGES_PER_ITEM - existingImages.length - images.length;
@@ -367,22 +311,12 @@ export function AddCustomListItemDialog({
                 )}
               </div>
               {showResults && searchResults.length > 0 && (
-                <div className="absolute z-50 w-full bg-popover border rounded-md shadow-lg mt-1 max-h-[200px] overflow-y-auto overscroll-contain">
-                  {searchResults.map((place) => (
-                    <button
-                      key={place.id}
-                      type="button"
-                      className="w-full text-left px-4 py-3 hover:bg-accent transition-colors border-b last:border-b-0"
-                      onClick={() => selectPlace(place)}
-                    >
-                      <div className="font-medium">{place.name}</div>
-                      <div className="text-sm text-muted-foreground flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        {place.address}
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                <PlaceResultsDropdown
+                  results={searchResults}
+                  onSelect={selectPlace}
+                  onClose={() => setShowResults(false)}
+                  className="absolute z-50 w-full bg-popover border rounded-md shadow-lg mt-1 max-h-[200px] overflow-y-auto overscroll-contain"
+                />
               )}
               <p className="text-xs text-muted-foreground">Or fill in details manually below</p>
             </div>

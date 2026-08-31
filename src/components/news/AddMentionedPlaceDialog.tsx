@@ -22,16 +22,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { isDuplicateRestaurant } from '@/lib/duplicateRestaurant';
-
-interface PlaceResult {
-  id: string;
-  name: string;
-  address: string;
-  latitude: number | null;
-  longitude: number | null;
-  category: string | null;
-  mapboxId?: string;
-}
+import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
+import { PlaceResultsDropdown } from '@/components/shared/PlaceResultsDropdown';
 
 interface SharedListOption {
   id: string;
@@ -92,18 +84,33 @@ export function AddMentionedPlaceDialog({ open, onOpenChange, placeName }: AddMe
   const [destination, setDestination] = useState<Destination>('mine');
   const [sharedListId, setSharedListId] = useState<string | null>(null);
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<PlaceResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [showResults, setShowResults] = useState(false);
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [sessionToken] = useState(() => crypto.randomUUID());
-
   const [sharedLists, setSharedLists] = useState<SharedListOption[]>([]);
   const [sharedListsLoading, setSharedListsLoading] = useState(false);
 
+  const {
+    searchQuery,
+    setSearchQuery,
+    searchResults,
+    searching,
+    showResults,
+    setShowResults,
+    selectPlace,
+    resetSearch,
+  } = usePlaceAutocomplete({
+    enabled: open,
+    onSelect: (place) => {
+      setName(place.name);
+      setAddress(place.address);
+      setLatitude(place.latitude);
+      setLongitude(place.longitude);
+      setPlaceId(place.placeId);
+      setCategory(place.category);
+    },
+  });
+
   // Prime the search with the article's restaurant name whenever the
-  // dialog opens for a new place.
+  // dialog opens for a new place - the hook's own debounced search effect
+  // picks up this query change and runs automatically.
   useEffect(() => {
     if (!open) return;
     setName(placeName);
@@ -117,18 +124,7 @@ export function AddMentionedPlaceDialog({ open, onOpenChange, placeName }: AddMe
     setStatus('to_go');
     setDestination('mine');
     setSharedListId(null);
-    setSearchResults([]);
-    setShowResults(false);
   }, [open, placeName]);
-
-  useEffect(() => {
-    if (open && !userLocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => setUserLocation({ lat: position.coords.latitude, lng: position.coords.longitude }),
-        () => {},
-      );
-    }
-  }, [open, userLocation]);
 
   useEffect(() => {
     if (!open || !user) return;
@@ -138,67 +134,6 @@ export function AddMentionedPlaceDialog({ open, onOpenChange, placeName }: AddMe
       .catch((err) => console.error('Failed to load shared lists:', err))
       .finally(() => setSharedListsLoading(false));
   }, [open, user]);
-
-  // Auto-search once the dialog opens (searchQuery starts pre-filled).
-  useEffect(() => {
-    if (!open || searchQuery.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-    const timeoutId = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const { data, error } = await supabase.functions.invoke('place-search', {
-          body: {
-            query: searchQuery,
-            latitude: userLocation?.lat,
-            longitude: userLocation?.lng,
-            sessionToken,
-          },
-        });
-        if (error) throw error;
-        setSearchResults(data.results || []);
-        setShowResults(true);
-      } catch (err) {
-        console.error('Search error:', err);
-      } finally {
-        setSearching(false);
-      }
-    }, 300);
-    return () => clearTimeout(timeoutId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, userLocation, open]);
-
-  const selectPlace = async (place: PlaceResult) => {
-    setSearchQuery(place.name);
-    setShowResults(false);
-    setSearchResults([]);
-
-    if (place.mapboxId && (place.latitude === null || place.longitude === null)) {
-      try {
-        const { data, error } = await supabase.functions.invoke('place-retrieve', {
-          body: { mapboxId: place.mapboxId, sessionToken },
-        });
-        if (error) throw error;
-        const result = data.result;
-        setName(result.name);
-        setAddress(result.address || '');
-        setLatitude(result.latitude ?? null);
-        setLongitude(result.longitude ?? null);
-        setPlaceId(result.id || place.mapboxId || null);
-        setCategory(result.category ?? place.category ?? null);
-        return;
-      } catch (err) {
-        console.error('Retrieve error:', err);
-      }
-    }
-    setName(place.name);
-    setAddress(place.address || '');
-    setLatitude(place.latitude);
-    setLongitude(place.longitude);
-    setPlaceId(place.mapboxId || null);
-    setCategory(place.category);
-  };
 
   const handleSubmit = async () => {
     if (!user) return;
@@ -293,22 +228,12 @@ export function AddMentionedPlaceDialog({ open, onOpenChange, placeName }: AddMe
               )}
             </div>
             {showResults && searchResults.length > 0 && (
-              <div className="bg-popover border rounded-md shadow-lg max-h-[180px] overflow-y-auto overscroll-contain">
-                {searchResults.map((place) => (
-                  <button
-                    key={place.id}
-                    type="button"
-                    className="w-full text-left px-4 py-3 hover:bg-accent transition-colors border-b last:border-b-0"
-                    onClick={() => selectPlace(place)}
-                  >
-                    <div className="font-medium">{place.name}</div>
-                    <div className="text-sm text-muted-foreground flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      {place.address}
-                    </div>
-                  </button>
-                ))}
-              </div>
+              <PlaceResultsDropdown
+                results={searchResults}
+                onSelect={selectPlace}
+                onClose={() => setShowResults(false)}
+                className="bg-popover border rounded-md shadow-lg max-h-[180px] overflow-y-auto overscroll-contain"
+              />
             )}
             {address && !showResults && (
               <p className="text-xs text-muted-foreground flex items-center gap-1">
