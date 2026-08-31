@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loader2, Newspaper, Sparkles, MapPin, ExternalLink, Calendar, Plus } from 'lucide-react';
 import { AddMentionedPlaceDialog } from '@/components/news/AddMentionedPlaceDialog';
+import { getCurrentPosition } from '@/lib/native';
 
 interface MentionedRestaurant {
   name: string;
@@ -76,18 +77,16 @@ export default function News() {
       if (!cancelled) setCity(detected);
     };
 
-    if (!('geolocation' in navigator)) {
-      applyDetected(DEFAULT_CITY);
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
+    // getCurrentPosition() (not raw navigator.geolocation) so this routes
+    // through the native Capacitor plugin on iOS/Android instead of relying
+    // on the web geolocation API inside the WebView.
+    getCurrentPosition()
+      .then(async (coords) => {
         try {
           const { data } = await supabase.functions.invoke('reverse-geocode-region', {
             body: {
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude,
+              latitude: coords.latitude,
+              longitude: coords.longitude,
             },
           });
           const shortCode: string | undefined = data?.shortCode?.toUpperCase?.();
@@ -95,11 +94,9 @@ export default function News() {
         } catch {
           applyDetected(DEFAULT_CITY);
         }
-      },
+      })
       // Denied or unavailable -> default to Chicago.
-      () => applyDetected(DEFAULT_CITY),
-      { timeout: 8000 },
-    );
+      .catch(() => applyDetected(DEFAULT_CITY));
 
     return () => {
       cancelled = true;

@@ -48,6 +48,9 @@ import { getPriceSortValue, getRatingSortValue } from '@/lib/customListValues';
 import { getDirectionsPopupHtml } from '@/lib/directions';
 import { createPinElement } from '@/lib/mapPin';
 import { shareListLink } from '@/lib/shareList';
+import { useLocationPermission } from '@/hooks/useLocationPermission';
+import { LocationDeniedDialog } from '@/components/shared/LocationDeniedDialog';
+import { NearMeButton } from '@/components/shared/NearMeButton';
 
 type SortBy = 'name' | 'price_asc' | 'price_desc' | 'rating_desc';
 
@@ -108,6 +111,8 @@ export default function CustomListDetail() {
   const [viewMode, setViewMode] = useViewMode(`custom-list-${listId}`);
   const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
   const mapFlyToRef = useRef<((lat: number, lng: number, itemId: string) => void) | null>(null);
+  const mapFlyToMeRef = useRef<(() => void) | null>(null);
+  const [locationDeniedOpen, setLocationDeniedOpen] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -422,13 +427,18 @@ export default function CustomListDetail() {
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   </div>
                 ) : mapboxToken ? (
-                  <CustomListMapComponent
-                    token={mapboxToken}
-                    items={currentItems}
-                    focusedItemId={focusedItemId}
-                    onFocusItem={setFocusedItemId}
-                    flyToRef={mapFlyToRef}
-                  />
+                  <>
+                    <CustomListMapComponent
+                      token={mapboxToken}
+                      items={currentItems}
+                      focusedItemId={focusedItemId}
+                      onFocusItem={setFocusedItemId}
+                      flyToRef={mapFlyToRef}
+                      flyToMeRef={mapFlyToMeRef}
+                      onLocationDenied={() => setLocationDeniedOpen(true)}
+                    />
+                    <NearMeButton onClick={() => mapFlyToMeRef.current?.()} />
+                  </>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                     <Map className="h-12 w-12 mb-4 opacity-50" />
@@ -478,6 +488,8 @@ export default function CustomListDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <LocationDeniedDialog open={locationDeniedOpen} onOpenChange={setLocationDeniedOpen} />
     </div>
   );
 }
@@ -488,12 +500,15 @@ interface CustomListMapComponentProps {
   focusedItemId: string | null;
   onFocusItem: (id: string | null) => void;
   flyToRef: React.MutableRefObject<((lat: number, lng: number, itemId: string) => void) | null>;
+  flyToMeRef: React.MutableRefObject<(() => void) | null>;
+  onLocationDenied: () => void;
 }
 
 // Same pattern as MyList.tsx's MapComponent - pins are colored and
 // emoji-tagged by the item's type (see createPinElement) so a list with
 // several types is easy to scan at a glance.
-function CustomListMapComponent({ token, items, focusedItemId, onFocusItem, flyToRef }: CustomListMapComponentProps) {
+function CustomListMapComponent({ token, items, focusedItemId, onFocusItem, flyToRef, flyToMeRef, onLocationDenied }: CustomListMapComponentProps) {
+  const { requestLocation } = useLocationPermission();
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<globalThis.Map<string, any>>(new globalThis.Map());
@@ -526,6 +541,18 @@ function CustomListMapComponent({ token, items, focusedItemId, onFocusItem, flyT
           if (marker) marker.togglePopup();
         }
       };
+
+      // "Near Me" - recenter on demand, distinct from the auto-centering
+      // that runs once when the map first loads.
+      flyToMeRef.current = () => {
+        requestLocation().then(({ coords, wasDenied }) => {
+          if (coords) {
+            mapRef.current?.flyTo({ center: [coords.longitude, coords.latitude], zoom: 14, essential: true });
+          } else if (wasDenied) {
+            onLocationDenied();
+          }
+        });
+      };
     };
 
     loadMapbox();
@@ -536,8 +563,9 @@ function CustomListMapComponent({ token, items, focusedItemId, onFocusItem, flyT
         mapRef.current = null;
       }
       flyToRef.current = null;
+      flyToMeRef.current = null;
     };
-  }, [token, flyToRef]);
+  }, [token, flyToRef, flyToMeRef]);
 
   useEffect(() => {
     if (!mapRef.current) return;

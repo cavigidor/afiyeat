@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { useMapCenter } from '@/hooks/useMapCenter';
-import { getCurrentPosition } from '@/lib/native';
+import { useLocationPermission } from '@/hooks/useLocationPermission';
 import { getDirectionsPopupHtml } from '@/lib/directions';
 import { formatCategory, toNumber, type ExplorePlace } from './ExplorePlaceCard';
 
@@ -10,9 +10,11 @@ interface ExploreMapComponentProps {
   places: ExplorePlace[];
   onSelectPlace: (place: ExplorePlace) => void;
   flyToMeRef: React.MutableRefObject<(() => void) | null>;
+  onLocationDenied: () => void;
 }
 
-export function ExploreMapComponent({ token, places, onSelectPlace, flyToMeRef }: ExploreMapComponentProps) {
+export function ExploreMapComponent({ token, places, onSelectPlace, flyToMeRef, onLocationDenied }: ExploreMapComponentProps) {
+  const { requestLocation } = useLocationPermission();
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<globalThis.Map<string, any>>(new globalThis.Map());
@@ -48,21 +50,26 @@ export function ExploreMapComponent({ token, places, onSelectPlace, flyToMeRef }
       mapRef.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
       // Exposes an explicit "Near Me" action to the parent page's button,
-      // using the same getCurrentPosition() wrapper as the rest of the app
-      // (correctly routes through the native Capacitor plugin on iOS/Android
-      // instead of relying on the web geolocation API inside the WebView).
+      // using the same getCurrentPosition() wrapper (via useLocationPermission)
+      // as the rest of the app - correctly routes through the native
+      // Capacitor plugin on iOS/Android instead of relying on the web
+      // geolocation API inside the WebView, and distinguishes an actual
+      // permission denial (-> onLocationDenied) from a one-off failure
+      // (-> generic toast).
       flyToMeRef.current = () => {
-        getCurrentPosition()
-          .then((coords) => {
+        requestLocation().then(({ coords, wasDenied }) => {
+          if (coords) {
             mapRef.current?.flyTo({
               center: [coords.longitude, coords.latitude],
               zoom: 14,
               essential: true,
             });
-          })
-          .catch(() => {
+          } else if (wasDenied) {
+            onLocationDenied();
+          } else {
             toast.error("Couldn't get your location. Check location permissions and try again.");
-          });
+          }
+        });
       };
     };
 

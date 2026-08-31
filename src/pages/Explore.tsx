@@ -33,6 +33,8 @@ import { PlaceDetailSheet } from '@/components/explore/PlaceDetailSheet';
 import { ExploreListCard, type ExploreList } from '@/components/explore/ExploreListCard';
 import { EventCard, type TicketmasterEvent } from '@/components/explore/EventCard';
 import { EventsMapComponent } from '@/components/explore/EventsMapComponent';
+import { LocationDeniedDialog } from '@/components/shared/LocationDeniedDialog';
+import { useLocationPermission } from '@/hooks/useLocationPermission';
 
 type ExploreMode = 'friends' | 'all';
 type ExploreView = 'map' | 'list';
@@ -106,6 +108,8 @@ export default function Explore() {
   const [selectedPlace, setSelectedPlace] = useState<ExplorePlace | null>(null);
   const flyToMeRef = useRef<(() => void) | null>(null);
   const eventsFlyToMeRef = useRef<(() => void) | null>(null);
+  const [locationDeniedOpen, setLocationDeniedOpen] = useState(false);
+  const { requestLocation } = useLocationPermission();
 
   const [eventsLocation, setEventsLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [eventsLocationDenied, setEventsLocationDenied] = useState(false);
@@ -128,18 +132,18 @@ export default function Explore() {
 
   // Events are found by device location (not stored user data like
   // restaurants/lists are), so it's only requested once the Events tab is
-  // actually opened rather than eagerly on page load.
+  // actually opened rather than eagerly on page load. Uses getCurrentPosition()
+  // (via requestLocation) rather than raw navigator.geolocation so this
+  // correctly routes through the native Capacitor plugin on iOS/Android.
   useEffect(() => {
     if (contentType !== 'events' || eventsLocation || eventsLocationDenied) return;
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setEventsLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
-      },
-      (error) => {
-        console.log('Location not available for events:', error.message);
+    requestLocation().then(({ coords }) => {
+      if (coords) {
+        setEventsLocation({ lat: coords.latitude, lng: coords.longitude });
+      } else {
         setEventsLocationDenied(true);
-      },
-    );
+      }
+    });
   }, [contentType, eventsLocation, eventsLocationDenied]);
 
   // Debounced so every keystroke doesn't trigger a Ticketmaster call.
@@ -409,6 +413,7 @@ export default function Explore() {
                               center={eventsLocation}
                               flyToMeRef={eventsFlyToMeRef}
                               onSearchThisArea={handleSearchThisArea}
+                              onLocationDenied={() => setLocationDeniedOpen(true)}
                             />
                             <Button
                               type="button"
@@ -465,6 +470,7 @@ export default function Explore() {
                       places={places}
                       onSelectPlace={setSelectedPlace}
                       flyToMeRef={flyToMeRef}
+                      onLocationDenied={() => setLocationDeniedOpen(true)}
                     />
                     <Button
                       type="button"
@@ -504,6 +510,8 @@ export default function Explore() {
         mode={mode}
         onOpenChange={(open) => !open && setSelectedPlace(null)}
       />
+
+      <LocationDeniedDialog open={locationDeniedOpen} onOpenChange={setLocationDeniedOpen} />
     </div>
   );
 }

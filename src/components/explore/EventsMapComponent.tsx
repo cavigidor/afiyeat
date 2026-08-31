@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { getCurrentPosition } from '@/lib/native';
+import { useLocationPermission } from '@/hooks/useLocationPermission';
 import { distanceMiles } from '@/lib/geo';
 import type { TicketmasterEvent } from './EventCard';
 
@@ -15,6 +15,7 @@ interface EventsMapComponentProps {
   // match the viewport instead of always being a fixed 25mi around wherever
   // the device happened to be when the tab was first opened.
   onSearchThisArea: (center: { lat: number; lng: number }, radiusMiles: number) => void;
+  onLocationDenied: () => void;
 }
 
 function formatEventDateShort(localDate: string | null): string {
@@ -27,7 +28,8 @@ function formatEventDateShort(localDate: string | null): string {
 // Sibling to ExploreMapComponent (restaurants) rather than a generalized
 // shared map, matching how Friends.tsx/MyList.tsx/etc already each keep
 // their own small map component instead of one do-everything map.
-export function EventsMapComponent({ token, events, center, flyToMeRef, onSearchThisArea }: EventsMapComponentProps) {
+export function EventsMapComponent({ token, events, center, flyToMeRef, onSearchThisArea, onLocationDenied }: EventsMapComponentProps) {
+  const { requestLocation } = useLocationPermission();
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<globalThis.Map<string, any>>(new globalThis.Map());
@@ -75,17 +77,19 @@ export function EventsMapComponent({ token, events, center, flyToMeRef, onSearch
       });
 
       flyToMeRef.current = () => {
-        getCurrentPosition()
-          .then((coords) => {
+        requestLocation().then(({ coords, wasDenied }) => {
+          if (coords) {
             mapRef.current?.flyTo({
               center: [coords.longitude, coords.latitude],
               zoom: 13,
               essential: true,
             });
-          })
-          .catch(() => {
+          } else if (wasDenied) {
+            onLocationDenied();
+          } else {
             toast.error("Couldn't get your location. Check location permissions and try again.");
-          });
+          }
+        });
       };
     };
 

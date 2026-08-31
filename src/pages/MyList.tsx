@@ -25,6 +25,9 @@ import type { RestaurantSortBy } from '@/hooks/useRestaurantListControls';
 import { getDirectionsPopupHtml } from '@/lib/directions';
 import { createPinElement } from '@/lib/mapPin';
 import { toast } from 'sonner';
+import { useLocationPermission } from '@/hooks/useLocationPermission';
+import { LocationDeniedDialog } from '@/components/shared/LocationDeniedDialog';
+import { NearMeButton } from '@/components/shared/NearMeButton';
 
 interface Restaurant {
   id: string;
@@ -100,6 +103,8 @@ export default function MyList() {
   const [modifyMode, setModifyMode] = useState(false);
   const [manageTypesOpen, setManageTypesOpen] = useState(false);
   const mapFlyToRef = useRef<((lat: number, lng: number, restaurantId: string) => void) | null>(null);
+  const mapFlyToMeRef = useRef<(() => void) | null>(null);
+  const [locationDeniedOpen, setLocationDeniedOpen] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -453,13 +458,18 @@ export default function MyList() {
                       <Loader2 className="h-8 w-8 animate-spin text-primary" />
                     </div>
                   ) : mapboxToken ? (
-                    <MapComponent 
-                      token={mapboxToken} 
-                      restaurants={currentList} 
-                      focusedRestaurantId={focusedRestaurantId}
-                      onFocusRestaurant={setFocusedRestaurantId}
-                      flyToRef={mapFlyToRef}
-                    />
+                    <>
+                      <MapComponent
+                        token={mapboxToken}
+                        restaurants={currentList}
+                        focusedRestaurantId={focusedRestaurantId}
+                        onFocusRestaurant={setFocusedRestaurantId}
+                        flyToRef={mapFlyToRef}
+                        flyToMeRef={mapFlyToMeRef}
+                        onLocationDenied={() => setLocationDeniedOpen(true)}
+                      />
+                      <NearMeButton onClick={() => mapFlyToMeRef.current?.()} />
+                    </>
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                       <Map className="h-12 w-12 mb-4 opacity-50" />
@@ -515,6 +525,8 @@ export default function MyList() {
             : undefined
         }
       />
+
+      <LocationDeniedDialog open={locationDeniedOpen} onOpenChange={setLocationDeniedOpen} />
     </div>
   );
 }
@@ -525,9 +537,12 @@ interface MapComponentProps {
   focusedRestaurantId: string | null;
   onFocusRestaurant: (id: string | null) => void;
   flyToRef: React.MutableRefObject<((lat: number, lng: number, restaurantId: string) => void) | null>;
+  flyToMeRef: React.MutableRefObject<(() => void) | null>;
+  onLocationDenied: () => void;
 }
 
-function MapComponent({ token, restaurants, focusedRestaurantId, onFocusRestaurant, flyToRef }: MapComponentProps) {
+function MapComponent({ token, restaurants, focusedRestaurantId, onFocusRestaurant, flyToRef, flyToMeRef, onLocationDenied }: MapComponentProps) {
+  const { requestLocation } = useLocationPermission();
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<globalThis.Map<string, any>>(new globalThis.Map());
@@ -569,6 +584,18 @@ function MapComponent({ token, restaurants, focusedRestaurantId, onFocusRestaura
           }
         }
       };
+
+      // "Near Me" - recenter on demand, distinct from the auto-centering
+      // above which only runs once when the map first loads.
+      flyToMeRef.current = () => {
+        requestLocation().then(({ coords, wasDenied }) => {
+          if (coords) {
+            mapRef.current?.flyTo({ center: [coords.longitude, coords.latitude], zoom: 14, essential: true });
+          } else if (wasDenied) {
+            onLocationDenied();
+          }
+        });
+      };
     };
 
     loadMapbox();
@@ -579,11 +606,12 @@ function MapComponent({ token, restaurants, focusedRestaurantId, onFocusRestaura
         mapRef.current = null;
       }
       flyToRef.current = null;
+      flyToMeRef.current = null;
     };
     // Intentionally created once per token - the map is panned (not rebuilt)
     // when `center` resolves to a new value below (e.g. once GPS comes back
     // after this effect already ran with the fallback center).
-  }, [token, flyToRef]);
+  }, [token, flyToRef, flyToMeRef]);
 
   // Pan the already-created map when the resolved center changes, instead of
   // leaving it stuck on whatever center was available at mount time.

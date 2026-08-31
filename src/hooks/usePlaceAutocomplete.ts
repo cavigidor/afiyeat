@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getCurrentPosition } from '@/lib/native';
 
 export interface PlaceResult {
   id: string;
@@ -44,10 +45,13 @@ export function usePlaceAutocomplete({ enabled = true, onSelect }: UsePlaceAutoc
 
   useEffect(() => {
     if (!enabled || userLocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (position) => setUserLocation({ lat: position.coords.latitude, lng: position.coords.longitude }),
-      () => {},
-    );
+    // getCurrentPosition() (not raw navigator.geolocation) so this routes
+    // through the native Capacitor plugin on iOS/Android instead of relying
+    // on the web geolocation API inside the WebView, which doesn't reliably
+    // trigger the native permission prompt on its own.
+    getCurrentPosition()
+      .then((coords) => setUserLocation({ lat: coords.latitude, lng: coords.longitude }))
+      .catch(() => {});
   }, [enabled, userLocation]);
 
   useEffect(() => {

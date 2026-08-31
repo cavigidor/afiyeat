@@ -29,6 +29,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { SharedLists } from '@/components/shared/SharedLists';
+import { useLocationPermission } from '@/hooks/useLocationPermission';
+import { LocationDeniedDialog } from '@/components/shared/LocationDeniedDialog';
+import { NearMeButton } from '@/components/shared/NearMeButton';
 
 interface Profile {
   id: string;
@@ -137,6 +140,8 @@ export default function Friends() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [focusedRestaurantId, setFocusedRestaurantId] = useState<string | null>(null);
   const mapFlyToRef = useRef<((lat: number, lng: number, restaurantId: string) => void) | null>(null);
+  const mapFlyToMeRef = useRef<(() => void) | null>(null);
+  const [locationDeniedOpen, setLocationDeniedOpen] = useState(false);
 
   const { data: following = [] } = useQuery({
     queryKey: ['following', user?.id],
@@ -521,13 +526,18 @@ export default function Friends() {
                               <Loader2 className="h-8 w-8 animate-spin text-primary" />
                             </div>
                           ) : mapboxToken ? (
-                            <FriendsMapComponent
-                              token={mapboxToken}
-                              restaurants={statusFilteredRestaurants}
-                              focusedRestaurantId={focusedRestaurantId}
-                              onFocusRestaurant={setFocusedRestaurantId}
-                              flyToRef={mapFlyToRef}
-                            />
+                            <>
+                              <FriendsMapComponent
+                                token={mapboxToken}
+                                restaurants={statusFilteredRestaurants}
+                                focusedRestaurantId={focusedRestaurantId}
+                                onFocusRestaurant={setFocusedRestaurantId}
+                                flyToRef={mapFlyToRef}
+                                flyToMeRef={mapFlyToMeRef}
+                                onLocationDenied={() => setLocationDeniedOpen(true)}
+                              />
+                              <NearMeButton onClick={() => mapFlyToMeRef.current?.()} />
+                            </>
                           ) : (
                             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                               <Map className="h-12 w-12 mb-4 opacity-50" />
@@ -701,6 +711,8 @@ export default function Friends() {
         restaurant={detailRestaurant}
         onOpenChange={(open) => !open && setDetailRestaurant(null)}
       />
+
+      <LocationDeniedDialog open={locationDeniedOpen} onOpenChange={setLocationDeniedOpen} />
     </div>
   );
 }
@@ -711,9 +723,12 @@ interface FriendsMapComponentProps {
   focusedRestaurantId: string | null;
   onFocusRestaurant: (id: string | null) => void;
   flyToRef: React.MutableRefObject<((lat: number, lng: number, restaurantId: string) => void) | null>;
+  flyToMeRef: React.MutableRefObject<(() => void) | null>;
+  onLocationDenied: () => void;
 }
 
-function FriendsMapComponent({ token, restaurants, focusedRestaurantId, onFocusRestaurant, flyToRef }: FriendsMapComponentProps) {
+function FriendsMapComponent({ token, restaurants, focusedRestaurantId, onFocusRestaurant, flyToRef, flyToMeRef, onLocationDenied }: FriendsMapComponentProps) {
+  const { requestLocation } = useLocationPermission();
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<globalThis.Map<string, any>>(new globalThis.Map());
@@ -757,6 +772,18 @@ function FriendsMapComponent({ token, restaurants, focusedRestaurantId, onFocusR
           }
         }
       };
+
+      // "Near Me" - recenter on demand, distinct from the auto-centering
+      // that runs once when the map first loads.
+      flyToMeRef.current = () => {
+        requestLocation().then(({ coords, wasDenied }) => {
+          if (coords) {
+            mapRef.current?.flyTo({ center: [coords.longitude, coords.latitude], zoom: 14, essential: true });
+          } else if (wasDenied) {
+            onLocationDenied();
+          }
+        });
+      };
     };
 
     loadMapbox();
@@ -768,9 +795,10 @@ function FriendsMapComponent({ token, restaurants, focusedRestaurantId, onFocusR
         mapRef.current = null;
       }
       flyToRef.current = null;
+      flyToMeRef.current = null;
     };
     // Intentionally created once per token - see the pan effect below.
-  }, [token, flyToRef]);
+  }, [token, flyToRef, flyToMeRef]);
 
   // Pan the already-created map when the resolved center changes (e.g. GPS
   // resolves shortly after mount) instead of tearing the whole map down.
