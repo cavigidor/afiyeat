@@ -45,7 +45,7 @@ export function ExplorePlaceCard({ place, onClick }: ExplorePlaceCardProps) {
 
   return (
     <Card
-      className="cursor-pointer transition-all hover:shadow-lg"
+      className="cursor-pointer transition-all hover:shadow-lg active:bg-muted/60"
       onClick={onClick}
       role="button"
       tabIndex={0}

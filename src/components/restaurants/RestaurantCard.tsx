@@ -43,7 +43,7 @@ export function RestaurantCard({ restaurant, onEdit, onDelete, onMarkVisited, qu
   const showFallback = !firstImage || imgFailed;
 
   return (
-    <Card className="group overflow-hidden transition-all hover:shadow-lg">
+    <Card className="group overflow-hidden transition-all hover:shadow-lg active:bg-muted/60">
       <div className="relative aspect-video bg-muted overflow-hidden">
         {imageLoading ? (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-accent/10">

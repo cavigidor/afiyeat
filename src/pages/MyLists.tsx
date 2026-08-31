@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Plus, ListChecks, Settings, Trash2, UtensilsCrossed, ListPlus, Users } from 'lucide-react';
+import { Loader2, Plus, ListChecks, Settings, Trash2, UtensilsCrossed, ListPlus, Users, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreateListDialog, type CustomList } from '@/components/lists/CreateListDialog';
 import { CreateSharedListDialog } from '@/components/shared/CreateSharedListDialog';
@@ -116,6 +116,8 @@ export default function MyLists() {
   const [createSharedOpen, setCreateSharedOpen] = useState(false);
   const [editList, setEditList] = useState<CustomList | null>(null);
   const [deleteListId, setDeleteListId] = useState<string | null>(null);
+  const [deleteRestaurantsOpen, setDeleteRestaurantsOpen] = useState(false);
+  const [deletingRestaurants, setDeletingRestaurants] = useState(false);
 
   const { data: following = [] } = useFollowing(user?.id);
 
@@ -169,6 +171,26 @@ export default function MyLists() {
     }
   };
 
+  // My Restaurants isn't a custom_lists row - it's the entire restaurants
+  // table for this user - so "deleting the list" here means deleting every
+  // restaurant in it, not un-pinning a wrapper. Restaurant photos in
+  // Storage aren't cleaned up here, matching the existing single-restaurant
+  // delete flow in MyList.tsx, which doesn't do that either.
+  const handleDeleteRestaurants = async () => {
+    if (!user) return;
+    setDeletingRestaurants(true);
+    const { error } = await supabase.from('restaurants').delete().eq('user_id', user.id);
+    setDeletingRestaurants(false);
+    if (error) {
+      toast.error('Failed to delete My Restaurants');
+    } else {
+      toast.success('My Restaurants cleared');
+      setDeleteRestaurantsOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['restaurant_count', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['restaurants', user.id] });
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -217,10 +239,10 @@ export default function MyLists() {
           <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {/* Pinned - My Restaurants is the flagship list and always shows
                 first, ahead of any custom list. It isn't a custom_lists row
-                (predates that table), so it has no settings/delete gear
-                here - manage restaurant types from within that page. */}
+                (predates that table) - manage restaurant types from within
+                that page, but it can be cleared out entirely from here. */}
             <Card
-              className="cursor-pointer hover:shadow-md transition-shadow overflow-hidden border-primary/30"
+              className="cursor-pointer hover:shadow-md active:bg-muted/60 transition-all overflow-hidden border-primary/30"
               onClick={() => navigate('/my-list')}
             >
               <div className="h-1.5 bg-primary" />
@@ -234,6 +256,20 @@ export default function MyLists() {
                     {restaurantCount} place{restaurantCount === 1 ? '' : 's'}
                   </p>
                 </div>
+                {restaurantCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
+                    aria-label="Delete My Restaurants"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteRestaurantsOpen(true);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </CardContent>
             </Card>
 
@@ -255,7 +291,7 @@ export default function MyLists() {
             lists.map((list) => (
               <Card
                 key={list.id}
-                className="cursor-pointer hover:shadow-md transition-shadow overflow-hidden"
+                className="cursor-pointer hover:shadow-md active:bg-muted/60 transition-all overflow-hidden"
                 onClick={() => navigate(`/my-lists/${list.id}`)}
               >
                 <div className="h-1.5" style={{ backgroundColor: list.color }} />
@@ -316,7 +352,7 @@ export default function MyLists() {
               {sharedLists.map((sl) => (
                 <Card
                   key={sl.id}
-                  className="cursor-pointer hover:shadow-md transition-shadow overflow-hidden"
+                  className="cursor-pointer hover:shadow-md active:bg-muted/60 transition-all overflow-hidden"
                   onClick={() => navigate('/friends', { state: { tab: 'shared', listId: sl.id } })}
                 >
                   <CardContent className="p-4 flex items-center gap-3">
@@ -364,6 +400,35 @@ export default function MyLists() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteList}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteRestaurantsOpen} onOpenChange={(o) => !o && setDeleteRestaurantsOpen(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Delete all of My Restaurants?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes all {restaurantCount} restaurant{restaurantCount === 1 ? '' : 's'} you've
+              added - to-go, been-there, ratings, notes, and photos included. This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingRestaurants}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteRestaurants();
+              }}
+              disabled={deletingRestaurants}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingRestaurants && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete Everything
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

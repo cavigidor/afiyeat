@@ -45,7 +45,7 @@ export function CustomListItemCard({ item, list, onEdit, onDelete, onToggleStatu
   const showImageArea = list.show_photos;
 
   return (
-    <Card className="group overflow-hidden transition-all hover:shadow-lg">
+    <Card className="group overflow-hidden transition-all hover:shadow-lg active:bg-muted/60">
       {showImageArea && (
         <div className="relative aspect-video bg-muted overflow-hidden">
           {imageLoading ? (
