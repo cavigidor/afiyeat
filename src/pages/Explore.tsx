@@ -35,6 +35,7 @@ import { EventCard, type TicketmasterEvent } from '@/components/explore/EventCar
 import { EventsMapComponent } from '@/components/explore/EventsMapComponent';
 import { LocationDeniedDialog } from '@/components/shared/LocationDeniedDialog';
 import { useLocationPermission } from '@/hooks/useLocationPermission';
+import { AddExplorePlaceDialog } from '@/components/explore/AddExplorePlaceDialog';
 
 type ExploreMode = 'friends' | 'all';
 type ExploreView = 'map' | 'list';
@@ -106,6 +107,7 @@ export default function Explore() {
   const [mode, setMode] = useState<ExploreMode>('all');
   const [view, setView] = useState<ExploreView>('map');
   const [selectedPlace, setSelectedPlace] = useState<ExplorePlace | null>(null);
+  const [addPlaceTarget, setAddPlaceTarget] = useState<ExplorePlace | null>(null);
   const flyToMeRef = useRef<(() => void) | null>(null);
   const eventsFlyToMeRef = useRef<(() => void) | null>(null);
   const [locationDeniedOpen, setLocationDeniedOpen] = useState(false);
@@ -499,6 +501,7 @@ export default function Explore() {
                 key={place.place_id}
                 place={place}
                 onClick={() => setSelectedPlace(place)}
+                onAdd={() => setAddPlaceTarget(place)}
               />
             ))}
           </div>
@@ -509,6 +512,16 @@ export default function Explore() {
         place={selectedPlace}
         mode={mode}
         onOpenChange={(open) => !open && setSelectedPlace(null)}
+        onAddToList={(place) => {
+          setSelectedPlace(null);
+          setAddPlaceTarget(place);
+        }}
+      />
+
+      <AddExplorePlaceDialog
+        open={!!addPlaceTarget}
+        onOpenChange={(open) => !open && setAddPlaceTarget(null)}
+        place={addPlaceTarget}
       />
 
       <LocationDeniedDialog open={locationDeniedOpen} onOpenChange={setLocationDeniedOpen} />

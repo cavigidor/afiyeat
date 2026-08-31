@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, MapPin, Star, DollarSign } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, MapPin, Star, DollarSign, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCategory, toNumber, type ExplorePlace } from './ExplorePlaceCard';
 import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
@@ -34,9 +35,10 @@ interface PlaceDetailSheetProps {
   place: ExplorePlace | null;
   mode: 'friends' | 'all';
   onOpenChange: (open: boolean) => void;
+  onAddToList: (place: ExplorePlace) => void;
 }
 
-export function PlaceDetailSheet({ place, mode, onOpenChange }: PlaceDetailSheetProps) {
+export function PlaceDetailSheet({ place, mode, onOpenChange, onAddToList }: PlaceDetailSheetProps) {
   // Radix keeps SheetContent mounted during its closing animation, and the
   // parent nulls `place` the instant a close is requested. Without holding
   // onto the last non-null place, SheetTitle would unmount mid-animation
@@ -109,6 +111,14 @@ export function PlaceDetailSheet({ place, mode, onOpenChange }: PlaceDetailSheet
                 </div>
               )}
             </div>
+
+            <Button
+              className="w-full mt-4"
+              onClick={() => onAddToList(displayPlace)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add to a List
+            </Button>
 
             <div className="mt-6 space-y-3">
               <h4 className="text-sm font-semibold text-muted-foreground">

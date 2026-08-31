@@ -1,6 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Star, DollarSign, Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { MapPin, Star, DollarSign, Users, Plus } from 'lucide-react';
 
 export interface ExplorePlace {
   place_id: string;
@@ -35,9 +36,10 @@ export function toNumber(value: number | string | null | undefined): number | nu
 interface ExplorePlaceCardProps {
   place: ExplorePlace;
   onClick?: () => void;
+  onAdd?: () => void;
 }
 
-export function ExplorePlaceCard({ place, onClick }: ExplorePlaceCardProps) {
+export function ExplorePlaceCard({ place, onClick, onAdd }: ExplorePlaceCardProps) {
   const categoryLabel = formatCategory(place.category);
   const avgRating = toNumber(place.avg_rating);
   const ratingCount = toNumber(place.rating_count) ?? 0;
@@ -65,6 +67,20 @@ export function ExplorePlaceCard({ place, onClick }: ExplorePlaceCardProps) {
             <Badge variant="secondary" className="shrink-0">
               {categoryLabel}
             </Badge>
+          )}
+          {onAdd && (
+            <Button
+              variant="secondary"
+              size="icon"
+              aria-label="Add to a list"
+              className="h-8 w-8 shrink-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAdd();
+              }}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
           )}
         </div>
 
