@@ -36,6 +36,9 @@ export interface CustomList {
   rating_mode: RatingMode;
   show_notes: boolean;
   show_photos: boolean;
+  // Kept only so old rows still typecheck - statuses are now managed
+  // per-list via custom_list_statuses (see ListStatusesManager), not these
+  // two fixed labels. New lists no longer set them to anything meaningful.
   status_todo_label: string;
   status_done_label: string;
 }
@@ -72,8 +75,6 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
   const [ratingMode, setRatingMode] = useState<RatingMode>('scale_10');
   const [showNotes, setShowNotes] = useState(true);
   const [showPhotos, setShowPhotos] = useState(true);
-  const [todoLabel, setTodoLabel] = useState('');
-  const [doneLabel, setDoneLabel] = useState('');
 
   const isEditing = !!editList;
 
@@ -88,8 +89,6 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
       setRatingMode(editList.rating_mode);
       setShowNotes(editList.show_notes);
       setShowPhotos(editList.show_photos);
-      setTodoLabel(editList.status_todo_label);
-      setDoneLabel(editList.status_done_label);
     } else {
       setName('');
       setShowLocation(true);
@@ -99,8 +98,6 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
       setRatingMode('scale_10');
       setShowNotes(true);
       setShowPhotos(true);
-      setTodoLabel('');
-      setDoneLabel('');
     }
   }, [open, editList]);
 
@@ -121,24 +118,49 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
       rating_mode: ratingMode,
       show_notes: showNotes,
       show_photos: showPhotos,
-      status_todo_label: todoLabel.trim() || 'To Do',
-      status_done_label: doneLabel.trim() || 'Done',
     };
 
-    const { error } = isEditing
-      ? await supabase.from('custom_lists').update(payload).eq('id', editList!.id)
-      : await supabase.from('custom_lists').insert({ ...payload, user_id: user.id });
-
-    setLoading(false);
-
-    if (error) {
-      toast.error(isEditing ? 'Failed to update list' : 'Failed to create list');
-      console.error(error);
-    } else {
-      toast.success(isEditing ? 'List updated!' : 'List created!');
+    if (isEditing) {
+      const { error } = await supabase.from('custom_lists').update(payload).eq('id', editList!.id);
+      setLoading(false);
+      if (error) {
+        toast.error('Failed to update list');
+        console.error(error);
+        return;
+      }
+      toast.success('List updated!');
       onOpenChange(false);
       onSuccess();
+      return;
     }
+
+    const { data: newList, error } = await supabase
+      .from('custom_lists')
+      .insert({ ...payload, user_id: user.id })
+      .select()
+      .single();
+
+    if (error || !newList) {
+      setLoading(false);
+      toast.error('Failed to create list');
+      console.error(error);
+      return;
+    }
+
+    // Every list needs at least one status - seed two sensible defaults
+    // (renameable/removable/expandable afterward from the list's own page,
+    // via Modify > Statuses) rather than asking for status names up front
+    // before the user has even decided what the list is for.
+    const { error: statusError } = await supabase.from('custom_list_statuses').insert([
+      { list_id: newList.id, user_id: user.id, name: 'To Do', sort_order: 0 },
+      { list_id: newList.id, user_id: user.id, name: 'Done', sort_order: 1 },
+    ]);
+    if (statusError) console.error('Failed to seed default statuses:', statusError);
+
+    setLoading(false);
+    toast.success('List created!');
+    onOpenChange(false);
+    onSuccess();
   };
 
   return (
@@ -251,21 +273,10 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Status labels (optional)</Label>
-            <p className="text-xs text-muted-foreground -mt-1">
-              Rename the two stages, e.g. "To Watch" / "Watched" for movies.
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <Input placeholder="To Do" value={todoLabel} onChange={(e) => setTodoLabel(e.target.value)} />
-              <Input placeholder="Done" value={doneLabel} onChange={(e) => setDoneLabel(e.target.value)} />
-            </div>
-          </div>
-
           {isEditing && (
             <p className="text-xs text-muted-foreground">
-              Manage this list's types (color-coded categories with map pin emoji) from the list
-              page itself - tap Modify, then Types.
+              Manage this list's types (color-coded categories with map pin emoji) and statuses
+              (the stages items move through) from the list page itself - tap Modify.
             </p>
           )}
 

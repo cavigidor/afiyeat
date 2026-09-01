@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Plus, Search, Pencil, Settings, ArrowLeft, Circle, Check, Map, Share2, Link2, Users } from 'lucide-react';
+import { Loader2, Plus, Search, Pencil, Settings, ArrowLeft, Map, Share2, Link2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { useViewMode } from '@/hooks/useViewMode';
 import { useMapCenter } from '@/hooks/useMapCenter';
@@ -42,8 +42,10 @@ import { AddCustomListItemDialog, type CustomListItem } from '@/components/lists
 import { CustomListItemRow } from '@/components/lists/CustomListItemRow';
 import { CustomListItemCard } from '@/components/lists/CustomListItemCard';
 import { ListTypesManager } from '@/components/lists/ListTypesManager';
+import { ListStatusesManager } from '@/components/lists/ListStatusesManager';
 import { ConvertToSharedListDialog } from '@/components/lists/ConvertToSharedListDialog';
 import type { ManagedListType } from '@/hooks/useListTypeManagement';
+import type { ManagedListStatus } from '@/hooks/useListStatusManagement';
 import { getPriceSortValue, getRatingSortValue } from '@/lib/customListValues';
 import { getDirectionsPopupHtml } from '@/lib/directions';
 import { createPinElement } from '@/lib/mapPin';
@@ -74,7 +76,9 @@ async function fetchList(listId: string, userId: string): Promise<CustomList | n
 async function fetchItems(listId: string): Promise<CustomListItem[]> {
   const { data, error } = await supabase
     .from('custom_list_items')
-    .select('*, images:custom_list_item_images(id, image_url), type:custom_list_types(name, color, icon)')
+    .select(
+      '*, images:custom_list_item_images(id, image_url), type:custom_list_types(name, color, icon), status:custom_list_statuses(id, name, sort_order)',
+    )
     .eq('list_id', listId)
     .order('created_at', { ascending: false });
   if (error) throw error;
@@ -84,6 +88,17 @@ async function fetchItems(listId: string): Promise<CustomListItem[]> {
 async function fetchTypes(listId: string): Promise<ManagedListType[]> {
   const { data, error } = await supabase
     .from('custom_list_types')
+    .select('*')
+    .eq('list_id', listId)
+    .order('sort_order', { ascending: true, nullsFirst: false })
+    .order('name', { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+async function fetchStatuses(listId: string): Promise<ManagedListStatus[]> {
+  const { data, error } = await supabase
+    .from('custom_list_statuses')
     .select('*')
     .eq('list_id', listId)
     .order('sort_order', { ascending: true, nullsFirst: false })
@@ -103,7 +118,7 @@ export default function CustomListDetail() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'todo' | 'done'>('todo');
+  const [activeStatusId, setActiveStatusId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('name');
   const [modifyMode, setModifyMode] = useState(false);
@@ -137,6 +152,30 @@ export default function CustomListDetail() {
     enabled: !!listId,
   });
 
+  const { data: statuses = [] } = useQuery({
+    queryKey: ['custom_list_statuses', listId],
+    queryFn: () => fetchStatuses(listId!),
+    enabled: !!listId,
+  });
+
+  const sortedStatuses = useMemo(
+    () =>
+      [...statuses].sort((a, b) => {
+        const ao = a.sort_order ?? Number.MAX_SAFE_INTEGER;
+        const bo = b.sort_order ?? Number.MAX_SAFE_INTEGER;
+        if (ao !== bo) return ao - bo;
+        return a.name.localeCompare(b.name);
+      }),
+    [statuses],
+  );
+
+  useEffect(() => {
+    if (sortedStatuses.length === 0) return;
+    if (!activeStatusId || !sortedStatuses.some((s) => s.id === activeStatusId)) {
+      setActiveStatusId(sortedStatuses[0].id);
+    }
+  }, [sortedStatuses, activeStatusId]);
+
   const { data: mapboxToken, isLoading: mapboxLoading } = useQuery({
     queryKey: ['mapbox-token'],
     queryFn: fetchMapboxTokenValue,
@@ -161,6 +200,10 @@ export default function CustomListDetail() {
   const invalidateList = () => queryClient.invalidateQueries({ queryKey: ['custom_list', listId, user?.id] });
   const invalidateTypes = () => {
     queryClient.invalidateQueries({ queryKey: ['custom_list_types', listId] });
+    invalidateItems();
+  };
+  const invalidateStatuses = () => {
+    queryClient.invalidateQueries({ queryKey: ['custom_list_statuses', listId] });
     invalidateItems();
   };
 
@@ -188,19 +231,21 @@ export default function CustomListDetail() {
         }),
     [items, searchQuery, sortBy, selectedTypeId, list],
   );
-  const todoItems = useMemo(() => filteredItems.filter((i) => i.status === 'todo'), [filteredItems]);
-  const doneItems = useMemo(() => filteredItems.filter((i) => i.status === 'done'), [filteredItems]);
-  const currentItems = activeTab === 'todo' ? todoItems : doneItems;
+  const currentItems = useMemo(
+    () => filteredItems.filter((i) => i.status_id === activeStatusId),
+    [filteredItems, activeStatusId],
+  );
 
-  const handleToggleStatus = async (item: CustomListItem) => {
+  const handleChangeStatus = async (item: CustomListItem, statusId: string) => {
     const { error } = await supabase
       .from('custom_list_items')
-      .update({ status: 'done', completed_at: new Date().toISOString() })
+      .update({ status_id: statusId })
       .eq('id', item.id);
     if (error) {
       toast.error('Failed to update');
     } else {
-      toast.success(`Marked as ${list!.status_done_label}!`);
+      const target = sortedStatuses.find((s) => s.id === statusId);
+      toast.success(target ? `Moved to ${target.name}` : 'Updated');
       invalidateItems();
     }
   };
@@ -323,17 +368,24 @@ export default function CustomListDetail() {
               />
             </div>
 
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'todo' | 'done')}>
+            {modifyMode && (
+              <div className="mb-4">
+                <ListStatusesManager
+                  listId={listId!}
+                  statuses={sortedStatuses}
+                  onStatusesChange={invalidateStatuses}
+                />
+              </div>
+            )}
+
+            <Tabs value={activeStatusId ?? undefined} onValueChange={(v) => setActiveStatusId(v)}>
               <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                 <TabsList>
-                  <TabsTrigger value="todo" className="flex items-center gap-2">
-                    <Circle className="h-4 w-4" />
-                    {list.status_todo_label} ({todoItems.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="done" className="flex items-center gap-2">
-                    <Check className="h-4 w-4" />
-                    {list.status_done_label} ({doneItems.length})
-                  </TabsTrigger>
+                  {sortedStatuses.map((s) => (
+                    <TabsTrigger key={s.id} value={s.id} className="flex items-center gap-2">
+                      {s.name} ({filteredItems.filter((i) => i.status_id === s.id).length})
+                    </TabsTrigger>
+                  ))}
                 </TabsList>
 
                 <div className="flex items-center gap-2">
@@ -360,7 +412,7 @@ export default function CustomListDetail() {
                 </div>
               </div>
 
-              <TabsContent value={activeTab}>
+              <TabsContent value={activeStatusId ?? ''}>
                 {loadingItems ? (
                   <div className="flex justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -369,9 +421,7 @@ export default function CustomListDetail() {
                   <div className="text-center py-12 text-muted-foreground">
                     <span className="text-3xl mb-2 block opacity-50">{list.icon}</span>
                     <p>
-                      {activeTab === 'todo'
-                        ? `Nothing on your ${list.status_todo_label.toLowerCase()} list yet`
-                        : `Nothing marked ${list.status_done_label.toLowerCase()} yet`}
+                      Nothing {sortedStatuses.find((s) => s.id === activeStatusId)?.name.toLowerCase() ?? ''} yet
                     </p>
                   </div>
                 ) : viewMode === 'list' ? (
@@ -381,6 +431,7 @@ export default function CustomListDetail() {
                         key={item.id}
                         item={item}
                         list={list}
+                        statuses={sortedStatuses}
                         onOpenDetail={() => {
                           if (modifyMode) return;
                           setEditItem(item);
@@ -388,7 +439,7 @@ export default function CustomListDetail() {
                         }}
                         onEdit={() => { setEditItem(item); setAddOpen(true); }}
                         onDelete={() => setDeleteItemId(item.id)}
-                        onToggleStatus={item.status === 'todo' ? () => handleToggleStatus(item) : undefined}
+                        onChangeStatus={(statusId) => handleChangeStatus(item, statusId)}
                         quickDelete={modifyMode}
                       />
                     ))}
@@ -404,9 +455,10 @@ export default function CustomListDetail() {
                         <CustomListItemCard
                           item={item}
                           list={list}
+                          statuses={sortedStatuses}
                           onEdit={() => { setEditItem(item); setAddOpen(true); }}
                           onDelete={() => setDeleteItemId(item.id)}
-                          onToggleStatus={item.status === 'todo' ? () => handleToggleStatus(item) : undefined}
+                          onChangeStatus={(statusId) => handleChangeStatus(item, statusId)}
                           quickDelete={modifyMode}
                         />
                       </div>
@@ -456,6 +508,7 @@ export default function CustomListDetail() {
         onOpenChange={setAddOpen}
         list={list}
         types={types}
+        statuses={sortedStatuses}
         onSuccess={invalidateItems}
         editItem={editItem}
       />
@@ -472,6 +525,7 @@ export default function CustomListDetail() {
         onOpenChange={setConvertOpen}
         list={list}
         items={items}
+        statuses={sortedStatuses}
         following={following}
         onSuccess={(newListId) => navigate('/friends', { state: { tab: 'shared', listId: newListId } })}
       />

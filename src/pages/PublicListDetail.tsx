@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Search, ArrowLeft, Circle, Check, Map, Lock } from 'lucide-react';
+import { Loader2, Search, ArrowLeft, Map, Lock } from 'lucide-react';
 import { useViewMode } from '@/hooks/useViewMode';
 import { useMapCenter } from '@/hooks/useMapCenter';
 import { ListViewToggle } from '@/components/shared/ListViewToggle';
@@ -25,6 +25,7 @@ import { CustomListItemRow } from '@/components/lists/CustomListItemRow';
 import { CustomListItemCard } from '@/components/lists/CustomListItemCard';
 import { ListTypesManager } from '@/components/lists/ListTypesManager';
 import type { ManagedListType } from '@/hooks/useListTypeManagement';
+import type { ManagedListStatus } from '@/hooks/useListStatusManagement';
 import { getPriceSortValue, getRatingSortValue } from '@/lib/customListValues';
 import { getDirectionsPopupHtml } from '@/lib/directions';
 import { createPinElement } from '@/lib/mapPin';
@@ -83,7 +84,9 @@ async function fetchList(listId: string, ownerUserId: string): Promise<CustomLis
 async function fetchItems(listId: string): Promise<CustomListItem[]> {
   const { data, error } = await supabase
     .from('custom_list_items')
-    .select('*, images:custom_list_item_images(id, image_url), type:custom_list_types(name, color, icon)')
+    .select(
+      '*, images:custom_list_item_images(id, image_url), type:custom_list_types(name, color, icon), status:custom_list_statuses(id, name, sort_order)',
+    )
     .eq('list_id', listId)
     .order('created_at', { ascending: false });
   if (error) throw error;
@@ -93,6 +96,17 @@ async function fetchItems(listId: string): Promise<CustomListItem[]> {
 async function fetchTypes(listId: string): Promise<ManagedListType[]> {
   const { data, error } = await supabase
     .from('custom_list_types')
+    .select('*')
+    .eq('list_id', listId)
+    .order('sort_order', { ascending: true, nullsFirst: false })
+    .order('name', { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+async function fetchStatuses(listId: string): Promise<ManagedListStatus[]> {
+  const { data, error } = await supabase
+    .from('custom_list_statuses')
     .select('*')
     .eq('list_id', listId)
     .order('sort_order', { ascending: true, nullsFirst: false })
@@ -111,7 +125,7 @@ export default function PublicListDetail() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<'todo' | 'done'>('todo');
+  const [activeStatusId, setActiveStatusId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('name');
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
@@ -157,6 +171,30 @@ export default function PublicListDetail() {
     enabled: !!listId && !!list,
   });
 
+  const { data: statuses = [] } = useQuery({
+    queryKey: ['public-list-statuses', listId],
+    queryFn: () => fetchStatuses(listId!),
+    enabled: !!listId && !!list,
+  });
+
+  const sortedStatuses = useMemo(
+    () =>
+      [...statuses].sort((a, b) => {
+        const ao = a.sort_order ?? Number.MAX_SAFE_INTEGER;
+        const bo = b.sort_order ?? Number.MAX_SAFE_INTEGER;
+        if (ao !== bo) return ao - bo;
+        return a.name.localeCompare(b.name);
+      }),
+    [statuses],
+  );
+
+  useEffect(() => {
+    if (sortedStatuses.length === 0) return;
+    if (!activeStatusId || !sortedStatuses.some((s) => s.id === activeStatusId)) {
+      setActiveStatusId(sortedStatuses[0].id);
+    }
+  }, [sortedStatuses, activeStatusId]);
+
   const { data: mapboxToken, isLoading: mapboxLoading } = useQuery({
     queryKey: ['mapbox-token'],
     queryFn: fetchMapboxTokenValue,
@@ -189,9 +227,10 @@ export default function PublicListDetail() {
         }),
     [items, searchQuery, sortBy, selectedTypeId, list],
   );
-  const todoItems = useMemo(() => filteredItems.filter((i) => i.status === 'todo'), [filteredItems]);
-  const doneItems = useMemo(() => filteredItems.filter((i) => i.status === 'done'), [filteredItems]);
-  const currentItems = activeTab === 'todo' ? todoItems : doneItems;
+  const currentItems = useMemo(
+    () => filteredItems.filter((i) => i.status_id === activeStatusId),
+    [filteredItems, activeStatusId],
+  );
 
   if (authLoading || loadingProfile || (canView && loadingList)) {
     return (
@@ -305,17 +344,14 @@ export default function PublicListDetail() {
               </div>
             )}
 
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'todo' | 'done')}>
+            <Tabs value={activeStatusId ?? undefined} onValueChange={(v) => setActiveStatusId(v)}>
               <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                 <TabsList>
-                  <TabsTrigger value="todo" className="flex items-center gap-2">
-                    <Circle className="h-4 w-4" />
-                    {list.status_todo_label} ({todoItems.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="done" className="flex items-center gap-2">
-                    <Check className="h-4 w-4" />
-                    {list.status_done_label} ({doneItems.length})
-                  </TabsTrigger>
+                  {sortedStatuses.map((s) => (
+                    <TabsTrigger key={s.id} value={s.id} className="flex items-center gap-2">
+                      {s.name} ({filteredItems.filter((i) => i.status_id === s.id).length})
+                    </TabsTrigger>
+                  ))}
                 </TabsList>
 
                 <div className="flex items-center gap-2">
@@ -342,7 +378,7 @@ export default function PublicListDetail() {
                 </div>
               </div>
 
-              <TabsContent value={activeTab}>
+              <TabsContent value={activeStatusId ?? ''}>
                 {loadingItems ? (
                   <div className="flex justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -351,21 +387,25 @@ export default function PublicListDetail() {
                   <div className="text-center py-12 text-muted-foreground">
                     <span className="text-3xl mb-2 block opacity-50">{list.icon}</span>
                     <p>
-                      {activeTab === 'todo'
-                        ? `Nothing on their ${list.status_todo_label.toLowerCase()} list yet`
-                        : `Nothing marked ${list.status_done_label.toLowerCase()} yet`}
+                      Nothing {sortedStatuses.find((s) => s.id === activeStatusId)?.name.toLowerCase() ?? ''} yet
                     </p>
                   </div>
                 ) : viewMode === 'list' ? (
                   <div className="space-y-2">
                     {currentItems.map((item) => (
-                      <CustomListItemRow key={item.id} item={item} list={list} onOpenDetail={() => {}} />
+                      <CustomListItemRow
+                        key={item.id}
+                        item={item}
+                        list={list}
+                        statuses={sortedStatuses}
+                        onOpenDetail={() => {}}
+                      />
                     ))}
                   </div>
                 ) : (
                   <div className="grid gap-3 sm:gap-4 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
                     {currentItems.map((item) => (
-                      <CustomListItemCard key={item.id} item={item} list={list} />
+                      <CustomListItemCard key={item.id} item={item} list={list} statuses={sortedStatuses} />
                     ))}
                   </div>
                 )}

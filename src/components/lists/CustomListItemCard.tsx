@@ -2,17 +2,21 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MapPin, Star, DollarSign, MoreHorizontal, Check, Circle, Loader2, X } from 'lucide-react';
+import { MapPin, Star, DollarSign, MoreHorizontal, Tag, Loader2, X, ArrowRightLeft } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
 import type { CustomList } from './CreateListDialog';
 import type { CustomListItem } from './AddCustomListItemDialog';
+import type { ManagedListStatus } from '@/hooks/useListStatusManagement';
 
 function formatPrice(item: CustomListItem, list: CustomList): string | null {
   if (!list.show_price) return null;
@@ -30,14 +34,15 @@ function formatRating(item: CustomListItem, list: CustomList): string | null {
 interface CustomListItemCardProps {
   item: CustomListItem;
   list: CustomList;
+  statuses: ManagedListStatus[];
   onEdit?: () => void;
   onDelete?: () => void;
-  onToggleStatus?: () => void;
+  onChangeStatus?: (statusId: string) => void;
   quickDelete?: boolean;
 }
 
-export function CustomListItemCard({ item, list, onEdit, onDelete, onToggleStatus, quickDelete }: CustomListItemCardProps) {
-  const isDone = item.status === 'done';
+export function CustomListItemCard({ item, list, statuses, onEdit, onDelete, onChangeStatus, quickDelete }: CustomListItemCardProps) {
+  const otherStatuses = statuses.filter((s) => s.id !== item.status_id);
   const firstImageUrl = item.images?.[0]?.image_url;
   const { signedUrl: firstImage, loading: imageLoading } = useSignedImageUrl(firstImageUrl);
   const [imgFailed, setImgFailed] = useState(false);
@@ -98,11 +103,20 @@ export function CustomListItemCard({ item, list, onEdit, onDelete, onToggleStatu
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  {!isDone && onToggleStatus && (
-                    <DropdownMenuItem onClick={onToggleStatus}>
-                      <Check className="mr-2 h-4 w-4" />
-                      Mark as {list.status_done_label}
-                    </DropdownMenuItem>
+                  {onChangeStatus && otherStatuses.length > 0 && (
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>
+                        <ArrowRightLeft className="mr-2 h-4 w-4" />
+                        Move to...
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {otherStatuses.map((s) => (
+                          <DropdownMenuItem key={s.id} onClick={() => onChangeStatus(s.id)}>
+                            {s.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
                   )}
                   {onEdit && <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>}
                   {onDelete && (
@@ -170,11 +184,20 @@ export function CustomListItemCard({ item, list, onEdit, onDelete, onToggleStatu
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  {!isDone && onToggleStatus && (
-                    <DropdownMenuItem onClick={onToggleStatus}>
-                      <Check className="mr-2 h-4 w-4" />
-                      Mark as {list.status_done_label}
-                    </DropdownMenuItem>
+                  {onChangeStatus && otherStatuses.length > 0 && (
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>
+                        <ArrowRightLeft className="mr-2 h-4 w-4" />
+                        Move to...
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {otherStatuses.map((s) => (
+                          <DropdownMenuItem key={s.id} onClick={() => onChangeStatus(s.id)}>
+                            {s.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
                   )}
                   {onEdit && <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>}
                   {onDelete && (
@@ -187,15 +210,13 @@ export function CustomListItemCard({ item, list, onEdit, onDelete, onToggleStatu
             )
           ) : null}
         </div>
-        <div className="flex items-center gap-2 mt-2">
-          <Badge variant={isDone ? 'default' : 'secondary'}>
-            {isDone ? (
-              <><Check className="h-3 w-3 mr-1" /> {list.status_done_label}</>
-            ) : (
-              <><Circle className="h-3 w-3 mr-1" /> {list.status_todo_label}</>
-            )}
-          </Badge>
-        </div>
+        {item.status?.name && (
+          <div className="flex items-center gap-2 mt-2">
+            <Badge variant="secondary">
+              <Tag className="h-3 w-3 mr-1" /> {item.status.name}
+            </Badge>
+          </div>
+        )}
         {(list.show_price || list.show_rating) && (
           <div className="flex items-center gap-4 mt-3">
             {formatRating(item, list) && (

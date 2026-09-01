@@ -90,6 +90,17 @@ export function AddExplorePlaceDialog({ open, onOpenChange, place }: AddExploreP
           toast.error('This is already on that list.');
           return;
         }
+        // Land new items on the list's first status (by sort_order) - every
+        // list always has at least one, seeded at creation (see
+        // CreateListDialog).
+        const { data: firstStatus } = await supabase
+          .from('custom_list_statuses')
+          .select('id')
+          .eq('list_id', destination)
+          .order('sort_order', { ascending: true, nullsFirst: false })
+          .order('name', { ascending: true })
+          .limit(1)
+          .maybeSingle();
         const { error } = await supabase.from('custom_list_items').insert({
           list_id: destination,
           user_id: user.id,
@@ -97,7 +108,7 @@ export function AddExplorePlaceDialog({ open, onOpenChange, place }: AddExploreP
           address: place.address,
           latitude: place.latitude,
           longitude: place.longitude,
-          status: 'todo',
+          status_id: firstStatus?.id ?? null,
         });
         if (error) throw error;
         const list = lists.find((l) => l.id === destination);

@@ -32,6 +32,7 @@ import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
 import { PlaceResultsDropdown } from '@/components/shared/PlaceResultsDropdown';
 import type { CustomList } from './CreateListDialog';
 import type { ManagedListType } from '@/hooks/useListTypeManagement';
+import type { ManagedListStatus } from '@/hooks/useListStatusManagement';
 
 const PRICE_LABELS = ['<$30', '<$50', '<$100', '$100+'];
 
@@ -47,7 +48,8 @@ export interface CustomListItem {
   rating: number | null;
   rating_manual: number | null;
   notes: string | null;
-  status: 'todo' | 'done';
+  status_id: string | null;
+  status?: { id: string; name: string; sort_order: number | null } | null;
   type_id: string | null;
   type?: { name: string; color: string; icon: string | null } | null;
   images?: { id: string; image_url: string }[];
@@ -61,6 +63,9 @@ interface AddCustomListItemDialogProps {
   // set up yet (see ListTypesManager, managed from the list page's Modify
   // mode).
   types?: ManagedListType[];
+  // Every list always has at least one status (seeded at creation - see
+  // CreateListDialog) - this is never empty in practice.
+  statuses: ManagedListStatus[];
   onSuccess: () => void;
   // Presence of this triggers edit mode (same fields, pre-filled).
   editItem?: CustomListItem | null;
@@ -71,6 +76,7 @@ export function AddCustomListItemDialog({
   onOpenChange,
   list,
   types = [],
+  statuses,
   onSuccess,
   editItem,
 }: AddCustomListItemDialogProps) {
@@ -80,8 +86,15 @@ export function AddCustomListItemDialog({
   const [address, setAddress] = useState('');
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
-  const [status, setStatus] = useState<'todo' | 'done'>('todo');
+  const [statusId, setStatusId] = useState<string | null>(null);
   const [typeId, setTypeId] = useState<string | null>(null);
+
+  const sortedStatuses = [...statuses].sort((a, b) => {
+    const ao = a.sort_order ?? Number.MAX_SAFE_INTEGER;
+    const bo = b.sort_order ?? Number.MAX_SAFE_INTEGER;
+    if (ao !== bo) return ao - bo;
+    return a.name.localeCompare(b.name);
+  });
   const [priceLevel, setPriceLevel] = useState<number | null>(null);
   const [priceManual, setPriceManual] = useState('');
   const [rating, setRating] = useState<number | null>(null);
@@ -120,7 +133,7 @@ export function AddCustomListItemDialog({
       setAddress(editItem.address || '');
       setLatitude(editItem.latitude);
       setLongitude(editItem.longitude);
-      setStatus(editItem.status);
+      setStatusId(editItem.status_id ?? sortedStatuses[0]?.id ?? null);
       setTypeId(editItem.type_id ?? null);
       setPriceLevel(editItem.price_level);
       setPriceManual(editItem.price_manual != null ? String(editItem.price_manual) : '');
@@ -133,7 +146,7 @@ export function AddCustomListItemDialog({
       setAddress('');
       setLatitude(null);
       setLongitude(null);
-      setStatus('todo');
+      setStatusId(sortedStatuses[0]?.id ?? null);
       setTypeId(null);
       setPriceLevel(null);
       setPriceManual('');
@@ -234,8 +247,7 @@ export function AddCustomListItemDialog({
             ? parsedRatingManual
             : null,
         notes: list.show_notes ? notes.trim() || null : null,
-        status,
-        completed_at: status === 'done' ? new Date().toISOString() : null,
+        status_id: statusId,
       };
 
       let itemId = editItem?.id;
@@ -345,13 +357,16 @@ export function AddCustomListItemDialog({
 
           <div className="space-y-2">
             <Label>Status</Label>
-            <Select value={status} onValueChange={(v) => setStatus(v as 'todo' | 'done')}>
+            <Select value={statusId ?? undefined} onValueChange={setStatusId}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="todo">{list.status_todo_label}</SelectItem>
-                <SelectItem value="done">{list.status_done_label}</SelectItem>
+                {sortedStatuses.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

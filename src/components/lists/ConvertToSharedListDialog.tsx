@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import type { FollowingProfile } from '@/hooks/useFollowing';
 import type { CustomList } from './CreateListDialog';
 import type { CustomListItem } from './AddCustomListItemDialog';
+import type { ManagedListStatus } from '@/hooks/useListStatusManagement';
 import { getPriceSortValue, getRatingSortValue } from '@/lib/customListValues';
 
 interface ConvertToSharedListDialogProps {
@@ -24,6 +25,11 @@ interface ConvertToSharedListDialogProps {
   onOpenChange: (open: boolean) => void;
   list: CustomList;
   items: CustomListItem[];
+  // Used only to map each item onto shared_list_items' fixed to_go/went_to
+  // status - the last status by sort_order is treated as the "done"
+  // equivalent, since shared lists weren't part of the custom-statuses
+  // redesign and still use a fixed two-status model.
+  statuses: ManagedListStatus[];
   following: FollowingProfile[];
   onSuccess: (newListId: string) => void;
 }
@@ -41,11 +47,17 @@ export function ConvertToSharedListDialog({
   onOpenChange,
   list,
   items,
+  statuses,
   following,
   onSuccess,
 }: ConvertToSharedListDialogProps) {
   const { user } = useAuth();
   const [name, setName] = useState(list.name);
+  const lastStatusId = [...statuses].sort((a, b) => {
+    const ao = a.sort_order ?? Number.MAX_SAFE_INTEGER;
+    const bo = b.sort_order ?? Number.MAX_SAFE_INTEGER;
+    return ao - bo;
+  }).at(-1)?.id;
   const [friendId, setFriendId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -82,7 +94,7 @@ export function ConvertToSharedListDialog({
           address: item.address,
           latitude: item.latitude,
           longitude: item.longitude,
-          status: item.status === 'done' ? 'went_to' : 'to_go',
+          status: lastStatusId && item.status_id === lastStatusId ? 'went_to' : 'to_go',
           // Only the structured price/rating columns carry over - manual-
           // entry values (price_manual/rating_manual) aren't guaranteed to
           // fall inside shared_list_items' 1-4 / 0-10 check constraints,
@@ -90,7 +102,6 @@ export function ConvertToSharedListDialog({
           rating: list.rating_mode === 'manual' ? null : getRatingSortValue(item, list),
           price_level: list.price_mode === 'manual' ? null : getPriceSortValue(item, list),
           notes: item.notes,
-          visited_at: item.completed_at,
         }));
 
         const { error: itemsError } = await supabase.from('shared_list_items').insert(rows);
