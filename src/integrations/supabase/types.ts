@@ -100,6 +100,7 @@ export type Database = {
           status: string
           status_id: string | null
           type_id: string | null
+          type_ids: string[]
           updated_at: string
           user_id: string
         }
@@ -120,6 +121,7 @@ export type Database = {
           status?: string
           status_id?: string | null
           type_id?: string | null
+          type_ids?: string[]
           updated_at?: string
           user_id: string
         }
@@ -140,6 +142,7 @@ export type Database = {
           status?: string
           status_id?: string | null
           type_id?: string | null
+          type_ids?: string[]
           updated_at?: string
           user_id?: string
         }
@@ -683,6 +686,7 @@ export type Database = {
           category: string | null
           created_at: string
           folder_id: string | null
+          folder_ids: string[]
           id: string
           latitude: number | null
           longitude: number | null
@@ -701,6 +705,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           folder_id?: string | null
+          folder_ids?: string[]
           id?: string
           latitude?: number | null
           longitude?: number | null
@@ -719,6 +724,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           folder_id?: string | null
+          folder_ids?: string[]
           id?: string
           latitude?: number | null
           longitude?: number | null

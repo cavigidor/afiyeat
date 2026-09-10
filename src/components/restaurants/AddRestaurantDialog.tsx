@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ImagePlus, Loader2, X, MapPin, Search, Plus, Camera } from 'lucide-react';
+import { ImagePlus, Loader2, X, MapPin, Search, Camera } from 'lucide-react';
 import { isNative, capturePhoto } from '@/lib/native';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,6 +36,7 @@ import { isDuplicateRestaurant } from '@/lib/duplicateRestaurant';
 import { PriceLevelPicker } from './PriceLevelPicker';
 import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
 import { PlaceResultsDropdown } from '@/components/shared/PlaceResultsDropdown';
+import { TagMultiSelect } from '@/components/shared/TagMultiSelect';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Restaurant name is required'),
@@ -44,7 +45,7 @@ const formSchema = z.object({
   longitude: z.number().optional(),
   notes: z.string().optional(),
   status: z.enum(['to_go', 'went_to']),
-  folder_id: z.string().optional(),
+  folder_ids: z.array(z.string()).default([]),
   rating: z.number().min(0).max(10).optional(),
   price_level: z.number().min(1).max(4).optional(),
 });
@@ -161,7 +162,7 @@ export function AddRestaurantDialog({
       longitude: undefined,
       notes: '',
       status: 'to_go',
-      folder_id: undefined,
+      folder_ids: [],
       rating: undefined,
       price_level: undefined,
     },
@@ -260,8 +261,6 @@ export function AddRestaurantDialog({
         return;
       }
 
-      const folderId = values.folder_id || null;
-
       // Clear rating for to_go status, keep price_level for both
       const submitValues = {
         ...values,
@@ -279,7 +278,7 @@ export function AddRestaurantDialog({
           longitude: submitValues.longitude || null,
           notes: submitValues.notes || null,
           status: submitValues.status,
-          folder_id: folderId,
+          folder_ids: submitValues.folder_ids,
           place_id: selectedPlaceMeta.placeId,
           category: selectedPlaceMeta.category,
           rating: submitValues.rating,
@@ -420,104 +419,53 @@ export function AddRestaurantDialog({
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="to_go">To Go</SelectItem>
-                        <SelectItem value="went_to">Been There</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="to_go">To Go</SelectItem>
+                      <SelectItem value="went_to">Been There</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="folder_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Type</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {folders.length === 0 ? (
-                          <div className="p-2">
-                            <p className="text-sm text-muted-foreground mb-2">No types yet</p>
-                            {onCreateType && (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="w-full"
-                                onClick={() => {
-                                  onOpenChange(false);
-                                  onCreateType();
-                                }}
-                              >
-                                <Plus className="h-4 w-4 mr-2" />
-                                Create New Type
-                              </Button>
-                            )}
-                          </div>
-                        ) : (
-                          <>
-                            {folders.map((folder) => (
-                              <SelectItem key={folder.id} value={folder.id}>
-                                <div className="flex items-center gap-2">
-                                  {folder.icon ? (
-                                    <span className="text-xs leading-none">{folder.icon}</span>
-                                  ) : (
-                                    <div
-                                      className="w-3 h-3 rounded-full"
-                                      style={{ backgroundColor: folder.color }}
-                                    />
-                                  )}
-                                  {folder.name}
-                                </div>
-                              </SelectItem>
-                            ))}
-                            {onCreateType && (
-                              <div className="border-t mt-1 pt-1">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="w-full justify-start"
-                                  onClick={() => {
-                                    onOpenChange(false);
-                                    onCreateType();
-                                  }}
-                                >
-                                  <Plus className="h-4 w-4 mr-2" />
-                                  Create New Type
-                                </Button>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="folder_ids"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Types</FormLabel>
+                  <FormControl>
+                    <TagMultiSelect
+                      options={folders}
+                      value={field.value}
+                      onChange={field.onChange}
+                      onCreateNew={
+                        onCreateType
+                          ? () => {
+                              onOpenChange(false);
+                              onCreateType();
+                            }
+                          : undefined
+                      }
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {/* Price level - shown for both statuses */}
             <FormField

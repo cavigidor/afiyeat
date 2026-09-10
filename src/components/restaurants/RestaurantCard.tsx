@@ -22,7 +22,7 @@ interface RestaurantCardProps {
     price_level?: number | null;
     status: string;
     notes?: string | null;
-    folder?: { name: string; color: string } | null;
+    folders?: { name: string; color: string }[];
     images?: { image_url: string }[];
   };
   onEdit?: () => void;
@@ -39,7 +39,7 @@ export function RestaurantCard({ restaurant, onEdit, onDelete, onMarkVisited, qu
   const firstImageUrl = restaurant.images?.[0]?.image_url;
   const { signedUrl: firstImage, loading: imageLoading } = useSignedImageUrl(firstImageUrl);
   const [imgFailed, setImgFailed] = useState(false);
-  const FallbackIcon = getFolderIcon(restaurant.folder?.name);
+  const FallbackIcon = getFolderIcon(restaurant.folders?.[0]?.name);
   const showFallback = !firstImage || imgFailed;
 
   return (
@@ -61,13 +61,14 @@ export function RestaurantCard({ restaurant, onEdit, onDelete, onMarkVisited, qu
             <FallbackIcon className="h-28 w-28 text-primary/70" strokeWidth={1.5} />
           </div>
         )}
-        {restaurant.folder && (
-          <Badge
-            className="absolute top-3 left-3"
-            style={{ backgroundColor: restaurant.folder.color }}
-          >
-            {restaurant.folder.name}
-          </Badge>
+        {restaurant.folders && restaurant.folders.length > 0 && (
+          <div className="absolute top-3 left-3 flex flex-wrap gap-1 max-w-[80%]">
+            {restaurant.folders.map((f) => (
+              <Badge key={f.name} style={{ backgroundColor: f.color }}>
+                {f.name}
+              </Badge>
+            ))}
+          </div>
         )}
         <div className="absolute top-3 right-3">
           {quickDelete ? (

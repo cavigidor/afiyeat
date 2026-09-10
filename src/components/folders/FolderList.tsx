@@ -14,7 +14,7 @@ interface Restaurant {
   name: string;
   latitude: number | null;
   longitude: number | null;
-  folder_id: string | null;
+  folder_ids: string[];
 }
 
 interface FolderListProps {
@@ -65,7 +65,7 @@ export function FolderList({
   };
 
   const getRestaurantsInFolder = (folderId: string) => {
-    return restaurants.filter(r => r.folder_id === folderId);
+    return restaurants.filter(r => (r.folder_ids || []).includes(folderId));
   };
 
   const handleDelete = (id: string) => {

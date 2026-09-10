@@ -40,8 +40,8 @@ interface Restaurant {
   status: string;
   notes: string | null;
   user_id: string;
-  folder_id: string | null;
-  folder?: { name: string; color: string; icon?: string | null } | null;
+  folder_ids: string[];
+  folders?: { id: string; name: string; color: string; icon?: string | null }[];
   images?: { image_url: string; id: string }[];
 }
 
@@ -58,7 +58,6 @@ async function fetchMyRestaurants(userId: string): Promise<Restaurant[]> {
     .from('restaurants')
     .select(`
       *,
-      folder:folders(name, color, icon),
       images:restaurant_images(image_url, id)
     `)
     .eq('user_id', userId)
@@ -147,12 +146,25 @@ export default function MyList() {
 
   const priceFilter = selectedPriceLevel[0];
 
+  // Resolve each restaurant's folder_ids into full folder objects (name,
+  // color, icon) by looking them up in the already-fetched folders list -
+  // there's no DB join for an array column, so this is done client-side
+  // once here rather than duplicated at every render call site.
+  const restaurantsWithFolders = useMemo(
+    () =>
+      restaurants.map((r) => ({
+        ...r,
+        folders: folders.filter((f) => (r.folder_ids || []).includes(f.id)),
+      })),
+    [restaurants, folders],
+  );
+
   // Memoized so the map below (which keys its GPS/marker effects off this
   // array's reference) doesn't rebuild on every unrelated re-render.
   const filteredRestaurants = useMemo(
     () =>
-      restaurants
-        .filter((r) => !selectedFolder || r.folder_id === selectedFolder)
+      restaurantsWithFolders
+        .filter((r) => !selectedFolder || (r.folder_ids || []).includes(selectedFolder))
         .filter((r) => priceFilter === 0 || r.price_level === priceFilter)
         .filter((r) => {
           if (!searchQuery.trim()) return true;
@@ -171,7 +183,7 @@ export default function MyList() {
               return a.name.localeCompare(b.name);
           }
         }),
-    [restaurants, selectedFolder, priceFilter, searchQuery, sortBy],
+    [restaurantsWithFolders, selectedFolder, priceFilter, searchQuery, sortBy],
   );
   const toGoList = useMemo(
     () => filteredRestaurants.filter((r) => r.status === 'to_go'),
@@ -190,7 +202,6 @@ export default function MyList() {
       .eq('id', restaurantId)
       .select(`
         *,
-        folder:folders(name, color, icon),
         images:restaurant_images(image_url, id)
       `)
       .single();
@@ -224,7 +235,7 @@ export default function MyList() {
     setEditDialogOpen(true);
   };
 
-  const handleRestaurantClick = (restaurant: Restaurant | { id: string; name: string; latitude: number | null; longitude: number | null; folder_id: string | null }) => {
+  const handleRestaurantClick = (restaurant: Restaurant | { id: string; name: string; latitude: number | null; longitude: number | null; folder_ids: string[] }) => {
     if (restaurant.latitude && restaurant.longitude) {
       setFocusedRestaurantId(restaurant.id);
       // Scroll to map
@@ -638,8 +649,8 @@ function MapComponent({ token, restaurants, focusedRestaurantId, onFocusRestaura
         const isFocused = focusedRestaurantId === restaurant.id;
 
         const el = createPinElement({
-          color: restaurant.folder?.color,
-          icon: restaurant.folder?.icon,
+          color: restaurant.folders?.[0]?.color,
+          icon: restaurant.folders?.[0]?.icon,
           focused: isFocused,
         });
 

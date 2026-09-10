@@ -17,6 +17,7 @@ import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
 import type { CustomList } from './CreateListDialog';
 import type { CustomListItem } from './AddCustomListItemDialog';
 import type { ManagedListStatus } from '@/hooks/useListStatusManagement';
+import type { ManagedListType } from '@/hooks/useListTypeManagement';
 
 function formatPrice(item: CustomListItem, list: CustomList): string | null {
   if (!list.show_price) return null;
@@ -35,14 +36,16 @@ interface CustomListItemCardProps {
   item: CustomListItem;
   list: CustomList;
   statuses: ManagedListStatus[];
+  types?: ManagedListType[];
   onEdit?: () => void;
   onDelete?: () => void;
   onChangeStatus?: (statusId: string) => void;
   quickDelete?: boolean;
 }
 
-export function CustomListItemCard({ item, list, statuses, onEdit, onDelete, onChangeStatus, quickDelete }: CustomListItemCardProps) {
+export function CustomListItemCard({ item, list, statuses, types = [], onEdit, onDelete, onChangeStatus, quickDelete }: CustomListItemCardProps) {
   const otherStatuses = statuses.filter((s) => s.id !== item.status_id);
+  const itemTypes = types.filter((t) => (item.type_ids || []).includes(t.id));
   const firstImageUrl = item.images?.[0]?.image_url;
   const { signedUrl: firstImage, loading: imageLoading } = useSignedImageUrl(firstImageUrl);
   const [imgFailed, setImgFailed] = useState(false);
@@ -68,10 +71,10 @@ export function CustomListItemCard({ item, list, statuses, onEdit, onDelete, onC
             <div
               className="w-full h-full flex items-center justify-center"
               style={{
-                background: `linear-gradient(135deg, ${item.type?.color || list.color}22, ${item.type?.color || list.color}11)`,
+                background: `linear-gradient(135deg, ${itemTypes[0]?.color || list.color}22, ${itemTypes[0]?.color || list.color}11)`,
               }}
             >
-              <span className="text-5xl">{item.type?.icon || list.icon}</span>
+              <span className="text-5xl">{itemTypes[0]?.icon || list.icon}</span>
             </div>
           )}
           <div className="absolute top-3 right-3">
@@ -135,12 +138,12 @@ export function CustomListItemCard({ item, list, statuses, onEdit, onDelete, onC
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 min-w-0">
               <h3 className="font-semibold text-lg truncate">{item.name}</h3>
-              {item.type && (
-                <Badge variant="outline" className="gap-1 shrink-0 font-normal text-xs px-1.5 py-0">
-                  {item.type.icon && <span className="leading-none">{item.type.icon}</span>}
-                  {item.type.name}
+              {itemTypes.map((t) => (
+                <Badge key={t.id} variant="outline" className="gap-1 shrink-0 font-normal text-xs px-1.5 py-0">
+                  {t.icon && <span className="leading-none">{t.icon}</span>}
+                  {t.name}
                 </Badge>
-              )}
+              ))}
             </div>
             {list.show_location && item.address && (
               <p className="text-sm text-muted-foreground truncate flex items-center gap-1 mt-1">

@@ -7,15 +7,17 @@ interface RestaurantLike {
   name: string;
   price_level?: number | null;
   rating?: number | null;
-  folder?: { name: string; color: string } | null;
+  folders?: { name: string; color: string }[];
 }
 
 /**
  * Shared type-filter + sort logic for any page rendering a list of
- * restaurants that include a joined `folder` (type/price_level/rating).
- * Filtering/sorting only - view mode (grid/list) is handled separately by
- * useViewMode so pages can opt out of it (e.g. it's irrelevant while a
- * detail dialog is open).
+ * restaurants that include resolved `folders` (type/price_level/rating).
+ * A restaurant can now carry more than one type tag, so the filter matches
+ * any restaurant that has the selected type among its tags. Filtering/sort
+ * only - view mode (grid/list) is handled separately by useViewMode so
+ * pages can opt out of it (e.g. it's irrelevant while a detail dialog is
+ * open).
  */
 export function useRestaurantListControls<T extends RestaurantLike>(restaurants: T[]) {
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
@@ -24,13 +26,15 @@ export function useRestaurantListControls<T extends RestaurantLike>(restaurants:
   const availableTypes = useMemo(() => {
     const names = new Set<string>();
     restaurants.forEach((r) => {
-      if (r.folder?.name) names.add(r.folder.name);
+      r.folders?.forEach((f) => names.add(f.name));
     });
     return Array.from(names).sort(compareTypeNames);
   }, [restaurants]);
 
   const filteredSorted = useMemo(() => {
-    const base = typeFilter ? restaurants.filter((r) => r.folder?.name === typeFilter) : restaurants;
+    const base = typeFilter
+      ? restaurants.filter((r) => r.folders?.some((f) => f.name === typeFilter))
+      : restaurants;
     const sorted = [...base];
     switch (sortBy) {
       case 'price_asc':

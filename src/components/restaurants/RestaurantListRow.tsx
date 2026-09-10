@@ -17,7 +17,7 @@ export interface RestaurantRowData {
   rating?: number | null;
   price_level?: number | null;
   status: string;
-  folder?: { name: string; color: string } | null;
+  folders?: { name: string; color: string }[];
 }
 
 interface RestaurantListRowProps {
@@ -58,17 +58,17 @@ export function RestaurantListRow({
     >
       <div
         className="w-1.5 self-stretch rounded-full shrink-0"
-        style={{ backgroundColor: restaurant.folder?.color || 'transparent' }}
+        style={{ backgroundColor: restaurant.folders?.[0]?.color || 'transparent' }}
       />
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <h3 className="font-medium truncate">{restaurant.name}</h3>
-          {restaurant.folder && (
-            <Badge variant="secondary" className="text-xs shrink-0">
-              {restaurant.folder.name}
+          {restaurant.folders?.map((f) => (
+            <Badge key={f.name} variant="secondary" className="text-xs shrink-0">
+              {f.name}
             </Badge>
-          )}
+          ))}
         </div>
         {restaurant.address && (
           <p className="text-xs text-muted-foreground truncate flex items-center gap-1 mt-0.5">

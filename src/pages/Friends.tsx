@@ -108,12 +108,22 @@ async function fetchUserRestaurantsFor(profileUserId: string): Promise<any[]> {
     .from('restaurants')
     .select(`
       *,
-      folder:folders(name, color, icon),
       images:restaurant_images(image_url)
     `)
     .eq('user_id', profileUserId)
     .order('created_at', { ascending: false });
 
+  if (error) throw error;
+  return data || [];
+}
+
+async function fetchUserFoldersFor(
+  profileUserId: string,
+): Promise<{ id: string; name: string; color: string; icon: string | null }[]> {
+  const { data, error } = await supabase
+    .from('folders')
+    .select('id, name, color, icon')
+    .eq('user_id', profileUserId);
   if (error) throw error;
   return data || [];
 }
@@ -170,13 +180,22 @@ export default function Friends() {
     enabled: !!selectedUser,
   });
 
+  const { data: userFolders = [] } = useQuery({
+    queryKey: ['user-folders', selectedUser?.user_id],
+    queryFn: () => fetchUserFoldersFor(selectedUser!.user_id),
+    enabled: !!selectedUser,
+  });
+
   // Stable array reference across re-renders (as long as the underlying data
   // hasn't changed) - the map component below re-inits its GPS lookup and
   // rebuilds the whole Mapbox map whenever this reference changes, so an
   // inline .filter() here was causing a full map rebuild on every render.
   const statusFilteredRestaurants = useMemo(
-    () => userRestaurants.filter((r) => r.status === friendStatusFilter),
-    [userRestaurants, friendStatusFilter],
+    () =>
+      userRestaurants
+        .filter((r) => r.status === friendStatusFilter)
+        .map((r) => ({ ...r, folders: userFolders.filter((f) => (r.folder_ids || []).includes(f.id)) })),
+    [userRestaurants, userFolders, friendStatusFilter],
   );
 
   useEffect(() => {
@@ -553,18 +572,19 @@ export default function Friends() {
                       const statusFiltered = statusFilteredRestaurants;
                       const folderMap: Record<string, { name: string; color: string; icon?: string | null }> = {};
                       statusFiltered.forEach(r => {
-                        if (r.folder?.name && !folderMap[r.folder.name]) {
-                          folderMap[r.folder.name] = r.folder;
-                        }
+                        r.folders?.forEach((f) => {
+                          if (!folderMap[f.name]) folderMap[f.name] = f;
+                        });
                       });
                       const folderOptions = Object.values(folderMap);
 
                       const tokens = friendListSearch.toLowerCase().split(/\s+/).filter(Boolean);
                       const filtered = statusFiltered
                         .filter(r => {
-                          if (friendSelectedFolder && r.folder?.name !== friendSelectedFolder) return false;
+                          if (friendSelectedFolder && !r.folders?.some((f) => f.name === friendSelectedFolder)) return false;
                           if (tokens.length === 0) return true;
-                          const hay = `${r.name} ${r.address || ''} ${r.notes || ''} ${r.folder?.name || ''}`.toLowerCase();
+                          const folderNames = (r.folders || []).map((f) => f.name).join(' ');
+                          const hay = `${r.name} ${r.address || ''} ${r.notes || ''} ${folderNames}`.toLowerCase();
                           return tokens.every(t => hay.includes(t));
                         })
                         .sort((a, b) => {
@@ -824,8 +844,8 @@ function FriendsMapComponent({ token, restaurants, focusedRestaurantId, onFocusR
         const isFocused = focusedRestaurantId === restaurant.id;
 
         const el = createPinElement({
-          color: restaurant.folder?.color,
-          icon: restaurant.folder?.icon,
+          color: restaurant.folders?.[0]?.color,
+          icon: restaurant.folders?.[0]?.icon,
           focused: isFocused,
         });
 

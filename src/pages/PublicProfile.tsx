@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navbar } from '@/components/layout/Navbar';
@@ -63,11 +63,19 @@ async function fetchPublicRestaurants(userId: string): Promise<any[]> {
     .from('restaurants')
     .select(`
       *,
-      folder:folders(name, color),
       images:restaurant_images(image_url)
     `)
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+async function fetchPublicFolders(userId: string): Promise<{ id: string; name: string; color: string; icon: string | null }[]> {
+  const { data, error } = await supabase
+    .from('folders')
+    .select('id, name, color, icon')
+    .eq('user_id', userId);
   if (error) throw error;
   return data || [];
 }
@@ -129,6 +137,21 @@ export default function PublicProfile() {
     enabled: !!userId && canViewRestaurants,
   });
 
+  const { data: profileFolders = [] } = useQuery({
+    queryKey: ['public-folders', userId],
+    queryFn: () => fetchPublicFolders(userId!),
+    enabled: !!userId && canViewRestaurants,
+  });
+
+  const restaurantsWithFolders = useMemo(
+    () =>
+      restaurants.map((r) => ({
+        ...r,
+        folders: profileFolders.filter((f) => (r.folder_ids || []).includes(f.id)),
+      })),
+    [restaurants, profileFolders],
+  );
+
   // Same privacy math as restaurants (owner/public/accepted-follower), now
   // mirrored in the custom_lists RLS policies too - reusing canViewRestaurants
   // here since the underlying rule is identical, not restaurant-specific.
@@ -174,7 +197,7 @@ export default function PublicProfile() {
     }
   };
 
-  const statusFilteredRestaurants = restaurants.filter((r) => r.status === statusFilter);
+  const statusFilteredRestaurants = restaurantsWithFolders.filter((r) => r.status === statusFilter);
   const { typeFilter, setTypeFilter, sortBy, setSortBy, availableTypes, filteredSorted: filteredRestaurants } =
     useRestaurantListControls(statusFilteredRestaurants);
   const [viewMode, setViewMode] = useViewMode('public-profile');

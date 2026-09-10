@@ -85,7 +85,7 @@ async function fetchItems(listId: string): Promise<CustomListItem[]> {
   const { data, error } = await supabase
     .from('custom_list_items')
     .select(
-      '*, images:custom_list_item_images(id, image_url), type:custom_list_types(name, color, icon), status:custom_list_statuses(id, name, sort_order)',
+      '*, images:custom_list_item_images(id, image_url), status:custom_list_statuses(id, name, sort_order)',
     )
     .eq('list_id', listId)
     .order('created_at', { ascending: false });
@@ -206,7 +206,7 @@ export default function PublicListDetail() {
   const filteredItems = useMemo(
     () =>
       items
-        .filter((i) => !selectedTypeId || i.type_id === selectedTypeId)
+        .filter((i) => !selectedTypeId || (i.type_ids || []).includes(selectedTypeId))
         .filter((i) => {
           if (!searchQuery.trim()) return true;
           const q = searchQuery.toLowerCase();
@@ -398,6 +398,7 @@ export default function PublicListDetail() {
                         item={item}
                         list={list}
                         statuses={sortedStatuses}
+                        types={types}
                         onOpenDetail={() => {}}
                       />
                     ))}
@@ -405,7 +406,7 @@ export default function PublicListDetail() {
                 ) : (
                   <div className="grid gap-3 sm:gap-4 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
                     {currentItems.map((item) => (
-                      <CustomListItemCard key={item.id} item={item} list={list} statuses={sortedStatuses} />
+                      <CustomListItemCard key={item.id} item={item} list={list} statuses={sortedStatuses} types={types} />
                     ))}
                   </div>
                 )}
@@ -426,6 +427,7 @@ export default function PublicListDetail() {
                   <PublicListMapComponent
                     token={mapboxToken}
                     items={currentItems}
+                    types={types}
                     focusedItemId={focusedItemId}
                     onFocusItem={setFocusedItemId}
                     flyToRef={mapFlyToRef}
@@ -448,6 +450,7 @@ export default function PublicListDetail() {
 interface PublicListMapComponentProps {
   token: string;
   items: CustomListItem[];
+  types: ManagedListType[];
   focusedItemId: string | null;
   onFocusItem: (id: string | null) => void;
   flyToRef: React.MutableRefObject<((lat: number, lng: number, itemId: string) => void) | null>;
@@ -456,7 +459,7 @@ interface PublicListMapComponentProps {
 // Same pin-building/pattern as CustomListDetail.tsx's CustomListMapComponent
 // - duplicated rather than shared since that one isn't exported, and this
 // view has no editing affordances to keep in sync with it.
-function PublicListMapComponent({ token, items, focusedItemId, onFocusItem, flyToRef }: PublicListMapComponentProps) {
+function PublicListMapComponent({ token, items, types, focusedItemId, onFocusItem, flyToRef }: PublicListMapComponentProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<globalThis.Map<string, any>>(new globalThis.Map());
@@ -521,10 +524,11 @@ function PublicListMapComponent({ token, items, focusedItemId, onFocusItem, flyT
 
       itemsWithLocation.forEach((item) => {
         const isFocused = focusedItemId === item.id;
+        const firstType = types.find((t) => (item.type_ids || []).includes(t.id));
 
         const el = createPinElement({
-          color: item.type?.color,
-          icon: item.type?.icon,
+          color: firstType?.color,
+          icon: firstType?.icon,
           focused: isFocused,
         });
 
@@ -564,7 +568,7 @@ function PublicListMapComponent({ token, items, focusedItemId, onFocusItem, flyT
     }, 100);
 
     return () => clearInterval(checkMap);
-  }, [items, focusedItemId, onFocusItem]);
+  }, [items, types, focusedItemId, onFocusItem]);
 
   return <div ref={mapContainer} className="w-full h-full" />;
 }

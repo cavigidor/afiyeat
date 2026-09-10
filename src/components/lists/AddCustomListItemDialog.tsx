@@ -30,6 +30,7 @@ import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
 import { isDuplicateCustomListItem } from '@/lib/duplicateRestaurant';
 import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
 import { PlaceResultsDropdown } from '@/components/shared/PlaceResultsDropdown';
+import { TagMultiSelect } from '@/components/shared/TagMultiSelect';
 import type { CustomList } from './CreateListDialog';
 import type { ManagedListType } from '@/hooks/useListTypeManagement';
 import type { ManagedListStatus } from '@/hooks/useListStatusManagement';
@@ -51,6 +52,7 @@ export interface CustomListItem {
   status_id: string | null;
   status?: { id: string; name: string; sort_order: number | null } | null;
   type_id: string | null;
+  type_ids: string[];
   type?: { name: string; color: string; icon: string | null } | null;
   images?: { id: string; image_url: string }[];
 }
@@ -87,7 +89,7 @@ export function AddCustomListItemDialog({
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [statusId, setStatusId] = useState<string | null>(null);
-  const [typeId, setTypeId] = useState<string | null>(null);
+  const [typeIds, setTypeIds] = useState<string[]>([]);
 
   const sortedStatuses = [...statuses].sort((a, b) => {
     const ao = a.sort_order ?? Number.MAX_SAFE_INTEGER;
@@ -134,7 +136,7 @@ export function AddCustomListItemDialog({
       setLatitude(editItem.latitude);
       setLongitude(editItem.longitude);
       setStatusId(editItem.status_id ?? sortedStatuses[0]?.id ?? null);
-      setTypeId(editItem.type_id ?? null);
+      setTypeIds(editItem.type_ids || []);
       setPriceLevel(editItem.price_level);
       setPriceManual(editItem.price_manual != null ? String(editItem.price_manual) : '');
       setRating(editItem.rating);
@@ -147,7 +149,7 @@ export function AddCustomListItemDialog({
       setLatitude(null);
       setLongitude(null);
       setStatusId(sortedStatuses[0]?.id ?? null);
-      setTypeId(null);
+      setTypeIds([]);
       setPriceLevel(null);
       setPriceManual('');
       setRating(null);
@@ -235,7 +237,7 @@ export function AddCustomListItemDialog({
         address: list.show_location ? address.trim() || null : null,
         latitude: list.show_location ? latitude : null,
         longitude: list.show_location ? longitude : null,
-        type_id: typeId,
+        type_ids: typeIds,
         price_level: list.show_price && list.price_mode === 'dollar' ? priceLevel : null,
         price_manual:
           list.show_price && list.price_mode === 'manual' && parsedPriceManual != null && !Number.isNaN(parsedPriceManual)
@@ -373,30 +375,8 @@ export function AddCustomListItemDialog({
 
           {types.length > 0 && (
             <div className="space-y-2">
-              <Label>Type</Label>
-              <Select
-                value={typeId ?? '__none__'}
-                onValueChange={(v) => setTypeId(v === '__none__' ? null : v)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">No Type</SelectItem>
-                  {types.map((type) => (
-                    <SelectItem key={type.id} value={type.id}>
-                      <div className="flex items-center gap-2">
-                        {type.icon ? (
-                          <span className="text-xs leading-none">{type.icon}</span>
-                        ) : (
-                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: type.color }} />
-                        )}
-                        {type.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Types</Label>
+              <TagMultiSelect options={types} value={typeIds} onChange={setTypeIds} />
             </div>
           )}
 

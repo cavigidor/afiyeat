@@ -32,6 +32,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { ImageUploadSection } from './ImageUploadSection';
 import { PriceLevelPicker } from './PriceLevelPicker';
+import { TagMultiSelect } from '@/components/shared/TagMultiSelect';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Restaurant name is required'),
@@ -40,7 +41,7 @@ const formSchema = z.object({
   longitude: z.number().optional(),
   notes: z.string().optional(),
   status: z.enum(['to_go', 'went_to']),
-  folder_id: z.string().optional(),
+  folder_ids: z.array(z.string()).default([]),
   rating: z.number().min(0).max(10).optional(),
   price_level: z.number().min(1).max(4).optional(),
 });
@@ -57,8 +58,7 @@ interface Restaurant {
   price_level?: number | null;
   status: string;
   notes?: string | null;
-  folder_id?: string | null;
-  folder?: { name: string; color: string; icon?: string | null } | null;
+  folder_ids?: string[] | null;
   images?: { image_url: string; id: string }[];
 }
 
@@ -162,7 +162,7 @@ export function EditRestaurantDialog({
       longitude: undefined,
       notes: '',
       status: 'to_go',
-      folder_id: undefined,
+      folder_ids: [],
       rating: undefined,
       price_level: undefined,
     },
@@ -181,7 +181,7 @@ export function EditRestaurantDialog({
         longitude: restaurant.longitude || undefined,
         notes: restaurant.notes || '',
         status: restaurant.status as 'to_go' | 'went_to',
-        folder_id: restaurant.folder_id || undefined,
+        folder_ids: restaurant.folder_ids || [],
         rating: restaurant.rating || undefined,
         price_level: restaurant.price_level || undefined,
       });
@@ -208,7 +208,7 @@ export function EditRestaurantDialog({
           longitude: submitValues.longitude || null,
           notes: submitValues.notes || null,
           status: submitValues.status,
-          folder_id: submitValues.folder_id || null,
+          folder_ids: submitValues.folder_ids,
           rating: submitValues.rating,
           price_level: submitValues.price_level,
           visited_at: submitValues.status === 'went_to' ? new Date().toISOString() : null,
@@ -263,65 +263,41 @@ export function EditRestaurantDialog({
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="to_go">To Go</SelectItem>
-                        <SelectItem value="went_to">Been There</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="to_go">To Go</SelectItem>
+                      <SelectItem value="went_to">Been There</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="folder_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Type</FormLabel>
-                    <Select onValueChange={(v) => field.onChange(v === '__none__' ? undefined : v)} value={field.value || '__none__'}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="__none__">No Type</SelectItem>
-                        {folders.map((folder) => (
-                          <SelectItem key={folder.id} value={folder.id}>
-                            <div className="flex items-center gap-2">
-                              {folder.icon ? (
-                                <span className="text-xs leading-none">{folder.icon}</span>
-                              ) : (
-                                <div
-                                  className="w-3 h-3 rounded-full"
-                                  style={{ backgroundColor: folder.color }}
-                                />
-                              )}
-                              {folder.name}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="folder_ids"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Types</FormLabel>
+                  <FormControl>
+                    <TagMultiSelect options={folders} value={field.value} onChange={field.onChange} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {/* Price level - shown for both statuses */}
             <FormField

@@ -28,7 +28,7 @@ export interface DetailRestaurant {
   price_level?: number | null;
   status: string;
   notes?: string | null;
-  folder?: { name: string; color: string } | null;
+  folders?: { name: string; color: string }[];
   images?: { image_url: string }[];
 }
 
@@ -50,7 +50,7 @@ export function RestaurantDetailDialog({
   const [imgIndex, setImgIndex] = useState(0);
   const imageUrls = restaurant?.images?.map((i) => i.image_url) || [];
   const { signedUrls, loading: imagesLoading } = useSignedImageUrls(imageUrls);
-  const FallbackIcon = getFolderIcon(restaurant?.folder?.name);
+  const FallbackIcon = getFolderIcon(restaurant?.folders?.[0]?.name);
 
   // Reset the carousel position each time a different place is opened.
   useEffect(() => {
@@ -148,7 +148,9 @@ export function RestaurantDetailDialog({
           )}
 
           <div className="flex items-center gap-4 flex-wrap">
-            {restaurant.folder && <Badge variant="outline">{restaurant.folder.name}</Badge>}
+            {restaurant.folders?.map((f) => (
+              <Badge key={f.name} variant="outline">{f.name}</Badge>
+            ))}
             {restaurant.rating != null && restaurant.rating > 0 && (
               <div className="flex items-center gap-1">
                 <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />

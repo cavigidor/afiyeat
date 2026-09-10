@@ -6,8 +6,7 @@ interface ExportRestaurant {
   price_level: number | null;
   notes: string | null;
   status: string;
-  folder?: { name: string; color: string } | null;
-  folder_id: string | null;
+  folder_ids: string[];
 }
 
 interface ExportFolder {
@@ -49,17 +48,22 @@ export function exportListAsPdf(
   // ─── The Bests ───
   const visitedRestaurants = restaurants.filter(r => r.status === 'went_to' && r.rating !== null);
 
-  // Group by folder
-  const folderMap = new Map<string, { folderName: string; restaurants: ExportRestaurant[] }>();
+  // Group by folder - a restaurant tagged with more than one type appears
+  // in each of its type's groups, since it genuinely belongs to all of them.
+  const folderNameById = new Map(folders.map((f) => [f.id, f.name]));
   const unfolderedKey = '__none__';
 
+  const folderMap = new Map<string, { folderName: string; restaurants: ExportRestaurant[] }>();
+
   visitedRestaurants.forEach(r => {
-    const key = r.folder_id || unfolderedKey;
-    const folderName = r.folder?.name || 'Other';
-    if (!folderMap.has(key)) {
-      folderMap.set(key, { folderName, restaurants: [] });
-    }
-    folderMap.get(key)!.restaurants.push(r);
+    const keys = r.folder_ids && r.folder_ids.length > 0 ? r.folder_ids : [unfolderedKey];
+    keys.forEach((key) => {
+      const folderName = folderNameById.get(key) || 'Other';
+      if (!folderMap.has(key)) {
+        folderMap.set(key, { folderName, restaurants: [] });
+      }
+      folderMap.get(key)!.restaurants.push(r);
+    });
   });
 
   // Compute bests per folder — include ALL ties
@@ -109,12 +113,14 @@ export function exportListAsPdf(
   // Also include "to_go" restaurants in their folders
   const allRestaurantsByFolder = new Map<string, { folderName: string; restaurants: ExportRestaurant[] }>();
   restaurants.forEach(r => {
-    const key = r.folder_id || unfolderedKey;
-    const folderName = r.folder?.name || 'Other';
-    if (!allRestaurantsByFolder.has(key)) {
-      allRestaurantsByFolder.set(key, { folderName, restaurants: [] });
-    }
-    allRestaurantsByFolder.get(key)!.restaurants.push(r);
+    const keys = r.folder_ids && r.folder_ids.length > 0 ? r.folder_ids : [unfolderedKey];
+    keys.forEach((key) => {
+      const folderName = folderNameById.get(key) || 'Other';
+      if (!allRestaurantsByFolder.has(key)) {
+        allRestaurantsByFolder.set(key, { folderName, restaurants: [] });
+      }
+      allRestaurantsByFolder.get(key)!.restaurants.push(r);
+    });
   });
 
   // Section title

@@ -15,6 +15,7 @@ import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
 import type { CustomList } from './CreateListDialog';
 import type { CustomListItem } from './AddCustomListItemDialog';
 import type { ManagedListStatus } from '@/hooks/useListStatusManagement';
+import type { ManagedListType } from '@/hooks/useListTypeManagement';
 
 function formatPrice(item: CustomListItem, list: CustomList): string | null {
   if (!list.show_price) return null;
@@ -33,6 +34,7 @@ interface CustomListItemRowProps {
   item: CustomListItem;
   list: CustomList;
   statuses: ManagedListStatus[];
+  types?: ManagedListType[];
   onOpenDetail: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -44,6 +46,7 @@ export function CustomListItemRow({
   item,
   list,
   statuses,
+  types = [],
   onOpenDetail,
   onEdit,
   onDelete,
@@ -51,6 +54,7 @@ export function CustomListItemRow({
   quickDelete,
 }: CustomListItemRowProps) {
   const otherStatuses = statuses.filter((s) => s.id !== item.status_id);
+  const itemTypes = types.filter((t) => (item.type_ids || []).includes(t.id));
   const hasMenu = !!(onEdit || onDelete || onChangeStatus);
 
   return (
@@ -65,18 +69,18 @@ export function CustomListItemRow({
     >
       <div
         className="w-1.5 self-stretch rounded-full shrink-0"
-        style={{ backgroundColor: item.type?.color || list.color }}
+        style={{ backgroundColor: itemTypes[0]?.color || list.color }}
       />
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 min-w-0">
           <h3 className="font-medium truncate">{item.name}</h3>
-          {item.type && (
-            <Badge variant="outline" className="gap-1 shrink-0 font-normal text-xs px-1.5 py-0">
-              {item.type.icon && <span className="leading-none">{item.type.icon}</span>}
-              {item.type.name}
+          {itemTypes.map((t) => (
+            <Badge key={t.id} variant="outline" className="gap-1 shrink-0 font-normal text-xs px-1.5 py-0">
+              {t.icon && <span className="leading-none">{t.icon}</span>}
+              {t.name}
             </Badge>
-          )}
+          ))}
         </div>
         {list.show_location && item.address && (
           <p className="text-xs text-muted-foreground truncate flex items-center gap-1 mt-0.5">
