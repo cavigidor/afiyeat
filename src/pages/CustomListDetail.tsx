@@ -50,6 +50,7 @@ import { getPriceSortValue, getRatingSortValue } from '@/lib/customListValues';
 import { getDirectionsPopupHtml } from '@/lib/directions';
 import { createPinElement } from '@/lib/mapPin';
 import { shareListLink } from '@/lib/shareList';
+import { hapticWarning } from '@/lib/haptics';
 import { useLocationPermission } from '@/hooks/useLocationPermission';
 import { LocationDeniedDialog } from '@/components/shared/LocationDeniedDialog';
 import { NearMeButton } from '@/components/shared/NearMeButton';
@@ -255,6 +256,7 @@ export default function CustomListDetail() {
     if (error) {
       toast.error('Failed to delete');
     } else {
+      void hapticWarning();
       toast.success('Item deleted');
       invalidateItems();
     }

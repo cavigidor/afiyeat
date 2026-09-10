@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,7 +13,7 @@ interface RecipeListRowProps {
   onClick: () => void;
 }
 
-export function RecipeListRow({ recipe, isOwner, onDelete, onClick }: RecipeListRowProps) {
+function RecipeListRowImpl({ recipe, isOwner, onDelete, onClick }: RecipeListRowProps) {
   const totalTime = (recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0);
 
   const getDifficultyColor = (difficulty: string | null) => {
@@ -89,3 +90,5 @@ export function RecipeListRow({ recipe, isOwner, onDelete, onClick }: RecipeList
     </Card>
   );
 }
+
+export const RecipeListRow = memo(RecipeListRowImpl);

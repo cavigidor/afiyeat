@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Newspaper, ListChecks, Users, Compass } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { hapticTap } from '@/lib/haptics';
 
 interface Tab {
   to: string;
@@ -77,6 +78,9 @@ export function BottomTabBar() {
             <Link
               key={tab.to}
               to={tab.to}
+              onClick={() => {
+                if (!active) void hapticTap();
+              }}
               className={cn(
                 'active-press flex flex-col items-center justify-center gap-0.5 py-2 text-xs transition-[color,transform] duration-150 ease-out active:opacity-60',
                 active ? 'text-primary' : 'text-muted-foreground',

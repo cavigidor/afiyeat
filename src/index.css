@@ -164,6 +164,14 @@ All colors MUST be HSL.
        canvas to run its own pinch/pan gestures, which is more specific and
        wins there, so the map keeps its own pinch-to-zoom. */
     touch-action: manipulation;
+    /* Stops scroll "chaining" past the top/bottom of the page from
+       scrolling a parent/ancestor scroller (there isn't one here, but this
+       also suppresses the page-level rubber-band overscroll glow/bounce in
+       WebKit browsers that honor it), so the page edge feels like a hard
+       stop the way a native screen's does rather than a webpage's elastic
+       bounce. Support varies by iOS version - harmless no-op where it isn't
+       honored. */
+    overscroll-behavior-y: none;
   }
 
   /* Removes the browser/WebKit's own gray "tap highlight" flash on
@@ -206,6 +214,26 @@ All colors MUST be HSL.
     .active-press:active {
       transform: none;
     }
+  }
+
+  /* Restrained enter transition for non-persistent route changes (see
+     AnimatedRoutes in App.tsx) - a brief fade + slight rise rather than an
+     abrupt swap, short enough to read as responsive rather than decorative.
+     Covered by the prefers-reduced-motion override below, which collapses
+     all animation-duration to ~0 - so under reduced motion this becomes an
+     instant, non-animated state change instead of being skipped/broken. */
+  @keyframes route-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .route-fade-in {
+    animation: route-fade-in 200ms ease-out;
   }
 
   /* iOS safe-area insets (notch / Dynamic Island / home indicator).

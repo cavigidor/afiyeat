@@ -3,7 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#F7F5F3" />
     <link rel="icon" type="image/png" href="/favicon.png">
+    <style>
+      /* Matches --background in index.css. Set inline (before the
+         stylesheet loads) so the very first paint - before React has even
+         mounted - is already the app's own background color instead of the
+         browser/WebView's default white, eliminating the white flash on
+         cold launch that's one of the biggest "this is a website" tells. */
+      html, body { background-color: #F7F5F3; }
+    </style>
     <title>Afiyeat — Restaurant Tracker & Recipe App</title>
     <meta name="description" content="Track restaurants, save places you've been, and share recipes with friends. Free restaurant tracker app.">
     <meta name="keywords" content="restaurant tracker, recipe sharing app, food journal, track restaurants, save restaurants, share recipes with friends, food adventure app, dining tracker, food diary, restaurant wishlist" />

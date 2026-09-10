@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -35,7 +35,7 @@ interface RestaurantCardProps {
   addedBy?: AddedByInfo;
 }
 
-export function RestaurantCard({ restaurant, onEdit, onDelete, onMarkVisited, quickDelete, addedBy }: RestaurantCardProps) {
+function RestaurantCardImpl({ restaurant, onEdit, onDelete, onMarkVisited, quickDelete, addedBy }: RestaurantCardProps) {
   const firstImageUrl = restaurant.images?.[0]?.image_url;
   const { signedUrl: firstImage, loading: imageLoading } = useSignedImageUrl(firstImageUrl);
   const [imgFailed, setImgFailed] = useState(false);
@@ -54,6 +54,8 @@ export function RestaurantCard({ restaurant, onEdit, onDelete, onMarkVisited, qu
             src={firstImage}
             alt={restaurant.name}
             onError={() => setImgFailed(true)}
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover transition-transform group-hover:scale-105"
           />
         ) : (
@@ -186,3 +188,11 @@ export function RestaurantCard({ restaurant, onEdit, onDelete, onMarkVisited, qu
     </Card>
   );
 }
+
+// Memoized: these render in potentially long lists (My List, Friends,
+// PublicProfile), and the parent screens re-render on unrelated state
+// changes (search/filter typing, other rows updating) - memoizing means a
+// given card only re-renders when its own props actually change, instead of
+// the whole visible list re-rendering (and re-running the image/fallback
+// logic) on every keystroke elsewhere on the page.
+export const RestaurantCard = memo(RestaurantCardImpl);

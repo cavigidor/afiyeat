@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,7 +35,7 @@ interface RestaurantListRowProps {
   addedBy?: AddedByInfo;
 }
 
-export function RestaurantListRow({
+function RestaurantListRowImpl({
   restaurant,
   onOpenDetail,
   onFlyTo,
@@ -173,3 +174,5 @@ export function RestaurantListRow({
     </Card>
   );
 }
+
+export const RestaurantListRow = memo(RestaurantListRowImpl);

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,7 +43,7 @@ interface CustomListItemCardProps {
   quickDelete?: boolean;
 }
 
-export function CustomListItemCard({ item, list, statuses, types = [], onEdit, onDelete, onChangeStatus, quickDelete }: CustomListItemCardProps) {
+function CustomListItemCardImpl({ item, list, statuses, types = [], onEdit, onDelete, onChangeStatus, quickDelete }: CustomListItemCardProps) {
   const otherStatuses = statuses.filter((s) => s.id !== item.status_id);
   const itemTypes = types.filter((t) => (item.type_ids || []).includes(t.id));
   const firstImageUrl = item.images?.[0]?.image_url;
@@ -65,6 +65,8 @@ export function CustomListItemCard({ item, list, statuses, types = [], onEdit, o
               src={firstImage}
               alt={item.name}
               onError={() => setImgFailed(true)}
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover transition-transform group-hover:scale-105"
             />
           ) : (
@@ -253,3 +255,5 @@ export function CustomListItemCard({ item, list, statuses, types = [], onEdit, o
     </Card>
   );
 }
+
+export const CustomListItemCard = memo(CustomListItemCardImpl);

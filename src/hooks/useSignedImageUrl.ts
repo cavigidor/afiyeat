@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getSignedUrl } from '@/lib/storage';
+import { getSignedUrl, peekSignedUrl } from '@/lib/storage';
 
 /**
  * Hook to convert a public storage URL to a signed URL
@@ -7,8 +7,14 @@ import { getSignedUrl } from '@/lib/storage';
  * @returns Object with signedUrl and loading state
  */
 export function useSignedImageUrl(url: string | null | undefined) {
-  const [signedUrl, setSignedUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Seed synchronously from the module-level signed-URL cache (see
+  // lib/storage.ts) rather than always starting at null/loading=true. Cards
+  // remount constantly (list re-renders, tab switches, navigating back) and
+  // almost always ask for a URL they already resolved a moment ago - without
+  // this, every single remount would show a loading spinner for one tick
+  // even though the real answer was sitting in cache the whole time.
+  const [signedUrl, setSignedUrl] = useState<string | null>(() => peekSignedUrl(url));
+  const [loading, setLoading] = useState(() => !!url && peekSignedUrl(url) === null);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
@@ -21,9 +27,12 @@ export function useSignedImageUrl(url: string | null | undefined) {
         return;
       }
 
-      // If it's not a recognized private-bucket storage URL, use it directly
-      if (!url.includes('restaurant-images') && !url.includes('custom-list-images')) {
-        setSignedUrl(url);
+      // Already resolved (cache hit, or not a private-bucket URL at all) -
+      // peekSignedUrl already returned it into state on mount, so there's
+      // no need to show a loading state or make another async call.
+      const cached = peekSignedUrl(url);
+      if (cached !== null) {
+        setSignedUrl(cached);
         setLoading(false);
         return;
       }
@@ -62,8 +71,8 @@ export function useSignedImageUrl(url: string | null | undefined) {
  * @returns Object with signedUrls array and loading state
  */
 export function useSignedImageUrls(urls: (string | null | undefined)[]) {
-  const [signedUrls, setSignedUrls] = useState<(string | null)[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [signedUrls, setSignedUrls] = useState<(string | null)[]>(() => urls.map((u) => peekSignedUrl(u)));
+  const [loading, setLoading] = useState(() => urls.length > 0 && urls.some((u) => !!u && peekSignedUrl(u) === null));
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {

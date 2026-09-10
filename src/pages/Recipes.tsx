@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Plus, Search, ChefHat, ScanLine } from 'lucide-react';
+import { CardGridSkeleton } from '@/components/shared/CardGridSkeleton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -275,9 +276,7 @@ export default function Recipes() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
+          <CardGridSkeleton />
         ) : filteredRecipes.length === 0 ? (
           <div className="text-center py-12 bg-card rounded-xl">
             <ChefHat className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />

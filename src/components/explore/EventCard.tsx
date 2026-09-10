@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CalendarDays, MapPin, Ticket, ExternalLink } from 'lucide-react';
@@ -62,7 +63,7 @@ interface EventCardProps {
   event: TicketmasterEvent;
 }
 
-export function EventCard({ event }: EventCardProps) {
+function EventCardImpl({ event }: EventCardProps) {
   const dateLabel = formatEventDate(event.localDate);
   const timeLabel = formatEventTime(event.localTime);
   const priceLabel = formatPrice(event);
@@ -82,6 +83,7 @@ export function EventCard({ event }: EventCardProps) {
             alt={event.name}
             className="w-full h-full object-cover"
             loading="lazy"
+            decoding="async"
           />
           {event.isCancelled && (
             <Badge variant="destructive" className="absolute top-2 right-2">
@@ -138,3 +140,5 @@ export function EventCard({ event }: EventCardProps) {
     </Card>
   );
 }
+
+export const EventCard = memo(EventCardImpl);

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Clock, Users, Thermometer, Trash2, Loader2, ChefHat } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +14,7 @@ interface RecipeCardProps {
   onClick: () => void;
 }
 
-export function RecipeCard({ recipe, isOwner, onDelete, onClick }: RecipeCardProps) {
+function RecipeCardImpl({ recipe, isOwner, onDelete, onClick }: RecipeCardProps) {
   const totalTime = (recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0);
   const { signedUrl: imageUrl, loading: imageLoading } = useSignedImageUrl(recipe.image_url);
 
@@ -45,6 +46,8 @@ export function RecipeCard({ recipe, isOwner, onDelete, onClick }: RecipeCardPro
           <img
             src={imageUrl}
             alt={recipe.title}
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover"
           />
         ) : (
@@ -146,3 +149,5 @@ export function RecipeCard({ recipe, isOwner, onDelete, onClick }: RecipeCardPro
     </Card>
   );
 }
+
+export const RecipeCard = memo(RecipeCardImpl);

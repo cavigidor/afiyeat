@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,7 +43,7 @@ interface CustomListItemRowProps {
   quickDelete?: boolean;
 }
 
-export function CustomListItemRow({
+function CustomListItemRowImpl({
   item,
   list,
   statuses,
@@ -192,3 +193,5 @@ export function CustomListItemRow({
     </Card>
   );
 }
+
+export const CustomListItemRow = memo(CustomListItemRowImpl);

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/layout/Navbar';
+import { CardGridSkeleton } from '@/components/shared/CardGridSkeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -302,9 +303,7 @@ export default function Explore() {
             </p>
 
             {listsLoading ? (
-              <div className="flex items-center justify-center py-24">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
+              <CardGridSkeleton />
             ) : lists.length === 0 ? (
               <div className="text-center py-24 bg-card rounded-xl">
                 <Compass className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
@@ -386,9 +385,7 @@ export default function Explore() {
                 )}
 
                 {!eventsLocation || eventsLoading ? (
-                  <div className="flex items-center justify-center py-24">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  </div>
+                  <CardGridSkeleton />
                 ) : eventsErrored ? (
                   <div className="text-center py-24 bg-card rounded-xl">
                     <CalendarDays className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
@@ -448,9 +445,7 @@ export default function Explore() {
             )}
           </div>
         ) : placesLoading || mapboxLoading ? (
-          <div className="flex items-center justify-center py-24">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
+          <CardGridSkeleton />
         ) : places.length === 0 ? (
           <div className="text-center py-24 bg-card rounded-xl">
             <Compass className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />

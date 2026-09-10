@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Navbar } from '@/components/layout/Navbar';
+import { CardGridSkeleton } from '@/components/shared/CardGridSkeleton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
@@ -511,9 +512,7 @@ export default function Friends() {
                 </div>
 
                 {loading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  </div>
+                  <CardGridSkeleton count={3} />
                 ) : userRestaurants.length === 0 ? (
                   <div className="text-center py-12 bg-card rounded-xl">
                     <p className="text-muted-foreground">

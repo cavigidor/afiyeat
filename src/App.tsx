@@ -4,22 +4,19 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PushNotificationManager } from "@/components/shared/PushNotificationManager";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
+import { PersistentTabs } from "@/components/layout/PersistentTabs";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
-import Friends from "./pages/Friends";
 import Search from "./pages/Search";
-import Explore from "./pages/Explore";
 import PublicProfile from "./pages/PublicProfile";
 import PublicListDetail from "./pages/PublicListDetail";
 
 import MyList from "./pages/MyList";
-import MyLists from "./pages/MyLists";
 import CustomListDetail from "./pages/CustomListDetail";
-import Foodie from "./pages/Foodie";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import Terms from "./pages/Terms";
@@ -39,6 +36,58 @@ const queryClient = new QueryClient({
   },
 });
 
+// Paths PersistentTabs owns (see PersistentTabs.tsx) - their <Route> below
+// renders null, so there's nothing worth animating a fade-in for and no
+// point remounting the wrapper div when bouncing between them.
+const PERSISTENT_TAB_PATHS = new Set(['/foodie', '/my-lists', '/friends', '/explore']);
+
+// Restrained fade+slight-rise on every "real" (non-persistent-tab) route
+// change, so navigating to a detail screen, profile, etc. feels like a
+// deliberate transition rather than an instant, jarring swap - see the
+// route-fade-in keyframes in index.css. Kept out of the persistent tabs
+// entirely since those already switch instantly (no remount at all) and a
+// wrapping animation would just add pointless motion on top of that.
+function AnimatedRoutes() {
+  const location = useLocation();
+  const fadeKey = PERSISTENT_TAB_PATHS.has(location.pathname) ? 'tab' : location.pathname;
+
+  return (
+    <div key={fadeKey} className="route-fade-in">
+      <Routes>
+        <Route path="/" element={<Index />} />
+        <Route path="/auth" element={<Auth />} />
+        {/* Dashboard.tsx was an earlier, less complete version of this
+            same page (no edit-after-mark-visited flow, no duplicate
+            check, no type ordering, etc.) that MyList.tsx has since
+            fully superseded - redirect rather than maintain two
+            divergent copies of the same screen. */}
+        <Route path="/dashboard" element={<Navigate to="/my-list" replace />} />
+        <Route path="/friends" element={null} />
+        <Route path="/search" element={<Search />} />
+        <Route path="/explore" element={null} />
+        <Route path="/u/:userId" element={<PublicProfile />} />
+        <Route path="/u/:userId/lists/:listId" element={<PublicListDetail />} />
+
+        {/* News and Recipes used to be their own top-level nav items;
+            both now live as tabs inside Foodie (see nav restructure -
+            Foodie/My Lists/Friends/Explore). Redirect old links/
+            bookmarks rather than keep two ways to reach the same
+            content. */}
+        <Route path="/news" element={<Navigate to="/foodie" replace />} />
+        <Route path="/recipes" element={<Navigate to="/foodie" replace />} />
+        <Route path="/foodie" element={null} />
+        <Route path="/my-list" element={<MyList />} />
+        <Route path="/my-lists" element={null} />
+        <Route path="/my-lists/:listId" element={<CustomListDetail />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </div>
+  );
+}
+
 const App = () => {
   useEffect(() => {
     void requestStartupPermissions();
@@ -53,37 +102,13 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <BottomTabBar />
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            {/* Dashboard.tsx was an earlier, less complete version of this
-                same page (no edit-after-mark-visited flow, no duplicate
-                check, no type ordering, etc.) that MyList.tsx has since
-                fully superseded - redirect rather than maintain two
-                divergent copies of the same screen. */}
-            <Route path="/dashboard" element={<Navigate to="/my-list" replace />} />
-            <Route path="/friends" element={<Friends />} />
-            <Route path="/search" element={<Search />} />
-            <Route path="/explore" element={<Explore />} />
-            <Route path="/u/:userId" element={<PublicProfile />} />
-            <Route path="/u/:userId/lists/:listId" element={<PublicListDetail />} />
-
-            {/* News and Recipes used to be their own top-level nav items;
-                both now live as tabs inside Foodie (see nav restructure -
-                Foodie/My Lists/Friends/Explore). Redirect old links/
-                bookmarks rather than keep two ways to reach the same
-                content. */}
-            <Route path="/news" element={<Navigate to="/foodie" replace />} />
-            <Route path="/recipes" element={<Navigate to="/foodie" replace />} />
-            <Route path="/foodie" element={<Foodie />} />
-            <Route path="/my-list" element={<MyList />} />
-            <Route path="/my-lists" element={<MyLists />} />
-            <Route path="/my-lists/:listId" element={<CustomListDetail />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          {/* Renders the four bottom-tab pages itself, kept mounted across
+              switches instead of the normal Route mount/unmount cycle below
+              (see PersistentTabs.tsx) - the matching routes for their paths
+              render nothing so react-router still matches them instead of
+              falling through to the catch-all NotFound. */}
+          <PersistentTabs />
+          <AnimatedRoutes />
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>

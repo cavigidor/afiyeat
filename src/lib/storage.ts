@@ -77,6 +77,30 @@ export async function getSignedImageUrl(
 }
 
 /**
+ * Synchronous, cache-only lookup for a signed URL - returns null on a cache
+ * miss rather than fetching. Lets callers (see useSignedImageUrl) seed their
+ * initial render state from an already-cached value, so a component that
+ * remounts with an image it already showed a moment ago (e.g. switching
+ * tabs, going back) paints the real image on the very first render instead
+ * of flashing a loading spinner while the (redundant, cache-hit) async
+ * lookup resolves.
+ */
+export function peekSignedUrl(urlOrPath: string | null | undefined): string | null {
+  if (!urlOrPath) return null;
+  if (urlOrPath.includes('/object/sign/')) return urlOrPath;
+
+  const extracted = extractStoragePath(urlOrPath);
+  if (!extracted) return urlOrPath; // Not a recognized private-bucket URL - usable as-is.
+
+  const cacheKey = `${extracted.bucket}/${extracted.path}`;
+  const cached = signedUrlCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now() + CACHE_BUFFER_MS) {
+    return cached.url;
+  }
+  return null;
+}
+
+/**
  * Converts a public URL or storage path to a signed URL. Recognizes URLs
  * from any bucket in IMAGE_BUCKETS; anything else is returned unchanged.
  * @param urlOrPath - The public URL or storage path

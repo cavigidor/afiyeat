@@ -13,6 +13,8 @@ import { exportListAsPdf } from '@/lib/exportPdf';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { RestaurantCard } from '@/components/restaurants/RestaurantCard';
+import { CardGridSkeleton } from '@/components/shared/CardGridSkeleton';
+import { hapticSuccess, hapticWarning } from '@/lib/haptics';
 import { RestaurantListRow } from '@/components/restaurants/RestaurantListRow';
 import { RestaurantDetailDialog, type DetailRestaurant } from '@/components/restaurants/RestaurantDetailDialog';
 import { RestaurantListToolbar } from '@/components/restaurants/RestaurantListToolbar';
@@ -209,6 +211,7 @@ export default function MyList() {
     if (error) {
       toast.error('Failed to update restaurant');
     } else {
+      void hapticSuccess();
       toast.success('Marked as been there! Add rating, comments & photos.');
       invalidateRestaurants();
       setSelectedRestaurant(data as Restaurant);
@@ -225,6 +228,7 @@ export default function MyList() {
     if (error) {
       toast.error('Failed to delete restaurant');
     } else {
+      void hapticWarning();
       toast.success('Restaurant deleted');
       invalidateRestaurants();
     }
@@ -369,10 +373,8 @@ export default function MyList() {
 
                   <TabsContent value="to_go">
                     {loading ? (
-                      <div className="flex justify-center py-8">
-                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                      </div>
-                    ) : toGoList.length === 0 ? (
+                      <CardGridSkeleton count={3} />
+                    ) :toGoList.length === 0 ? (
                       <div className="text-center py-8 text-muted-foreground">
                         <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
                         <p>No restaurants on your to-go list yet</p>
@@ -415,10 +417,8 @@ export default function MyList() {
 
                   <TabsContent value="went_to">
                     {loading ? (
-                      <div className="flex justify-center py-8">
-                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                      </div>
-                    ) : wentToList.length === 0 ? (
+                      <CardGridSkeleton count={3} />
+                    ) :wentToList.length === 0 ? (
                       <div className="text-center py-8 text-muted-foreground">
                         <Check className="h-8 w-8 mx-auto mb-2 opacity-50" />
                         <p>You haven't been to any restaurants yet</p>

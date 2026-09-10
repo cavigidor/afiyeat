@@ -11,7 +11,8 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Newspaper, Sparkles, MapPin, ExternalLink, Calendar, Plus } from 'lucide-react';
+import { Newspaper, Sparkles, MapPin, ExternalLink, Calendar, Plus } from 'lucide-react';
+import { CardGridSkeleton } from '@/components/shared/CardGridSkeleton';
 import { AddMentionedPlaceDialog } from '@/components/news/AddMentionedPlaceDialog';
 import { getCurrentPosition } from '@/lib/native';
 
@@ -162,9 +163,7 @@ export default function News() {
 
       <div className="container px-4 sm:px-6 lg:px-8 py-8">
         {loading ? (
-          <div className="flex items-center justify-center py-24">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
+          <CardGridSkeleton />
         ) : items.length === 0 ? (
           <div className="text-center py-24 max-w-md mx-auto">
             <Newspaper className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
