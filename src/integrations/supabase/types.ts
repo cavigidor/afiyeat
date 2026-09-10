@@ -98,6 +98,7 @@ export type Database = {
           rating: number | null
           rating_manual: number | null
           status: string
+          status_id: string | null
           type_id: string | null
           updated_at: string
           user_id: string
@@ -117,6 +118,7 @@ export type Database = {
           rating?: number | null
           rating_manual?: number | null
           status?: string
+          status_id?: string | null
           type_id?: string | null
           updated_at?: string
           user_id: string
@@ -136,6 +138,7 @@ export type Database = {
           rating?: number | null
           rating_manual?: number | null
           status?: string
+          status_id?: string | null
           type_id?: string | null
           updated_at?: string
           user_id?: string
@@ -149,10 +152,52 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "custom_list_items_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "custom_list_statuses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "custom_list_items_type_id_fkey"
             columns: ["type_id"]
             isOneToOne: false
             referencedRelation: "custom_list_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_list_statuses: {
+        Row: {
+          created_at: string
+          id: string
+          list_id: string
+          name: string
+          sort_order: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          list_id: string
+          name: string
+          sort_order?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          list_id?: string
+          name?: string
+          sort_order?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_list_statuses_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "custom_lists"
             referencedColumns: ["id"]
           },
         ]
