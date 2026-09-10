@@ -242,7 +242,8 @@ export default function MyLists() {
                 (predates that table) - manage restaurant types from within
                 that page, but it can be cleared out entirely from here. */}
             <Card
-              className="cursor-pointer hover:shadow-md active:bg-muted/60 transition-all overflow-hidden border-primary/30"
+              interactive
+              className="hover:shadow-md transition-shadow overflow-hidden border-primary/30"
               onClick={() => navigate('/my-list')}
             >
               <div className="h-1.5 bg-primary" />
@@ -291,7 +292,8 @@ export default function MyLists() {
             lists.map((list) => (
               <Card
                 key={list.id}
-                className="cursor-pointer hover:shadow-md active:bg-muted/60 transition-all overflow-hidden"
+                interactive
+                className="hover:shadow-md transition-shadow overflow-hidden"
                 onClick={() => navigate(`/my-lists/${list.id}`)}
               >
                 <div className="h-1.5" style={{ backgroundColor: list.color }} />
@@ -352,7 +354,8 @@ export default function MyLists() {
               {sharedLists.map((sl) => (
                 <Card
                   key={sl.id}
-                  className="cursor-pointer hover:shadow-md active:bg-muted/60 transition-all overflow-hidden"
+                  interactive
+                  className="hover:shadow-md transition-shadow overflow-hidden"
                   onClick={() => navigate('/friends', { state: { tab: 'shared', listId: sl.id } })}
                 >
                   <CardContent className="p-4 flex items-center gap-3">

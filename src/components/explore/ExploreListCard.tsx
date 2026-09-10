@@ -43,9 +43,8 @@ export function ExploreListCard({ list }: ExploreListCardProps) {
 
   return (
     <Card
-      className={`overflow-hidden transition-all ${
-        list.is_anonymous ? 'opacity-90' : 'cursor-pointer hover:shadow-md active:bg-muted/60'
-      }`}
+      interactive={!list.is_anonymous}
+      className={`overflow-hidden ${list.is_anonymous ? 'opacity-90' : 'hover:shadow-md transition-shadow'}`}
       onClick={list.is_anonymous ? undefined : () => navigate(`/u/${list.user_id}/lists/${list.list_id}`)}
       role={list.is_anonymous ? undefined : 'button'}
       tabIndex={list.is_anonymous ? undefined : 0}

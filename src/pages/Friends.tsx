@@ -638,8 +638,8 @@ export default function Friends() {
                           {folderOptions.length > 0 && (
                             <div className="flex flex-wrap gap-2">
                               <Badge
+                                interactive
                                 variant={friendSelectedFolder === null ? 'default' : 'outline'}
-                                className="cursor-pointer"
                                 onClick={() => setFriendSelectedFolder(null)}
                               >
                                 All
@@ -647,8 +647,8 @@ export default function Friends() {
                               {folderOptions.map((f) => (
                                 <Badge
                                   key={f.name}
+                                  interactive
                                   variant={friendSelectedFolder === f.name ? 'default' : 'outline'}
-                                  className="cursor-pointer"
                                   style={
                                     friendSelectedFolder === f.name
                                       ? { backgroundColor: f.color, borderColor: f.color }

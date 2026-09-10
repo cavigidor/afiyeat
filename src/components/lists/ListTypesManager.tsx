@@ -64,8 +64,8 @@ export function ListTypesManager({
           Types
         </span>
         <Badge
+          interactive
           variant={selectedTypeId === null ? 'default' : 'outline'}
-          className="cursor-pointer"
           onClick={() => onSelectType(null)}
         >
           All
@@ -73,8 +73,9 @@ export function ListTypesManager({
         {sortedTypes.map((type) => (
           <Badge
             key={type.id}
+            interactive
             variant={selectedTypeId === type.id ? 'default' : 'outline'}
-            className="cursor-pointer gap-1.5"
+            className="gap-1.5"
             style={
               selectedTypeId === type.id
                 ? { backgroundColor: type.color, borderColor: type.color }

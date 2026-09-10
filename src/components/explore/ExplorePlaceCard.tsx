@@ -47,7 +47,8 @@ export function ExplorePlaceCard({ place, onClick, onAdd }: ExplorePlaceCardProp
 
   return (
     <Card
-      className="cursor-pointer transition-all hover:shadow-lg active:bg-muted/60"
+      interactive
+      className="hover:shadow-lg transition-shadow"
       onClick={onClick}
       role="button"
       tabIndex={0}

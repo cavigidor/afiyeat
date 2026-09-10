@@ -20,10 +20,26 @@ const badgeVariants = cva(
   },
 );
 
-export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {}
+export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {
+  // Marks this badge as a tappable chip (filter/tag toggle, etc.) - adds
+  // cursor-pointer plus the shared pressed-state feedback, instead of every
+  // filter-chip call site re-declaring cursor-pointer and its own active
+  // color by hand. Leave unset for purely informational badges (status
+  // labels, counts) so they don't visually "press" when incidentally tapped.
+  interactive?: boolean;
+}
 
-function Badge({ className, variant, ...props }: BadgeProps) {
-  return <div className={cn(badgeVariants({ variant }), className)} {...props} />;
+function Badge({ className, variant, interactive, ...props }: BadgeProps) {
+  return (
+    <div
+      className={cn(
+        badgeVariants({ variant }),
+        interactive && "active-press cursor-pointer active:opacity-70",
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
 export { Badge, badgeVariants };

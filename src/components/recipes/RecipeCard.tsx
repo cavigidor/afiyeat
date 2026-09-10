@@ -32,7 +32,8 @@ export function RecipeCard({ recipe, isOwner, onDelete, onClick }: RecipeCardPro
 
   return (
     <Card
-      className="overflow-hidden cursor-pointer hover:shadow-lg transition-shadow group"
+      interactive
+      className="overflow-hidden hover:shadow-lg transition-shadow group"
       onClick={onClick}
     >
       <div className="relative aspect-video bg-muted">

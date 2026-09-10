@@ -48,7 +48,8 @@ export function RestaurantListRow({
 
   return (
     <Card
-      className="flex items-center gap-3 p-3 cursor-pointer hover:shadow-md hover:border-primary/40 active:bg-muted/70 transition-all"
+      interactive
+      className="flex items-center gap-3 p-3 hover:shadow-md hover:border-primary/40 transition-shadow"
       onClick={quickDelete ? undefined : onOpenDetail}
       role="button"
       tabIndex={0}

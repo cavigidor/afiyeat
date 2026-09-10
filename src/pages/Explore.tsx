@@ -366,8 +366,8 @@ export default function Explore() {
                 {availableEventCategories.length > 1 && (
                   <div className="flex flex-wrap gap-2">
                     <Badge
+                      interactive
                       variant={eventsCategory === null ? 'default' : 'outline'}
-                      className="cursor-pointer"
                       onClick={() => setEventsCategory(null)}
                     >
                       All
@@ -375,8 +375,8 @@ export default function Explore() {
                     {availableEventCategories.map((category) => (
                       <Badge
                         key={category}
+                        interactive
                         variant={eventsCategory === category ? 'default' : 'outline'}
-                        className="cursor-pointer"
                         onClick={() => setEventsCategory(eventsCategory === category ? null : category)}
                       >
                         {category}

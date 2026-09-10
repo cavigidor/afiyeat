@@ -55,8 +55,9 @@ export function TagMultiSelect({
         return (
           <Badge
             key={option.id}
+            interactive
             variant={selected ? 'default' : 'outline'}
-            className="cursor-pointer gap-1.5 select-none"
+            className="gap-1.5 select-none"
             style={selected && option.color ? { backgroundColor: option.color, borderColor: option.color } : undefined}
             onClick={() => toggle(option.id)}
           >
@@ -71,7 +72,7 @@ export function TagMultiSelect({
         );
       })}
       {onCreateNew && (
-        <Badge variant="outline" className="cursor-pointer gap-1" onClick={onCreateNew}>
+        <Badge interactive variant="outline" className="gap-1" onClick={onCreateNew}>
           <Plus className="h-3 w-3" />
           New
         </Badge>

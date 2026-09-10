@@ -50,28 +50,28 @@ export function Navbar() {
     <>
       <Link
         to="/foodie"
-        className="flex items-center gap-2 text-foreground/80 hover:text-foreground transition-colors"
+        className="active-press flex items-center gap-2 text-foreground/80 hover:text-foreground transition-[color,transform] duration-150 ease-out active:opacity-60"
       >
         <Newspaper className="h-4 w-4" />
         <span>Foodie</span>
       </Link>
       <Link
         to="/my-lists"
-        className="flex items-center gap-2 text-foreground/80 hover:text-foreground transition-colors"
+        className="active-press flex items-center gap-2 text-foreground/80 hover:text-foreground transition-[color,transform] duration-150 ease-out active:opacity-60"
       >
         <ListChecks className="h-4 w-4" />
         <span>My Lists</span>
       </Link>
       <Link
         to="/friends"
-        className="flex items-center gap-2 text-foreground/80 hover:text-foreground transition-colors"
+        className="active-press flex items-center gap-2 text-foreground/80 hover:text-foreground transition-[color,transform] duration-150 ease-out active:opacity-60"
       >
         <Users className="h-4 w-4" />
         <span>Friends</span>
       </Link>
       <Link
         to="/explore"
-        className="flex items-center gap-2 text-foreground/80 hover:text-foreground transition-colors"
+        className="active-press flex items-center gap-2 text-foreground/80 hover:text-foreground transition-[color,transform] duration-150 ease-out active:opacity-60"
       >
         <Compass className="h-4 w-4" />
         <span>Explore</span>
@@ -82,7 +82,7 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60 pt-safe">
       <div className="container flex h-16 items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
+        <Link to="/" className="active-press flex items-center gap-2 transition-opacity duration-150 ease-out active:opacity-70">
           <img src={logo} alt="Afiyeat" className="h-12 w-12 object-contain" />
           <span className="font-semibold text-xl">Afiyeat</span>
         </Link>

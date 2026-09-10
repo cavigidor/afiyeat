@@ -30,7 +30,8 @@ export function RecipeListRow({ recipe, isOwner, onDelete, onClick }: RecipeList
 
   return (
     <Card
-      className="flex items-center gap-3 p-3 cursor-pointer hover:shadow-md hover:border-primary/40 transition-all"
+      interactive
+      className="flex items-center gap-3 p-3 hover:shadow-md hover:border-primary/40 transition-shadow"
       onClick={onClick}
       role="button"
       tabIndex={0}

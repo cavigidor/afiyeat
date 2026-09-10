@@ -166,6 +166,14 @@ All colors MUST be HSL.
     touch-action: manipulation;
   }
 
+  /* Removes the browser/WebKit's own gray "tap highlight" flash on
+     touch - every tappable element gets its own deliberate :active state
+     instead (see button/card/badge components and .active-press below), so
+     the default highlight would otherwise show alongside/underneath it. */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
   #root {
     overflow-x: hidden;
     width: 100%;
@@ -177,6 +185,29 @@ All colors MUST be HSL.
 }
 
 @layer utilities {
+  /* Shared "pressed" tap feedback - a tiny scale-down plus whatever
+     background/opacity change the caller pairs it with (e.g.
+     active:bg-muted/60). Centralized here so every tappable element
+     (buttons, cards, badges/chips, nav items) gets the same feel instead of
+     each screen re-declaring its own transition/scale values. Starts
+     immediately on press (no delay) and eases back out on release; fully
+     disabled under prefers-reduced-motion so it becomes a plain, instant
+     state change with no motion. */
+  .active-press {
+    transition: transform 120ms ease-out;
+  }
+  .active-press:active {
+    transform: scale(0.98);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .active-press {
+      transition: none;
+    }
+    .active-press:active {
+      transform: none;
+    }
+  }
+
   /* iOS safe-area insets (notch / Dynamic Island / home indicator).
      Requires viewport-fit=cover in index.html to resolve to non-zero values. */
   .pt-safe {
@@ -200,5 +231,22 @@ All colors MUST be HSL.
 @media (max-width: 767px) {
   body.has-bottom-tabs {
     padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Global safety net for prefers-reduced-motion: any transition/animation
+   this app doesn't explicitly hand-tune for reduced motion (see
+   .active-press above for the deliberate one) still collapses to an
+   effectively instant, non-animated state change instead of being skipped
+   entirely - so pressed/hover/etc. states still visually update, they just
+   don't move. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

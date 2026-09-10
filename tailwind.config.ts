@@ -132,5 +132,16 @@ export default {
   		}
   	}
   },
+  future: {
+    // Makes every `hover:` utility apply only within
+    // `@media (hover: hover) and (pointer: fine)` - i.e. real mouse/trackpad
+    // input. Without this, tapping something with `hover:` styles on a
+    // touchscreen (this app runs in a Capacitor WKWebView, and is also used
+    // from mobile Safari/Chrome) leaves it visually "stuck" in the hover
+    // state until the next unrelated tap, since touch has no hover concept
+    // to un-trigger it. This is a single global switch rather than a
+    // per-file fix, and doesn't change how hover behaves on desktop at all.
+    hoverOnlyWhenSupported: true,
+  },
   plugins: [tailwindcssAnimate],
 } satisfies Config;

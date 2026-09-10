@@ -69,7 +69,8 @@ export function EventCard({ event }: EventCardProps) {
 
   return (
     <Card
-      className="overflow-hidden cursor-pointer hover:shadow-md active:bg-muted/60 transition-shadow group"
+      interactive
+      className="overflow-hidden hover:shadow-md transition-shadow group"
       onClick={() => openExternalUrl(event.url)}
       role="button"
       tabIndex={0}

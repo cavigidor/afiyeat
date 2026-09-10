@@ -78,7 +78,7 @@ export function BottomTabBar() {
               key={tab.to}
               to={tab.to}
               className={cn(
-                'flex flex-col items-center justify-center gap-0.5 py-2 text-xs transition-colors',
+                'active-press flex flex-col items-center justify-center gap-0.5 py-2 text-xs transition-[color,transform] duration-150 ease-out active:opacity-60',
                 active ? 'text-primary' : 'text-muted-foreground',
               )}
             >

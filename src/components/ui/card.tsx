@@ -2,8 +2,27 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("rounded-lg border bg-card text-card-foreground shadow-sm", className)} {...props} />
+export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  // Marks this card as tappable/clickable - adds the shared pressed-state
+  // feedback (slight darken + scale-down on press, eased back on release)
+  // instead of every card-as-button screen re-declaring the same
+  // cursor-pointer/active:bg-muted/transition classes itself. Leave unset
+  // for cards used as plain layout containers, which shouldn't react to
+  // taps at all.
+  interactive?: boolean;
+}
+
+const Card = React.forwardRef<HTMLDivElement, CardProps>(({ className, interactive, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn(
+      "rounded-lg border bg-card text-card-foreground shadow-sm",
+      interactive &&
+        "active-press cursor-pointer transition-[transform,background-color,box-shadow] duration-150 ease-out active:bg-muted/60",
+      className,
+    )}
+    {...props}
+  />
 ));
 Card.displayName = "Card";
 

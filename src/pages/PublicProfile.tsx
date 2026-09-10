@@ -366,7 +366,8 @@ export default function PublicProfile() {
                 {publicLists.map((list) => (
                   <Card
                     key={list.id}
-                    className="cursor-pointer hover:shadow-md transition-shadow overflow-hidden"
+                    interactive
+                    className="hover:shadow-md transition-shadow overflow-hidden"
                     onClick={() => navigate(`/u/${userId}/lists/${list.id}`)}
                   >
                     <div className="h-1.5" style={{ backgroundColor: list.color }} />

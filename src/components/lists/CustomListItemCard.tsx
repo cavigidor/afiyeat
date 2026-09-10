@@ -53,7 +53,7 @@ export function CustomListItemCard({ item, list, statuses, types = [], onEdit, o
   const showImageArea = list.show_photos;
 
   return (
-    <Card className="group overflow-hidden transition-all hover:shadow-lg active:bg-muted/60">
+    <Card interactive className="group overflow-hidden hover:shadow-lg transition-shadow">
       {showImageArea && (
         <div className="relative aspect-video bg-muted overflow-hidden">
           {imageLoading ? (
