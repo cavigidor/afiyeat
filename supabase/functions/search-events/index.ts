@@ -37,9 +37,6 @@ interface TicketmasterEvent {
   };
 }
 
-// Prefers a 16:9 image around 640px wide (good card-thumbnail size) - falls
-// back to whatever's first if Ticketmaster didn't tag ratios the way we
-// expect, rather than returning nothing.
 function pickImage(images: TicketmasterImage[] | undefined): string | null {
   if (!images || images.length === 0) return null;
   const sixteenNine = images.filter((img) => img.ratio === "16_9");
@@ -56,12 +53,8 @@ serve(async (req) => {
   }
 
   try {
-    // Same manual-JWT-check pattern as place-search/get-mapbox-token
-    // (verify_jwt is off at the gateway level for this function too, so
-    // this check is what actually gates access).
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      console.error("Missing or invalid authorization header");
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -77,7 +70,6 @@ serve(async (req) => {
 
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
     if (authError || !user) {
-      console.error("Invalid authentication:", authError?.message);
       return new Response(
         JSON.stringify({ error: "Invalid authentication" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -95,7 +87,6 @@ serve(async (req) => {
 
     const apiKey = Deno.env.get("TICKETMASTER_API_KEY");
     if (!apiKey) {
-      console.error("TICKETMASTER_API_KEY not configured");
       throw new Error("TICKETMASTER_API_KEY not configured");
     }
 
@@ -110,19 +101,12 @@ serve(async (req) => {
     if (keyword && typeof keyword === "string" && keyword.trim().length > 0) {
       params.append("keyword", keyword.trim());
     }
-    // Ticketmaster wants these as UTC "yyyy-MM-ddTHH:mm:ssZ" - the client
-    // sends full ISO strings (Date#toISOString()), which already match
-    // that shape once the milliseconds are stripped.
     if (startDateTime && typeof startDateTime === "string") {
       params.append("startDateTime", startDateTime.replace(/\.\d{3}Z$/, "Z"));
     }
     if (endDateTime && typeof endDateTime === "string") {
       params.append("endDateTime", endDateTime.replace(/\.\d{3}Z$/, "Z"));
     }
-    // classificationName filters server-side by segment/genre (e.g. "Music",
-    // "Sports") - passed through as-is from the category the user picked
-    // from results already seen, so it always matches a real Ticketmaster
-    // segment name.
     if (category && typeof category === "string" && category.trim().length > 0) {
       params.append("classificationName", category.trim());
     }
@@ -132,7 +116,6 @@ serve(async (req) => {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("Ticketmaster API error:", data);
       throw new Error(data?.fault?.faultstring || "Ticketmaster API error");
     }
 
@@ -169,7 +152,6 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error: unknown) {
-    console.error("Event search error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
     return new Response(
       JSON.stringify({ error: message }),
