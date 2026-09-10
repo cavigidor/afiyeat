@@ -46,6 +46,16 @@ export async function requestLocationPermission(): Promise<boolean> {
   if (!isNative()) return true;
   try {
     const { Geolocation } = await import('@capacitor/geolocation');
+    // Check first, rather than unconditionally calling requestPermissions()
+    // every time this runs (e.g. on every app launch, from
+    // requestStartupPermissions). iOS's own system prompt only ever shows
+    // once regardless, but checking first avoids the redundant native call
+    // on every subsequent launch, and - more importantly - means a user who
+    // already said no isn't hit with any of our own UI again either, since
+    // callers use this same status to decide whether to show a reminder.
+    const current = await Geolocation.checkPermissions();
+    if (current.location === 'granted' || current.coarseLocation === 'granted') return true;
+    if (current.location === 'denied' && current.coarseLocation === 'denied') return false;
     const perm = await Geolocation.requestPermissions();
     return perm.location === 'granted' || perm.coarseLocation === 'granted';
   } catch (err) {
