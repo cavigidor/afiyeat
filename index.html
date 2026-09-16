@@ -2,7 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <!-- interactive-widget=resizes-content asks the engine to shrink the
+         layout viewport when the on-screen keyboard appears, instead of
+         leaving the layout at full height and scrolling the visual viewport
+         over it - the latter is what drags fixed-position elements (open
+         dialogs, the bottom tab bar) around as you focus a text field. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta name="theme-color" content="#F7F5F3" />
     <link rel="icon" type="image/png" href="/favicon.png">
     <style>

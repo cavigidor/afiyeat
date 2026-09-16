@@ -41,6 +41,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Pencil, Save, LogOut, Lock, Check, X, UserPlus, Trash2 } from 'lucide-react';
+import { buildLabel } from '@/lib/buildInfo';
 import { toast } from 'sonner';
 
 const profileSchema = z.object({
@@ -572,6 +573,14 @@ export default function Profile() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Which build this device is actually running (see lib/buildInfo).
+            Deliberately visible rather than hidden behind a debug gesture:
+            when a fix "isn't showing up", this line settles in one glance
+            whether the app is running the build you just installed. */}
+        <p className="text-center text-xs text-muted-foreground/70 pb-2">
+          Build {buildLabel()}
+        </p>
       </main>
 
       <AlertDialog

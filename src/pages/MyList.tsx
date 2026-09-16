@@ -309,8 +309,18 @@ export default function MyList() {
             </div>
           </aside>
 
-          {/* Main content */}
-          <div className="flex-1 flex flex-col gap-6">
+          {/* Main content.
+              min-w-0 is load-bearing, not tidying: a flex item defaults to
+              min-width:auto, meaning it refuses to shrink below the
+              intrinsic minimum width of its contents. This column holds the
+              search field, the tab bar, the map canvas and the restaurant
+              grid, so any one of them with a wide intrinsic minimum (a long
+              unbroken address, the Mapbox canvas) would stretch this column
+              past the viewport. html/body/#root set overflow-x:hidden,
+              which hides the scrollbar but doesn't stop the layout from
+              being too wide - so on a phone the content simply sat wider
+              than the screen and could be dragged sideways. */}
+          <div className="flex-1 min-w-0 flex flex-col gap-6">
             {/* Restaurant list */}
             <Card>
               <CardContent className="p-4">
@@ -400,7 +410,11 @@ export default function MyList() {
                           <div
                             key={restaurant.id}
                             onClick={modifyMode ? undefined : () => handleRestaurantClick(restaurant)}
-                            className={modifyMode ? '' : 'cursor-pointer'}
+                            // min-w-0 for the same reason as the column
+                            // above: grid items also default to
+                            // min-width:auto and will otherwise widen their
+                            // track to fit a long unbroken name or address.
+                            className={modifyMode ? 'min-w-0' : 'min-w-0 cursor-pointer'}
                           >
                             <RestaurantCard
                               restaurant={restaurant}
@@ -443,7 +457,7 @@ export default function MyList() {
                           <div
                             key={restaurant.id}
                             onClick={modifyMode ? undefined : () => handleRestaurantClick(restaurant)}
-                            className={modifyMode ? '' : 'cursor-pointer'}
+                            className={modifyMode ? 'min-w-0' : 'min-w-0 cursor-pointer'}
                           >
                             <RestaurantCard
                               restaurant={restaurant}

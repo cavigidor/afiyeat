@@ -33,12 +33,21 @@ const sheetVariants = cva(
   {
     variants: {
       side: {
-        top: "inset-x-0 top-0 border-b pt-[calc(1.5rem+env(safe-area-inset-top,0px))] data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
+        // The top/bottom sheets are anchored to one edge and previously had
+        // no height cap, so content taller than the screen simply pushed
+        // its own far edge (and anything anchored to it, like action
+        // buttons) out of view with no way to reach it. Capping at the
+        // visible height and scrolling internally keeps the sheet a sheet
+        // instead of an unbounded panel.
+        top: "inset-x-0 top-0 border-b pt-[calc(1.5rem+env(safe-area-inset-top,0px))] max-h-[100dvh] overflow-y-auto overscroll-contain data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
         bottom:
-          "inset-x-0 bottom-0 border-t pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
-        left: "inset-y-0 left-0 h-full w-3/4 border-r pt-[calc(1.5rem+env(safe-area-inset-top,0px))] pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm",
+          "inset-x-0 bottom-0 border-t pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] max-h-[100dvh] overflow-y-auto overscroll-contain data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
+        // Side sheets are already full-height; they just needed somewhere
+        // for overflow to go (a long list of types, for example) rather
+        // than spilling past the bottom edge unreachably.
+        left: "inset-y-0 left-0 h-full w-3/4 border-r pt-[calc(1.5rem+env(safe-area-inset-top,0px))] pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] overflow-y-auto overscroll-contain data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm",
         right:
-          "inset-y-0 right-0 h-full w-3/4 border-l pt-[calc(1.5rem+env(safe-area-inset-top,0px))] pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm",
+          "inset-y-0 right-0 h-full w-3/4 border-l pt-[calc(1.5rem+env(safe-area-inset-top,0px))] pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] overflow-y-auto overscroll-contain data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm",
       },
     },
     defaultVariants: {
