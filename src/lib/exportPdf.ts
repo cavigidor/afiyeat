@@ -1,4 +1,10 @@
-import jsPDF from 'jspdf';
+// jsPDF is imported dynamically inside exportListAsPdf rather than at the
+// top of this module. MyList imports this file statically, so a top-level
+// import pulled the whole PDF stack (jsPDF, plus the html2canvas/dompurify
+// chunks it drags along) into the startup path of every single launch - to
+// serve one button that most sessions never touch. Loading it at the moment
+// someone actually taps Export costs an imperceptible pause there and takes
+// a meaningful bite out of cold-launch time everywhere else.
 
 interface ExportRestaurant {
   name: string;
@@ -14,11 +20,12 @@ interface ExportFolder {
   name: string;
 }
 
-export function exportListAsPdf(
+export async function exportListAsPdf(
   restaurants: ExportRestaurant[],
   folders: ExportFolder[],
   listTitle: string = 'My Restaurant List'
 ) {
+  const { default: jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();

@@ -84,6 +84,50 @@ export async function requestStartupPermissions(
   if (opts.camera) await requestCameraPermission();
 }
 
+/**
+ * Dismisses the native splash screen. Call this once the first real screen
+ * has something to show, not on a timer.
+ *
+ * capacitor.config.ts sets `launchAutoHide: false`, so the splash stays up
+ * until something asks it to go away. Nothing in this app ever did - the
+ * only thing hiding it was Capgo's `autoSplashscreen`, which by its own
+ * documentation only applies while auto-updates are enabled. With
+ * auto-update now off, that prop is inert and the splash is ours to manage.
+ *
+ * Doing it this way is also what makes the launch feel like an app rather
+ * than a page load: the splash hands over directly to populated content,
+ * instead of uncovering an empty shell that then fills in.
+ */
+export async function hideSplashScreen(): Promise<void> {
+  if (!isNative()) return;
+  try {
+    const { SplashScreen } = await import('@capacitor/splash-screen');
+    await SplashScreen.hide();
+  } catch (err) {
+    console.error('hideSplashScreen failed:', err);
+  }
+}
+
+/**
+ * Matches the status bar to the app's own surface.
+ *
+ * The plugin was installed but never called, leaving the status bar in
+ * whatever state iOS defaulted to. Style.Light means "content for a light
+ * background" (dark glyphs), which is what the warm off-white background
+ * needs; the layout already reserves room for it via the pt-safe utility.
+ */
+export async function configureStatusBar(): Promise<void> {
+  if (!isNative()) return;
+  try {
+    const { StatusBar, Style } = await import('@capacitor/status-bar');
+    await StatusBar.setStyle({ style: Style.Light });
+  } catch (err) {
+    // Not fatal, and not available on every platform - the app is
+    // perfectly usable with a default status bar.
+    console.error('configureStatusBar failed:', err);
+  }
+}
+
 export interface Coords {
   latitude: number;
   longitude: number;

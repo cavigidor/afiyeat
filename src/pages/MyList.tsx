@@ -278,7 +278,7 @@ export default function MyList() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => exportListAsPdf(restaurants, folders)}
+              onClick={() => void exportListAsPdf(restaurants, folders)}
             >
               <FileDown className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Export PDF</span>

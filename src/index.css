@@ -1,6 +1,21 @@
-@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap");
+/* Poppins, bundled with the app rather than fetched from Google on every
+   cold launch. Three render-blocking @import requests used to sit here, and
+   in a native app that means the webview waits on Google's CSS and then on
+   the font files before text can render in the right typeface - so launch
+   showed system-font text that snapped to Poppins a beat later, and offline
+   it never arrived at all. These are local woff2 files: instant, offline,
+   no third party in the launch path.
+
+   Only the four weights the design system actually uses, latin subset only.
+   Merriweather (--font-serif) was fetched on every launch and used nowhere;
+   JetBrains Mono (--font-mono) only by one shadcn chart component. Both now
+   fall back to the system serif/mono stacks already listed in those
+   variables, which is invisible in practice and two fewer network round
+   trips before first paint. */
+@import "@fontsource/poppins/latin-400.css";
+@import "@fontsource/poppins/latin-500.css";
+@import "@fontsource/poppins/latin-600.css";
+@import "@fontsource/poppins/latin-700.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -177,9 +192,42 @@ All colors MUST be HSL.
   /* Removes the browser/WebKit's own gray "tap highlight" flash on
      touch - every tappable element gets its own deliberate :active state
      instead (see button/card/badge components and .active-press below), so
-     the default highlight would otherwise show alongside/underneath it. */
+     the default highlight would otherwise show alongside/underneath it.
+
+     -webkit-touch-callout disables the long-press bubble offering to
+     copy/share/save whatever you happened to hold down on. No native app
+     offers to copy the text off its own buttons and tab bar, and that
+     bubble appearing over a card is one of the clearest tells that you're
+     holding a web page. Re-enabled for text fields below, where the paste
+     menu is the expected behaviour. */
   * {
     -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+  }
+
+  /* Interactive chrome isn't text to be selected - dragging across a button
+     or a tab label shouldn't leave it highlighted in blue. Deliberately
+     scoped to controls rather than applied globally, so genuine content
+     (notes, addresses, recipe steps) stays selectable and copyable. */
+  button,
+  a,
+  label,
+  summary,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='option'] {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Text entry needs both selection and the callout/paste menu back. */
+  input,
+  textarea,
+  [contenteditable='true'] {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
   }
 
   #root {

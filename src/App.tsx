@@ -1,5 +1,10 @@
 import { useEffect } from "react";
-import { requestStartupPermissions } from "@/lib/native";
+import {
+  configureStatusBar,
+  hideSplashScreen,
+  requestStartupPermissions,
+} from "@/lib/native";
+import { useAuth } from "@/contexts/AuthContext";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -88,14 +93,41 @@ function AnimatedRoutes() {
   );
 }
 
+/**
+ * Owns the native launch handover: keeps the splash screen up until the
+ * session check has finished, so the splash gives way to a populated
+ * screen rather than to an empty shell that then fills in.
+ *
+ * Lives inside AuthProvider (it needs useAuth) and renders nothing.
+ */
+function NativeLaunchGate() {
+  const { loading } = useAuth();
+
+  // Failsafe: a hung session check must never strand someone on the splash
+  // screen indefinitely. Whatever happens, hand over to the UI - a sign-in
+  // screen, or even an error, beats staring at a logo forever.
+  useEffect(() => {
+    const failsafe = window.setTimeout(() => void hideSplashScreen(), 4000);
+    return () => window.clearTimeout(failsafe);
+  }, []);
+
+  useEffect(() => {
+    if (!loading) void hideSplashScreen();
+  }, [loading]);
+
+  return null;
+}
+
 const App = () => {
   useEffect(() => {
+    void configureStatusBar();
     void requestStartupPermissions();
   }, []);
 
   return (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
+      <NativeLaunchGate />
       <PushNotificationManager />
       <TooltipProvider>
         <Toaster />

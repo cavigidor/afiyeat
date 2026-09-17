@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Navbar } from '@/components/layout/Navbar';
 import { useAuth } from '@/contexts/AuthContext';
+import { isNative } from '@/lib/native';
 import { MapPin, Users, ChefHat, Camera, ArrowRight } from 'lucide-react';
 import { Seo } from '@/components/Seo';
 
@@ -10,11 +10,30 @@ export default function Index() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!loading && user) {
-      navigate('/foodie');
-    }
-  }, [user, loading, navigate]);
+  // This page is a marketing landing page - hero copy, feature grid, SEO
+  // metadata, schema.org markup. That's right for afiyeat.com, and exactly
+  // wrong inside the app: the native app opens on "/", so every cold launch
+  // used to paint the full marketing site and only then redirect, because
+  // the redirect lived in an effect that runs *after* the first paint. The
+  // result was a website visibly flashing past on the way to the app.
+  //
+  // Redirecting during render (rather than in an effect) means the landing
+  // page never paints for anyone who shouldn't see it, and `replace` keeps
+  // it out of history so going back doesn't return to it.
+  if (isNative()) {
+    // Auth hasn't resolved yet - render nothing rather than a placeholder.
+    // The native splash screen is still covering the webview at this point
+    // (see hideSplashWhenReady in App.tsx), so there's nothing to see
+    // through, and no empty shell flashes before the real first screen.
+    if (loading) return null;
+    return <Navigate to={user ? '/foodie' : '/auth'} replace />;
+  }
+
+  // On the web, keep serving the landing page to visitors and crawlers -
+  // but a signed-in visitor still belongs in the app, not the pitch.
+  if (!loading && user) {
+    return <Navigate to="/foodie" replace />;
+  }
 
   const features = [
     {
