@@ -10,6 +10,7 @@ import { RestaurantCard } from '@/components/restaurants/RestaurantCard';
 import { RestaurantListRow } from '@/components/restaurants/RestaurantListRow';
 import { RestaurantDetailDialog, type DetailRestaurant } from '@/components/restaurants/RestaurantDetailDialog';
 import { RestaurantListToolbar } from '@/components/restaurants/RestaurantListToolbar';
+import { UserSafetyMenu } from '@/components/moderation/UserSafetyMenu';
 import { useRestaurantListControls } from '@/hooks/useRestaurantListControls';
 import { useViewMode } from '@/hooks/useViewMode';
 import { useAuth } from '@/contexts/AuthContext';
@@ -257,19 +258,30 @@ export default function PublicProfile() {
           </div>
 
           {!isOwnProfile && (
-            followStatus === 'accepted' ? (
-              <Button variant="outline" onClick={handleUnfollow}>
-                <UserMinus className="h-4 w-4 mr-2" /> Unfollow
-              </Button>
-            ) : followStatus === 'pending' ? (
-              <Button variant="outline" disabled>
-                <Clock className="h-4 w-4 mr-2" /> Requested
-              </Button>
-            ) : (
-              <Button onClick={handleFollow}>
-                <UserPlus className="h-4 w-4 mr-2" /> Follow
-              </Button>
-            )
+            <div className="flex items-center gap-1">
+              {followStatus === 'accepted' ? (
+                <Button variant="outline" onClick={handleUnfollow}>
+                  <UserMinus className="h-4 w-4 mr-2" /> Unfollow
+                </Button>
+              ) : followStatus === 'pending' ? (
+                <Button variant="outline" disabled>
+                  <Clock className="h-4 w-4 mr-2" /> Requested
+                </Button>
+              ) : (
+                <Button onClick={handleFollow}>
+                  <UserPlus className="h-4 w-4 mr-2" /> Follow
+                </Button>
+              )}
+              {/* Report/block sits directly on the profile it applies to.
+                  After a block the viewer is sent home, since the block
+                  immediately hides everything this page renders. */}
+              <UserSafetyMenu
+                userId={userId!}
+                displayName={profile.display_name || profile.username}
+                contentType="user"
+                onBlocked={() => navigate('/explore', { replace: true })}
+              />
+            </div>
           )}
         </div>
 
