@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      blocked_users: {
+        Row: {
+          blocked_id: string
+          blocker_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          blocked_id: string
+          blocker_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          blocked_id?: string
+          blocker_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
       cellar_items: {
         Row: {
           created_at: string
@@ -47,6 +68,48 @@ export type Database = {
           type?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      content_reports: {
+        Row: {
+          content_id: string | null
+          content_type: string | null
+          created_at: string
+          description: string | null
+          id: string
+          moderator_notes: string | null
+          reason: string
+          reported_user_id: string
+          reporter_id: string
+          reviewed_at: string | null
+          status: string
+        }
+        Insert: {
+          content_id?: string | null
+          content_type?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          moderator_notes?: string | null
+          reason: string
+          reported_user_id: string
+          reporter_id: string
+          reviewed_at?: string | null
+          status?: string
+        }
+        Update: {
+          content_id?: string | null
+          content_type?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          moderator_notes?: string | null
+          reason?: string
+          reported_user_id?: string
+          reporter_id?: string
+          reviewed_at?: string | null
+          status?: string
         }
         Relationships: []
       }
@@ -603,6 +666,38 @@ export type Database = {
         }
         Relationships: []
       }
+      passport_stamps: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          referral_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          referral_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          referral_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "passport_stamps_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "referrals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_color: string
@@ -613,6 +708,7 @@ export type Database = {
           display_name: string | null
           id: string
           is_private: boolean
+          referral_code: string | null
           timezone: string | null
           updated_at: string
           user_id: string
@@ -627,6 +723,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           is_private?: boolean
+          referral_code?: string | null
           timezone?: string | null
           updated_at?: string
           user_id: string
@@ -641,6 +738,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           is_private?: boolean
+          referral_code?: string | null
           timezone?: string | null
           updated_at?: string
           user_id?: string
@@ -705,6 +803,54 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      referrals: {
+        Row: {
+          created_at: string
+          id: string
+          qualified_at: string | null
+          referral_code: string
+          referred_user_id: string | null
+          referrer_user_id: string
+          rejected_reason: string | null
+          rewarded_at: string | null
+          shared_content_id: string | null
+          shared_content_type: string | null
+          signup_at: string | null
+          source: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          qualified_at?: string | null
+          referral_code: string
+          referred_user_id?: string | null
+          referrer_user_id: string
+          rejected_reason?: string | null
+          rewarded_at?: string | null
+          shared_content_id?: string | null
+          shared_content_type?: string | null
+          signup_at?: string | null
+          source?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          qualified_at?: string | null
+          referral_code?: string
+          referred_user_id?: string | null
+          referrer_user_id?: string
+          rejected_reason?: string | null
+          rewarded_at?: string | null
+          shared_content_id?: string | null
+          shared_content_type?: string | null
+          signup_at?: string | null
+          source?: string | null
+          status?: string
         }
         Relationships: []
       }
@@ -939,9 +1085,49 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          granted_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          granted_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      moderation_queue: {
+        Row: {
+          content_id: string | null
+          content_type: string | null
+          created_at: string | null
+          description: string | null
+          id: string | null
+          moderator_notes: string | null
+          reason: string | null
+          reported_display_name: string | null
+          reported_user_id: string | null
+          reported_username: string | null
+          reporter_id: string | null
+          reporter_username: string | null
+          reviewed_at: string | null
+          status: string | null
+          total_reports_against_user: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       can_view_profile: { Args: { profile_user_id: string }; Returns: boolean }
@@ -963,6 +1149,16 @@ export type Database = {
         Args: { p_platform: string; p_token: string }
         Returns: undefined
       }
+      claim_referral: {
+        Args: {
+          p_code: string
+          p_content_id?: string
+          p_content_type?: string
+          p_source?: string
+        }
+        Returns: Json
+      }
+      generate_referral_code: { Args: never; Returns: string }
       get_explore_lists: {
         Args: { p_mode?: string }
         Returns: {
@@ -993,6 +1189,7 @@ export type Database = {
           rating_count: number
         }[]
       }
+      get_passport_summary: { Args: never; Returns: Json }
       get_place_comments: {
         Args: { p_mode?: string; p_place_id: string }
         Returns: {
@@ -1007,6 +1204,9 @@ export type Database = {
           username: string
         }[]
       }
+      has_activated: { Args: { p_user_id: string }; Returns: boolean }
+      has_role: { Args: { check_role: string }; Returns: boolean }
+      is_blocked_pair: { Args: { a: string; b: string }; Returns: boolean }
       is_shared_list_member: {
         Args: { _list_id: string; _user_id: string }
         Returns: boolean
@@ -1026,6 +1226,10 @@ export type Database = {
       send_inactivity_reminders: { Args: never; Returns: undefined }
       send_weekly_digest: { Args: never; Returns: undefined }
       send_weekly_suggestions: { Args: never; Returns: undefined }
+      try_qualify_referral: {
+        Args: { p_referred_user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

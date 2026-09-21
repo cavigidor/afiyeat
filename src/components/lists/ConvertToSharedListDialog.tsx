@@ -53,11 +53,12 @@ export function ConvertToSharedListDialog({
 }: ConvertToSharedListDialogProps) {
   const { user } = useAuth();
   const [name, setName] = useState(list.name);
-  const lastStatusId = [...statuses].sort((a, b) => {
+  const sortedStatuses = [...statuses].sort((a, b) => {
     const ao = a.sort_order ?? Number.MAX_SAFE_INTEGER;
     const bo = b.sort_order ?? Number.MAX_SAFE_INTEGER;
     return ao - bo;
-  }).at(-1)?.id;
+  });
+  const lastStatusId = sortedStatuses[sortedStatuses.length - 1]?.id;
   const [friendId, setFriendId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
