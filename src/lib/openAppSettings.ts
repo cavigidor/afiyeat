@@ -14,7 +14,8 @@ export async function openAppSettings(): Promise<void> {
   if (!isNative()) return;
   try {
     const { App } = await import('@capacitor/app');
-    await App.openUrl({ url: 'app-settings:' });
+    await (App as unknown as { openUrl: (options: { url: string }) => Promise<unknown> })
+      .openUrl({ url: 'app-settings:' });
   } catch (err) {
     console.error('openAppSettings failed:', err);
   }

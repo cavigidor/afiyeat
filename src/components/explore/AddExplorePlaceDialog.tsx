@@ -44,13 +44,15 @@ export function AddExplorePlaceDialog({ open, onOpenChange, place }: AddExploreP
     if (!open || !user) return;
     setDestination(RESTAURANTS_DESTINATION);
     setLoadingLists(true);
-    supabase
-      .from('custom_lists')
-      .select('id, name, icon')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => setLists(data || []))
-      .finally(() => setLoadingLists(false));
+    void (async () => {
+      const { data } = await supabase
+        .from('custom_lists')
+        .select('id, name, icon')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      setLists(data || []);
+      setLoadingLists(false);
+    })();
   }, [open, user]);
 
   const handleAdd = async () => {
