@@ -5,6 +5,7 @@ import {
   requestStartupPermissions,
 } from "@/lib/native";
 import { useAuth } from "@/contexts/AuthContext";
+import { claimPendingReferral, readPendingReferral } from "@/lib/passport";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -23,6 +24,8 @@ import PublicListDetail from "./pages/PublicListDetail";
 import MyList from "./pages/MyList";
 import CustomListDetail from "./pages/CustomListDetail";
 import Profile from "./pages/Profile";
+import Passport from "./pages/Passport";
+import Invite from "./pages/Invite";
 import NotFound from "./pages/NotFound";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
@@ -85,6 +88,11 @@ function AnimatedRoutes() {
         <Route path="/my-lists" element={null} />
         <Route path="/my-lists/:listId" element={<CustomListDetail />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/passport" element={<Passport />} />
+        {/* Invite links resolve here, park the code and redirect - see
+            Invite.tsx. Kept outside PersistentTabs since it's a
+            pass-through, not a screen. */}
+        <Route path="/invite/:code" element={<Invite />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="*" element={<NotFound />} />
@@ -100,6 +108,27 @@ function AnimatedRoutes() {
  *
  * Lives inside AuthProvider (it needs useAuth) and renders nothing.
  */
+/**
+ * Claims a parked invite code once the user has an account.
+ *
+ * Runs on every sign-in rather than only on sign-up, because the signup
+ * flow can round-trip through email verification and land back here as a
+ * fresh session. Every rule that decides whether the claim is valid -
+ * including "is this account actually new" - lives in claim_referral on
+ * the server, so calling it redundantly is safe and simply gets rejected.
+ */
+function ReferralClaimer() {
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (!user) return;
+    if (!readPendingReferral()) return;
+    void claimPendingReferral();
+  }, [user]);
+
+  return null;
+}
+
 function NativeLaunchGate() {
   const { loading } = useAuth();
 
@@ -128,6 +157,7 @@ const App = () => {
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <NativeLaunchGate />
+      <ReferralClaimer />
       <PushNotificationManager />
       <TooltipProvider>
         <Toaster />

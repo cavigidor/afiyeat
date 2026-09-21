@@ -40,8 +40,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Pencil, Save, LogOut, Lock, Check, X, UserPlus, Trash2 } from 'lucide-react';
+import { Loader2, Pencil, Save, LogOut, Lock, Check, X, UserPlus, Trash2, Stamp } from 'lucide-react';
 import { buildLabel } from '@/lib/buildInfo';
+import { BlockedAccountsCard } from '@/components/moderation/BlockedAccountsCard';
 import { toast } from 'sonner';
 
 const profileSchema = z.object({
@@ -553,6 +554,24 @@ export default function Profile() {
             </Form>
           </CardContent>
         </Card>
+
+        {/* Passport entry point. Sits above the block/danger sections so
+            the invite flow is discoverable without hunting for it. */}
+        <Card interactive className="mb-6" onClick={() => navigate('/passport')}>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Stamp className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-medium">Afiyeat Passport</p>
+              <p className="text-sm text-muted-foreground">
+                Invite friends and collect stamps as they join.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <BlockedAccountsCard />
 
         <Card className="mb-6 border-destructive/50">
           <CardHeader>

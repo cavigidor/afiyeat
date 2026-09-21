@@ -945,6 +945,20 @@ export type Database = {
     }
     Functions: {
       can_view_profile: { Args: { profile_user_id: string }; Returns: boolean }
+      claim_referral: {
+        Args: {
+          p_code: string
+          p_content_id?: string | null
+          p_content_type?: string | null
+          p_source?: string | null
+        }
+        Returns: Json
+      }
+      get_passport_summary: { Args: Record<string, never>; Returns: Json }
+      has_activated: { Args: { p_user_id: string }; Returns: boolean }
+      has_role: { Args: { check_role: string }; Returns: boolean }
+      is_blocked_pair: { Args: { a: string; b: string }; Returns: boolean }
+      try_qualify_referral: { Args: { p_referred_user_id: string }; Returns: boolean }
       claim_device_token: {
         Args: { p_platform: string; p_token: string }
         Returns: undefined
