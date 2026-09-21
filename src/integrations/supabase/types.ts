@@ -939,9 +939,49 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          granted_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          granted_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      moderation_queue: {
+        Row: {
+          content_id: string | null
+          content_type: string | null
+          created_at: string | null
+          description: string | null
+          id: string | null
+          moderator_notes: string | null
+          reason: string | null
+          reported_display_name: string | null
+          reported_user_id: string | null
+          reported_username: string | null
+          reporter_id: string | null
+          reporter_username: string | null
+          reviewed_at: string | null
+          status: string | null
+          total_reports_against_user: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       can_view_profile: { Args: { profile_user_id: string }; Returns: boolean }
@@ -993,6 +1033,7 @@ export type Database = {
           username: string
         }[]
       }
+      has_role: { Args: { check_role: string }; Returns: boolean }
       is_blocked_pair: { Args: { a: string; b: string }; Returns: boolean }
       is_shared_list_member: {
         Args: { _list_id: string; _user_id: string }
