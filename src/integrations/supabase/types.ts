@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      blocked_users: {
+        Row: {
+          blocked_id: string
+          blocker_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          blocked_id: string
+          blocker_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          blocked_id?: string
+          blocker_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
       cellar_items: {
         Row: {
           created_at: string
@@ -47,6 +68,48 @@ export type Database = {
           type?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      content_reports: {
+        Row: {
+          content_id: string | null
+          content_type: string | null
+          created_at: string
+          description: string | null
+          id: string
+          moderator_notes: string | null
+          reason: string
+          reported_user_id: string
+          reporter_id: string
+          reviewed_at: string | null
+          status: string
+        }
+        Insert: {
+          content_id?: string | null
+          content_type?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          moderator_notes?: string | null
+          reason: string
+          reported_user_id: string
+          reporter_id: string
+          reviewed_at?: string | null
+          status?: string
+        }
+        Update: {
+          content_id?: string | null
+          content_type?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          moderator_notes?: string | null
+          reason?: string
+          reported_user_id?: string
+          reporter_id?: string
+          reviewed_at?: string | null
+          status?: string
         }
         Relationships: []
       }
@@ -924,6 +987,7 @@ export type Database = {
           username: string
         }[]
       }
+      is_blocked_pair: { Args: { a: string; b: string }; Returns: boolean }
       is_shared_list_member: {
         Args: { _list_id: string; _user_id: string }
         Returns: boolean
