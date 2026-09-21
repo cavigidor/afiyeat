@@ -58,24 +58,24 @@ export function ReportDialog({
     });
     setSubmitting(false);
 
-    if (result.ok) {
-      // Deliberately doesn't promise an outcome or a timeline - it says
-      // what happened and stops. Over-promising on moderation is worse
-      // than saying little.
-      toast.success('Report sent', {
-        description: 'Thanks for flagging this. Our team will take a look.',
-      });
-      onOpenChange(false);
-      reset();
+    if (result.ok === false) {
+      if (result.reason === 'duplicate') {
+        // Deliberately doesn't promise an outcome or a timeline - it says
+        // what happened and stops. Over-promising on moderation is worse
+        // than saying little.
+        toast.info(result.message);
+        onOpenChange(false);
+        reset();
+        return;
+      }
+      toast.error(result.message);
       return;
     }
-    if (result.reason === 'duplicate') {
-      toast.info(result.message);
-      onOpenChange(false);
-      reset();
-      return;
-    }
-    toast.error(result.message);
+    toast.success('Report sent', {
+      description: 'Thanks for flagging this. Our team will take a look.',
+    });
+    onOpenChange(false);
+    reset();
   };
 
   return (
