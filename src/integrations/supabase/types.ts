@@ -1128,6 +1128,10 @@ export type Database = {
           username: string
         }[]
       }
+      get_shared_preview: {
+        Args: { p_id: string; p_type: string }
+        Returns: Json
+      }
       has_activated: { Args: { p_user_id: string }; Returns: boolean }
       has_role: { Args: { check_role: string }; Returns: boolean }
       is_blocked_pair: { Args: { a: string; b: string }; Returns: boolean }
