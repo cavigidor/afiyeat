@@ -14,6 +14,10 @@ import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import { SITE_URL } from '@/lib/site';
 import { fetchRecipePreview, isUuid, ownerName, type RecipePreview } from '@/lib/sharedPreview';
 
+function toStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+}
+
 /**
  * Signed-in viewers read through the recipes table, so RLS decides - that
  * also lets an owner open their own private recipe. Anyone else gets the
@@ -36,10 +40,16 @@ async function fetchRecipe(id: string, signedIn: boolean): Promise<RecipePreview
         .select('user_id, display_name, username, avatar_emoji, avatar_color')
         .eq('user_id', data.user_id)
         .maybeSingle();
-      const { user_id, ...rest } = data;
+      const { user_id, ingredients, instructions, tags, ...rest } = data;
       return {
         type: 'recipe',
         ...rest,
+        // These are jsonb columns, typed as generic Json. They hold arrays
+        // of strings in practice, but anything else is dropped rather than
+        // rendered.
+        ingredients: toStringArray(ingredients),
+        instructions: toStringArray(instructions),
+        tags: toStringArray(tags),
         owner: owner ?? {
           user_id,
           display_name: null,

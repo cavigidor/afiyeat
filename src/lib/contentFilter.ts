@@ -107,7 +107,13 @@ export function checkTextFields(...fields: (string | null | undefined)[]): Conte
  */
 export function blockedByContentFilter(...fields: (string | null | undefined)[]): boolean {
   const verdict = checkTextFields(...fields);
-  if (verdict.allowed) return false;
-  toast.error(verdict.reason);
-  return true;
+  // Explicit `=== false` rather than `if (verdict.allowed)`: this project
+  // compiles without strictNullChecks, and under that setting TypeScript
+  // does not narrow a union by the truthiness of a boolean field - only by
+  // an explicit comparison.
+  if (verdict.allowed === false) {
+    toast.error(verdict.reason);
+    return true;
+  }
+  return false;
 }
