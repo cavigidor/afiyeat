@@ -23,6 +23,7 @@ import { Loader2, Plus, X, ImagePlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { validateImageFile } from '@/lib/imageValidation';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { blockedByContentFilter } from '@/lib/contentFilter';
 
 interface InitialRecipeData {
   title?: string;
@@ -151,6 +152,7 @@ export function AddRecipeDialog({ open, onOpenChange, onSuccess, initialData }: 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !title.trim()) return;
+    if (blockedByContentFilter(title, description, tags, ...ingredients, ...instructions)) return;
 
     setLoading(true);
     try {

@@ -21,6 +21,9 @@ import type { Recipe } from '@/pages/Recipes';
 import { useState } from 'react';
 import { EditRecipeDialog } from './EditRecipeDialog';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
+import { UserSafetyMenu } from '@/components/moderation/UserSafetyMenu';
+import { ShareButton } from '@/components/sharing/ShareButton';
+import { SITE_URL } from '@/lib/site';
 
 interface RecipeDetailDialogProps {
   recipe: Recipe | null;
@@ -64,27 +67,61 @@ export function RecipeDetailDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <div className="flex items-start justify-between gap-4">
-              <DialogTitle className="text-2xl">{recipe.title}</DialogTitle>
-              {isOwner && (
-                <div className="flex gap-2">
-                  <Button
+            {/* pr-8 keeps the header's buttons clear of the dialog's own
+                close button, which sits absolutely in the top-right corner
+                and used to overlap them slightly. */}
+            <div className="flex items-start justify-between gap-4 pr-8">
+              <DialogTitle className="text-2xl min-w-0">{recipe.title}</DialogTitle>
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Only public recipes can be opened by someone else, so a
+                    private one gets no share button rather than a link that
+                    dead-ends for whoever receives it. */}
+                {recipe.is_public && (
+                  <ShareButton
+                    url={`${SITE_URL}/recipe/${recipe.id}`}
+                    source="recipe"
+                    title={recipe.title}
+                    text={
+                      isOwner
+                        ? `Here's my recipe for ${recipe.title} on Afiyeat`
+                        : `${recipe.title} — found on Afiyeat`
+                    }
                     variant="outline"
-                    size="icon"
-                    onClick={() => setEditOpen(true)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="text-destructive hover:text-destructive"
-                    onClick={onDelete}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
+                  />
+                )}
+                {!isOwner && (
+                  // Someone else's recipe: report/block sits on the recipe
+                  // itself, where App Review (and users) look for it.
+                  <UserSafetyMenu
+                    userId={recipe.user_id}
+                    displayName={recipe.profile?.display_name || recipe.profile?.username}
+                    contentType="recipe"
+                    contentId={recipe.id}
+                    onBlocked={() => onOpenChange(false)}
+                  />
+                )}
+                {isOwner && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      aria-label="Edit recipe"
+                      onClick={() => setEditOpen(true)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      aria-label="Delete recipe"
+                      className="text-destructive hover:text-destructive"
+                      onClick={onDelete}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </DialogHeader>
 

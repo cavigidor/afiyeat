@@ -8,14 +8,27 @@ export const isNative = (): boolean => Capacitor.isNativePlatform();
 // load time, before React even mounts. Safe to call unconditionally on
 // web too - the plugin's web implementation is a harmless no-op there.
 
+/**
+ * Registers this device for push and hands the token to `onToken`.
+ *
+ * By default this never shows the system permission prompt: it only
+ * registers if the user has already said yes. It used to prompt on every
+ * sign-in, which meant a brand-new user's first moment in the app was an
+ * iOS dialog asking to send notifications before they'd seen anything -
+ * exactly what Apple asks apps not to do, and a reliable way to collect a
+ * "Don't Allow" that can never be asked again. Pass `prompt: true` only in
+ * response to something the user just did (see lib/pushPrompt.ts).
+ */
 export async function initPushNotifications(
   onToken?: (token: string) => void | Promise<void>,
+  opts: { prompt?: boolean } = {},
 ): Promise<void> {
   if (!isNative()) return;
   try {
     const { PushNotifications } = await import('@capacitor/push-notifications');
     let perm = await PushNotifications.checkPermissions();
     if (perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') {
+      if (!opts.prompt) return;
       perm = await PushNotifications.requestPermissions();
     }
     if (perm.receive !== 'granted') return;
@@ -42,47 +55,17 @@ export async function initPushNotifications(
   }
 }
 
-export async function requestLocationPermission(): Promise<boolean> {
-  if (!isNative()) return true;
-  try {
-    const { Geolocation } = await import('@capacitor/geolocation');
-    // Check first, rather than unconditionally calling requestPermissions()
-    // every time this runs (e.g. on every app launch, from
-    // requestStartupPermissions). iOS's own system prompt only ever shows
-    // once regardless, but checking first avoids the redundant native call
-    // on every subsequent launch, and - more importantly - means a user who
-    // already said no isn't hit with any of our own UI again either, since
-    // callers use this same status to decide whether to show a reminder.
-    const current = await Geolocation.checkPermissions();
-    if (current.location === 'granted' || current.coarseLocation === 'granted') return true;
-    if (current.location === 'denied' && current.coarseLocation === 'denied') return false;
-    const perm = await Geolocation.requestPermissions();
-    return perm.location === 'granted' || perm.coarseLocation === 'granted';
-  } catch (err) {
-    console.error('requestLocationPermission failed:', err);
-    return false;
-  }
-}
-
-export async function requestCameraPermission(): Promise<boolean> {
-  if (!isNative()) return true;
-  try {
-    const { Camera } = await import('@capacitor/camera');
-    const perm = await Camera.requestPermissions({ permissions: ['camera', 'photos'] });
-    return perm.camera === 'granted' || perm.photos === 'granted';
-  } catch (err) {
-    console.error('requestCameraPermission failed:', err);
-    return false;
-  }
-}
-
-export async function requestStartupPermissions(
-  opts: { camera?: boolean } = {},
-): Promise<void> {
-  if (!isNative()) return;
-  await requestLocationPermission();
-  if (opts.camera) await requestCameraPermission();
-}
+// There is intentionally no "request permissions at startup" helper here any
+// more. The app used to ask for location on every cold launch, before the
+// user had done anything that needed it. Every permission is now requested
+// at the moment its feature is used:
+//   - location: opening a map, tapping Near Me, searching for a place, or
+//     opening Explore (see useLocationPermission / getCurrentPosition)
+//   - camera/photos: choosing to add a photo (the Camera plugin prompts
+//     itself inside capturePhoto)
+//   - notifications: offered after following someone (lib/pushPrompt.ts)
+// Screens that merely benefit from location, rather than being about it,
+// use getCurrentPositionIfGranted() below, which never prompts.
 
 /**
  * Dismisses the native splash screen. Call this once the first real screen
@@ -150,6 +133,35 @@ export async function capturePhoto(): Promise<File | null> {
     });
   } catch (err) {
     console.warn('capturePhoto cancelled/failed:', err);
+    return null;
+  }
+}
+
+/**
+ * The user's position if they've already allowed location, otherwise null.
+ * Never shows a permission prompt.
+ *
+ * For screens that merely benefit from location rather than being about
+ * it - picking a default news city, say. Asking there would put a system
+ * dialog in front of someone on their very first screen, for a convenience
+ * they never asked for.
+ */
+export async function getCurrentPositionIfGranted(): Promise<Coords | null> {
+  try {
+    if (!isNative()) {
+      // Browsers without the Permissions API would prompt on
+      // getCurrentPosition, so treat "can't tell" as "not granted".
+      if (!navigator.permissions?.query) return null;
+      const status = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+      if (status.state !== 'granted') return null;
+      return await getCurrentPosition();
+    }
+    const { Geolocation } = await import('@capacitor/geolocation');
+    const perm = await Geolocation.checkPermissions();
+    if (perm.location !== 'granted' && perm.coarseLocation !== 'granted') return null;
+    const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: false, timeout: 10000 });
+    return { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+  } catch {
     return null;
   }
 }

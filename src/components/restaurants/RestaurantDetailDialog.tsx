@@ -17,6 +17,8 @@ import {
 import { useSignedImageUrls } from '@/hooks/useSignedImageUrl';
 import { getFolderIcon } from '@/lib/folderIcons';
 import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
+import { ShareButton } from '@/components/sharing/ShareButton';
+import { SITE_URL } from '@/lib/site';
 
 export interface DetailRestaurant {
   id: string;
@@ -173,8 +175,24 @@ export function RestaurantDetailDialog({
 
           {restaurant.notes && <p className="text-sm whitespace-pre-wrap">{restaurant.notes}</p>}
 
-          {(onEdit || onDelete || onMarkVisited) && (
-            <div className="flex flex-wrap gap-2 pt-3 border-t">
+          {/* Share is always available - sending a friend a place is the
+              most natural thing to do from here, whether it's yours or
+              theirs. The owner-only actions only appear when the caller
+              provides them, which is also how ownership is inferred. */}
+          <div className="flex flex-wrap gap-2 pt-3 border-t">
+              <ShareButton
+                url={`${SITE_URL}/r/${restaurant.id}`}
+                source="restaurant"
+                title={restaurant.name}
+                text={
+                  onEdit || onDelete
+                    ? `I saved ${restaurant.name} on Afiyeat. Want to try it with me?`
+                    : `${restaurant.name} — found on Afiyeat`
+                }
+                ownContent={!!(onEdit || onDelete)}
+                variant="outline"
+                label="Share"
+              />
               {restaurant.status === 'to_go' && onMarkVisited && (
                 <Button variant="outline" size="sm" onClick={onMarkVisited}>
                   <Check className="h-4 w-4 mr-1.5" />
@@ -198,8 +216,7 @@ export function RestaurantDetailDialog({
                   Delete
                 </Button>
               )}
-            </div>
-          )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

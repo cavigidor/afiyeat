@@ -1,9 +1,5 @@
 import { useEffect } from "react";
-import {
-  configureStatusBar,
-  hideSplashScreen,
-  requestStartupPermissions,
-} from "@/lib/native";
+import { configureStatusBar, hideSplashScreen } from "@/lib/native";
 import { useAuth } from "@/contexts/AuthContext";
 import { claimPendingReferral, readPendingReferral } from "@/lib/passport";
 import { Toaster } from "@/components/ui/toaster";
@@ -26,6 +22,9 @@ import CustomListDetail from "./pages/CustomListDetail";
 import Profile from "./pages/Profile";
 import Passport from "./pages/Passport";
 import Invite from "./pages/Invite";
+import PublicRestaurant from "./pages/PublicRestaurant";
+import PublicRecipe from "./pages/PublicRecipe";
+import { ReferralCapture } from "@/components/sharing/ReferralCapture";
 import NotFound from "./pages/NotFound";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
@@ -93,6 +92,10 @@ function AnimatedRoutes() {
             Invite.tsx. Kept outside PersistentTabs since it's a
             pass-through, not a screen. */}
         <Route path="/invite/:code" element={<Invite />} />
+        {/* Single shared restaurant / recipe - what a friend lands on when
+            someone sends them one. Both work without an account. */}
+        <Route path="/r/:id" element={<PublicRestaurant />} />
+        <Route path="/recipe/:id" element={<PublicRecipe />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="*" element={<NotFound />} />
@@ -148,9 +151,11 @@ function NativeLaunchGate() {
 }
 
 const App = () => {
+  // No permission requests here. Launch used to ask for location on every
+  // cold start; each permission is now requested when its feature is used
+  // (see the note in lib/native.ts).
   useEffect(() => {
     void configureStatusBar();
-    void requestStartupPermissions();
   }, []);
 
   return (
@@ -164,6 +169,7 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <BottomTabBar />
+          <ReferralCapture />
           {/* Renders the four bottom-tab pages itself, kept mounted across
               switches instead of the normal Route mount/unmount cycle below
               (see PersistentTabs.tsx) - the matching routes for their paths

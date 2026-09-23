@@ -1,3 +1,5 @@
+import { toast } from 'sonner';
+
 /**
  * A first-pass filter for obviously objectionable text at publish time.
  *
@@ -29,7 +31,9 @@ const BLOCKED_PATTERNS: RegExp[] = [
   /\bk[i1]k[e3](s)?\b/i,
   /\bch[i1]nk(s)?\b/i,
   /\btr[a4]nn(y|ies)\b/i,
-  /\br[e3]t[a4]rd(ed|s)?\b/i,
+  // Not "retard": in a recipe app it's an ordinary baking term (bakers
+  // retard dough overnight in the fridge), and blocking it would reject
+  // legitimate recipes. Abusive use of it is left to the report queue.
   /\bcunt(s)?\b/i,
   /\bchild\s*p[o0]rn\b/i,
   /\bcp\s*(links?|trade)\b/i,
@@ -57,7 +61,7 @@ export function checkText(input: string | null | undefined): ContentVerdict {
   // anyone determined will get past it, and the report queue is what
   // actually handles them.
   const normalised = input
-    .replace(/[​-‍﻿]/g, '')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
     .replace(/[._\-*]+/g, '');
 
   for (const pattern of BLOCKED_PATTERNS) {
@@ -91,4 +95,19 @@ export function checkTextFields(...fields: (string | null | undefined)[]): Conte
     if (!verdict.allowed) return verdict;
   }
   return { allowed: true };
+}
+
+/**
+ * The call-site form: checks every user-authored field about to be saved
+ * and, if any fails, tells the user why and returns true so the caller can
+ * stop before writing anything. Used at the top of every save handler that
+ * publishes text other people can see.
+ *
+ *   if (blockedByContentFilter(name, notes)) return;
+ */
+export function blockedByContentFilter(...fields: (string | null | undefined)[]): boolean {
+  const verdict = checkTextFields(...fields);
+  if (verdict.allowed) return false;
+  toast.error(verdict.reason);
+  return true;
 }

@@ -14,6 +14,7 @@ import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { blockedByContentFilter } from '@/lib/contentFilter';
 
 interface Profile {
   id: string;
@@ -53,6 +54,7 @@ export function CreateSharedListDialog({
       toast.error('Give your list a name');
       return;
     }
+    if (blockedByContentFilter(name)) return;
     if (!friendId) {
       toast.error('Pick a friend to share with');
       return;

@@ -21,6 +21,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { EmojiSlider, PRICE_LABELS } from './EmojiSlider';
 import { PriceLevelPicker } from '@/components/restaurants/PriceLevelPicker';
+import { blockedByContentFilter } from '@/lib/contentFilter';
 
 export interface SharedItem {
   id: string;
@@ -75,6 +76,7 @@ export function EditSharedItemDialog({ open, onOpenChange, item, onSuccess }: Ed
       toast.error('Add a place name');
       return;
     }
+    if (blockedByContentFilter(name, notes)) return;
     setLoading(true);
     const { error } = await supabase
       .from('shared_list_items')

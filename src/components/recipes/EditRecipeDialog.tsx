@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { validateImageFile } from '@/lib/imageValidation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Recipe } from '@/pages/Recipes';
+import { blockedByContentFilter } from '@/lib/contentFilter';
 
 interface EditRecipeDialogProps {
   recipe: Recipe;
@@ -129,6 +130,7 @@ export function EditRecipeDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !title.trim()) return;
+    if (blockedByContentFilter(title, description, tags, ...ingredients, ...instructions)) return;
 
     setLoading(true);
     try {

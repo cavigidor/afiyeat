@@ -37,6 +37,7 @@ import { PriceLevelPicker } from './PriceLevelPicker';
 import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
 import { PlaceResultsDropdown } from '@/components/shared/PlaceResultsDropdown';
 import { TagMultiSelect } from '@/components/shared/TagMultiSelect';
+import { blockedByContentFilter } from '@/lib/contentFilter';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Restaurant name is required'),
@@ -246,6 +247,7 @@ export function AddRestaurantDialog({
 
   const onSubmit = async (values: FormValues) => {
     if (!user) return;
+    if (blockedByContentFilter(values.name, values.notes)) return;
 
     setLoading(true);
     try {

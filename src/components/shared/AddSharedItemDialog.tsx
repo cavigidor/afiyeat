@@ -26,6 +26,7 @@ import { PRICE_LABELS } from './EmojiSlider';
 import { isDuplicateSharedItem } from '@/lib/duplicateRestaurant';
 import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
 import { PlaceResultsDropdown } from '@/components/shared/PlaceResultsDropdown';
+import { blockedByContentFilter } from '@/lib/contentFilter';
 
 interface MyPlace {
   id: string;
@@ -161,6 +162,7 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
       toast.error('Add a place name');
       return;
     }
+    if (blockedByContentFilter(name, notes)) return;
     setLoading(true);
 
     const duplicate = await isDuplicateSharedItem(listId, { name, latitude, longitude });

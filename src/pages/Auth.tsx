@@ -24,6 +24,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError';
 import logo from '@/assets/logo.png';
 import { Seo } from '@/components/Seo';
+import { postAuthDestination } from '@/lib/passport';
 
 const signInSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -72,7 +73,7 @@ export default function Auth() {
 
   useEffect(() => {
     if (user) {
-      navigate('/foodie');
+      navigate(postAuthDestination());
     }
   }, [user, navigate]);
 
@@ -181,7 +182,7 @@ export default function Auth() {
         setActiveTab('signin');
       } else {
         toast.success('Password reset! Welcome back.');
-        navigate('/foodie');
+        navigate(postAuthDestination());
       }
     } catch (error: any) {
       toast.error(error.message || 'Failed to reset password');
@@ -206,7 +207,7 @@ export default function Auth() {
       }
     } else {
       toast.success('Welcome back!');
-      navigate('/foodie');
+      navigate(postAuthDestination());
     }
   };
 
@@ -295,7 +296,7 @@ export default function Auth() {
           setActiveTab('signin');
         } else {
           toast.success('Account created! Welcome to Afiyeat!');
-          navigate('/foodie');
+          navigate(postAuthDestination());
         }
       }
     } catch (error: any) {

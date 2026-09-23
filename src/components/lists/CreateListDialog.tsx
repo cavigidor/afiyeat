@@ -20,6 +20,7 @@ import { Loader2, MapPin, DollarSign, Star, StickyNote, ImageIcon } from 'lucide
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { blockedByContentFilter } from '@/lib/contentFilter';
 
 export type PriceMode = 'manual' | 'dollar';
 export type RatingMode = 'scale_10' | 'stars_5' | 'manual';
@@ -107,6 +108,7 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
       toast.error('Give your list a name');
       return;
     }
+    if (blockedByContentFilter(name)) return;
     setLoading(true);
 
     const payload = {

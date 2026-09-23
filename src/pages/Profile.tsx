@@ -44,6 +44,7 @@ import { Loader2, Pencil, Save, LogOut, Lock, Check, X, UserPlus, Trash2, Stamp 
 import { buildLabel } from '@/lib/buildInfo';
 import { BlockedAccountsCard } from '@/components/moderation/BlockedAccountsCard';
 import { toast } from 'sonner';
+import { blockedByContentFilter } from '@/lib/contentFilter';
 
 const profileSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters').max(20),
@@ -269,6 +270,8 @@ export default function Profile() {
 
   const onSubmit = async (values: ProfileValues) => {
     if (!profile) return;
+    // Name, username and bio are shown to everyone who finds this profile.
+    if (blockedByContentFilter(values.username, values.display_name, values.bio)) return;
 
     setSaving(true);
     const { error } = await supabase

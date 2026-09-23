@@ -161,6 +161,9 @@ export function withReferral(url: string, code: string | null, source: ReferralS
 }
 
 const PENDING_REFERRAL_KEY = 'afiyeat.pending_referral';
+// An invite someone opened a month ago and never acted on shouldn't be
+// credited to whoever sent it, if they finally sign up on their own later.
+const PENDING_REFERRAL_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export interface PendingReferral {
   code: string;
@@ -169,6 +172,17 @@ export interface PendingReferral {
   contentId?: string;
   /** Where to send them back to after signup. */
   returnTo?: string;
+  /** When the link was opened; set automatically. */
+  storedAt?: number;
+}
+
+/**
+ * Referral codes are 7 characters from an unambiguous alphabet (see
+ * generate_referral_code). Anything else arriving in a URL is ignored
+ * rather than stored and sent to the database.
+ */
+export function isPlausibleReferralCode(code: string | null | undefined): code is string {
+  return !!code && /^[A-Z0-9]{4,12}$/i.test(code);
 }
 
 /**
@@ -177,11 +191,20 @@ export interface PendingReferral {
  * Someone arriving on a shared recipe has to pass through sign-up before
  * we know who they are, so the code is parked here and claimed once they
  * have an account. Stored rather than passed through the URL so it
- * survives the email-verification round trip.
+ * survives the verification step.
+ *
+ * First touch wins: if someone opens links from two different friends
+ * before signing up, the one who reached them first gets the credit, and
+ * a later link doesn't quietly reassign it.
  */
 export function storePendingReferral(pending: PendingReferral): void {
+  if (!isPlausibleReferralCode(pending.code)) return;
+  if (readPendingReferral()) return;
   try {
-    localStorage.setItem(PENDING_REFERRAL_KEY, JSON.stringify(pending));
+    localStorage.setItem(
+      PENDING_REFERRAL_KEY,
+      JSON.stringify({ ...pending, code: pending.code.toUpperCase(), storedAt: Date.now() }),
+    );
   } catch {
     // Private browsing or a full quota - referral attribution is not
     // worth breaking signup over.
@@ -191,10 +214,80 @@ export function storePendingReferral(pending: PendingReferral): void {
 export function readPendingReferral(): PendingReferral | null {
   try {
     const raw = localStorage.getItem(PENDING_REFERRAL_KEY);
-    return raw ? (JSON.parse(raw) as PendingReferral) : null;
+    if (!raw) return null;
+    const pending = JSON.parse(raw) as PendingReferral;
+    if (!pending.storedAt || Date.now() - pending.storedAt > PENDING_REFERRAL_TTL_MS) {
+      localStorage.removeItem(PENDING_REFERRAL_KEY);
+      return null;
+    }
+    return pending;
   } catch {
     return null;
   }
+}
+
+// ---------------------------------------------------------------------
+// Returning a new user to what they were looking at
+// ---------------------------------------------------------------------
+
+const RETURN_TO_KEY = 'afiyeat.return_to';
+const RETURN_TO_TTL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Only same-app paths are accepted. The path arrives from a URL, and
+ * without this check "?next=//evil.example" would turn our own sign-in
+ * screen into a redirect to someone else's site - a classic phishing aid.
+ */
+export function isSafeInternalPath(path: string | null | undefined): path is string {
+  return !!path && path.startsWith('/') && !path.startsWith('//') && !path.includes('\\');
+}
+
+/**
+ * Remembers which piece of content someone was looking at when they chose
+ * to sign up, so they land back on it afterwards instead of on a generic
+ * home screen. The dish or place they were sent is the whole reason
+ * they're joining - losing it at the finish line is the worst moment to.
+ */
+export function setReturnTo(path: string): void {
+  if (!isSafeInternalPath(path)) return;
+  try {
+    localStorage.setItem(RETURN_TO_KEY, JSON.stringify({ path, at: Date.now() }));
+  } catch {
+    /* not worth failing over */
+  }
+}
+
+export function peekReturnTo(): string | null {
+  try {
+    const raw = localStorage.getItem(RETURN_TO_KEY);
+    if (!raw) return null;
+    const { path, at } = JSON.parse(raw) as { path: string; at: number };
+    if (!isSafeInternalPath(path) || Date.now() - at > RETURN_TO_TTL_MS) {
+      localStorage.removeItem(RETURN_TO_KEY);
+      return null;
+    }
+    return path;
+  } catch {
+    return null;
+  }
+}
+
+export function clearReturnTo(): void {
+  try {
+    localStorage.removeItem(RETURN_TO_KEY);
+  } catch {
+    /* nothing to clean up */
+  }
+}
+
+/**
+ * Where to go once signed in: back to the shared content if there is one,
+ * otherwise home. Read without clearing, because the sign-in screen can
+ * navigate from more than one place in quick succession and both must
+ * agree; ReferralCapture clears it once the user actually arrives.
+ */
+export function postAuthDestination(fallback = '/foodie'): string {
+  return peekReturnTo() ?? fallback;
 }
 
 export function clearPendingReferral(): void {

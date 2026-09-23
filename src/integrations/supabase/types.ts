@@ -1113,6 +1113,7 @@ export type Database = {
         }[]
       }
       get_passport_summary: { Args: never; Returns: Json }
+      get_shared_preview: { Args: { p_id: string; p_type: string }; Returns: Json }
       get_place_comments: {
         Args: { p_mode?: string; p_place_id: string }
         Returns: {

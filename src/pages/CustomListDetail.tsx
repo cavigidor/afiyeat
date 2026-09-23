@@ -50,6 +50,8 @@ import { getPriceSortValue, getRatingSortValue } from '@/lib/customListValues';
 import { getDirectionsPopupHtml } from '@/lib/directions';
 import { createPinElement } from '@/lib/mapPin';
 import { shareListLink } from '@/lib/shareList';
+import { announceShareResult } from '@/lib/share';
+import { useMyShareIdentity } from '@/hooks/useMyShareIdentity';
 import { hapticWarning } from '@/lib/haptics';
 import { useLocationPermission } from '@/hooks/useLocationPermission';
 import { LocationDeniedDialog } from '@/components/shared/LocationDeniedDialog';
@@ -187,11 +189,14 @@ export default function CustomListDetail() {
 
   const { data: following = [] } = useFollowing(user?.id);
 
+  const shareIdentity = useMyShareIdentity();
   const handleShareLink = async () => {
     if (!user || !list) return;
-    const result = await shareListLink(user.id, list.id, list.name);
-    if (result === 'copied') toast.success('Link copied to clipboard!');
-    else if (result === 'failed') toast.error('Failed to share link');
+    // Carries this user's referral code, so a friend who joins from the
+    // list is credited to them - and warns if a private profile means the
+    // link only opens for followers.
+    const result = await shareListLink(user.id, list.id, list.name, shareIdentity.referralCode);
+    announceShareResult(result, { privateProfile: shareIdentity.isPrivate });
   };
 
   const invalidateItems = () => {

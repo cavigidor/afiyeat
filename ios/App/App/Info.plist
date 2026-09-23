@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>afiyeat</string>
+	<string>Afiyeat</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -27,13 +27,13 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>afiyeat uses your camera to add photos of restaurants and dishes.</string>
+	<string>Afiyeat uses the camera when you choose to take a photo of a restaurant, a dish, or a recipe.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>afiyeat uses your location to find restaurants near you.</string>
+	<string>Afiyeat uses your location to show restaurants near you and to center your maps. You can still use Afiyeat without it.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>afiyeat saves photos you create to your library.</string>
+	<string>Afiyeat saves an image to your photo library only when you choose to save one.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>afiyeat lets you attach photos from your library to posts and lists.</string>
+	<string>Afiyeat uses your photos when you choose images for restaurants, recipes, and lists.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

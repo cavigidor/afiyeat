@@ -1,7 +1,12 @@
 import { useEffect } from 'react';
 import { Navigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { storePendingReferral, type ReferralSource } from '@/lib/passport';
+import {
+  isSafeInternalPath,
+  setReturnTo,
+  storePendingReferral,
+  type ReferralSource,
+} from '@/lib/passport';
 
 /**
  * /invite/:code
@@ -21,18 +26,22 @@ export default function Invite() {
   const { user, loading } = useAuth();
 
   const source = (params.get('ref_src') as ReferralSource | null) ?? 'invite_link';
-  const returnTo = params.get('next') ?? undefined;
+  // `next` comes from the URL, so it's only honoured if it's a path inside
+  // this app - never an external address.
+  const next = params.get('next');
+  const returnTo = isSafeInternalPath(next) ? next : undefined;
 
   useEffect(() => {
-    if (!code) return;
+    if (!code || user) return;
     storePendingReferral({
-      code: code.toUpperCase(),
+      code,
       source,
       contentType: params.get('ct') ?? undefined,
       contentId: params.get('ci') ?? undefined,
       returnTo,
     });
-  }, [code, source, returnTo, params]);
+    if (returnTo) setReturnTo(returnTo);
+  }, [code, source, returnTo, params, user]);
 
   if (loading) return null;
   if (!code) return <Navigate to="/" replace />;

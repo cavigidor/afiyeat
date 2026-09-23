@@ -10,6 +10,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Search as SearchIcon, Loader2, Lock, Clock, UserPlus, UserCheck, Users } from 'lucide-react';
 import { toast } from 'sonner';
+import { hapticSuccess } from '@/lib/haptics';
+import { offerPushAfterFollow } from '@/lib/pushPrompt';
 
 interface Profile {
   id: string;
@@ -116,6 +118,8 @@ export default function Search() {
       } else {
         toast.success(`Now following ${profile.display_name || profile.username}!`);
       }
+      void hapticSuccess();
+      void offerPushAfterFollow({ pending: !!profile.is_private });
     }
     setProcessingFollow(null);
   };

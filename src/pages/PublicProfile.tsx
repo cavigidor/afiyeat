@@ -11,6 +11,8 @@ import { RestaurantListRow } from '@/components/restaurants/RestaurantListRow';
 import { RestaurantDetailDialog, type DetailRestaurant } from '@/components/restaurants/RestaurantDetailDialog';
 import { RestaurantListToolbar } from '@/components/restaurants/RestaurantListToolbar';
 import { UserSafetyMenu } from '@/components/moderation/UserSafetyMenu';
+import { hapticSuccess } from '@/lib/haptics';
+import { offerPushAfterFollow } from '@/lib/pushPrompt';
 import { useRestaurantListControls } from '@/hooks/useRestaurantListControls';
 import { useViewMode } from '@/hooks/useViewMode';
 import { useAuth } from '@/contexts/AuthContext';
@@ -179,7 +181,9 @@ export default function PublicProfile() {
       toast.error('Failed to follow user');
     } else {
       toast.success(profile?.is_private ? 'Follow request sent' : 'Now following!');
+      void hapticSuccess();
       invalidateFollow();
+      void offerPushAfterFollow({ pending: !!profile?.is_private });
     }
   };
 

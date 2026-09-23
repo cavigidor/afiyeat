@@ -29,6 +29,8 @@ import type { ManagedListStatus } from '@/hooks/useListStatusManagement';
 import { getPriceSortValue, getRatingSortValue } from '@/lib/customListValues';
 import { getDirectionsPopupHtml } from '@/lib/directions';
 import { createPinElement } from '@/lib/mapPin';
+import { UserSafetyMenu } from '@/components/moderation/UserSafetyMenu';
+import { SharedListPreview } from '@/components/sharing/SharedListPreview';
 
 type SortBy = 'name' | 'price_asc' | 'price_desc' | 'rating_desc';
 
@@ -133,16 +135,16 @@ export default function PublicListDetail() {
   const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
   const mapFlyToRef = useRef<((lat: number, lng: number, itemId: string) => void) | null>(null);
 
-  useEffect(() => {
-    if (!authLoading && !user) navigate('/auth');
-  }, [user, authLoading, navigate]);
-
+  // Signed-out visitors used to be redirected to the login screen here, so
+  // someone who was sent a list never saw a single place on it. They now
+  // get SharedListPreview instead (see the early return below), and these
+  // queries only run for signed-in viewers, where RLS governs access.
   const isOwnList = user?.id === userId;
 
   const { data: ownerProfile, isLoading: loadingProfile } = useQuery({
     queryKey: ['public-list-owner', userId],
     queryFn: () => fetchOwnerProfile(userId!),
-    enabled: !!userId,
+    enabled: !!userId && !!user,
   });
 
   const { data: followStatus } = useQuery({
@@ -156,7 +158,7 @@ export default function PublicListDetail() {
   const { data: list, isLoading: loadingList } = useQuery({
     queryKey: ['public-list', listId, userId],
     queryFn: () => fetchList(listId!, userId!),
-    enabled: !!listId && !!userId && canView,
+    enabled: !!listId && !!userId && !!user && canView,
   });
 
   const { data: items = [], isLoading: loadingItems } = useQuery({
@@ -231,6 +233,10 @@ export default function PublicListDetail() {
     () => filteredItems.filter((i) => i.status_id === activeStatusId),
     [filteredItems, activeStatusId],
   );
+
+  if (!authLoading && !user && listId) {
+    return <SharedListPreview listId={listId} />;
+  }
 
   if (authLoading || loadingProfile || (canView && loadingList)) {
     return (
@@ -316,6 +322,15 @@ export default function PublicListDetail() {
               </p>
             </div>
           </div>
+          {!isOwnList && userId && (
+            <UserSafetyMenu
+              userId={userId}
+              displayName={ownerLabel}
+              contentType="custom_list"
+              contentId={listId}
+              onBlocked={() => navigate('/explore', { replace: true })}
+            />
+          )}
         </div>
 
         <Card>

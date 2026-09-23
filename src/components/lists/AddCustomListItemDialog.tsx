@@ -34,6 +34,7 @@ import { TagMultiSelect } from '@/components/shared/TagMultiSelect';
 import type { CustomList } from './CreateListDialog';
 import type { ManagedListType } from '@/hooks/useListTypeManagement';
 import type { ManagedListStatus } from '@/hooks/useListStatusManagement';
+import { blockedByContentFilter } from '@/lib/contentFilter';
 
 const PRICE_LABELS = ['<$30', '<$50', '<$100', '$100+'];
 
@@ -214,6 +215,7 @@ export function AddCustomListItemDialog({
       toast.error('Add a name');
       return;
     }
+    if (blockedByContentFilter(name, notes)) return;
     setLoading(true);
     try {
       if (!isEditing) {

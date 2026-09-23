@@ -33,6 +33,7 @@ import { toast } from 'sonner';
 import { ImageUploadSection } from './ImageUploadSection';
 import { PriceLevelPicker } from './PriceLevelPicker';
 import { TagMultiSelect } from '@/components/shared/TagMultiSelect';
+import { blockedByContentFilter } from '@/lib/contentFilter';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Restaurant name is required'),
@@ -190,7 +191,8 @@ export function EditRestaurantDialog({
 
   const onSubmit = async (values: FormValues) => {
     if (!user || !restaurant) return;
-    
+    if (blockedByContentFilter(values.name, values.notes)) return;
+
     setLoading(true);
     try {
       const submitValues = {

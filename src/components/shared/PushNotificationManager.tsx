@@ -14,6 +14,36 @@ export function getCurrentDeviceToken(): string | null {
 }
 
 /**
+ * Registers this device and saves its token.
+ *
+ * `prompt: false` (the default, used on every sign-in) only registers if
+ * notifications are already allowed and never shows the system dialog.
+ * `prompt: true` is for lib/pushPrompt.ts, after the user has just done
+ * something that makes notifications worth having.
+ */
+export async function registerForPush({ prompt = false }: { prompt?: boolean } = {}): Promise<void> {
+  if (!isNative()) return;
+  const platform = Capacitor.getPlatform() === 'android' ? 'android' : 'ios';
+
+  await initPushNotifications(
+    async (token) => {
+      currentDeviceToken = token;
+      // Goes through a SECURITY DEFINER RPC (not a direct table upsert) so
+      // the row's owner is always taken from auth.uid() server-side, never
+      // a client-supplied user_id - see the claim_device_token migration.
+      const { error } = await supabase.rpc('claim_device_token', {
+        p_token: token,
+        p_platform: platform,
+      });
+      if (error) {
+        console.error('Failed to save device token:', error);
+      }
+    },
+    { prompt },
+  );
+}
+
+/**
  * Registers this device for push notifications once a user is signed in,
  * and saves the resulting APNs/FCM token to public.device_tokens so a
  * backend function can look it up and send pushes later.
@@ -37,30 +67,11 @@ export function PushNotificationManager() {
     void supabase.from('profiles').update({ timezone: timeZone }).eq('user_id', userId);
   }, [userId]);
 
+  // Re-registers on sign-in if notifications are already allowed, so a
+  // returning user's token stays fresh. Never prompts - see registerForPush.
   useEffect(() => {
     if (!userId || !isNative()) return;
-
-    let cancelled = false;
-    const platform = Capacitor.getPlatform() === 'android' ? 'android' : 'ios';
-
-    void initPushNotifications(async (token) => {
-      if (cancelled) return;
-      currentDeviceToken = token;
-      // Goes through a SECURITY DEFINER RPC (not a direct table upsert) so
-      // the row's owner is always taken from auth.uid() server-side, never
-      // a client-supplied user_id - see the claim_device_token migration.
-      const { error } = await supabase.rpc('claim_device_token', {
-        p_token: token,
-        p_platform: platform,
-      });
-      if (error) {
-        console.error('Failed to save device token:', error);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
+    void registerForPush({ prompt: false });
     // Supabase hands back a new `session`/`user` object on every auth event
     // (initial getSession(), the auth listener's INITIAL_SESSION, a token
     // refresh, etc.) even when it's the same signed-in account - depending

@@ -11,10 +11,11 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Newspaper, Sparkles, MapPin, ExternalLink, Calendar, Plus } from 'lucide-react';
+import { Newspaper, Sparkles, ExternalLink, Calendar, Plus, LocateFixed, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { CardGridSkeleton } from '@/components/shared/CardGridSkeleton';
 import { AddMentionedPlaceDialog } from '@/components/news/AddMentionedPlaceDialog';
-import { getCurrentPosition } from '@/lib/native';
+import { getCurrentPosition, getCurrentPositionIfGranted, type Coords } from '@/lib/native';
 
 interface MentionedRestaurant {
   name: string;
@@ -61,6 +62,20 @@ async function fetchNewsFor(selectedCity: string): Promise<NewsItem[]> {
   return (data as unknown as NewsItem[]) || [];
 }
 
+// Maps coordinates to the nearest supported news city, falling back to the
+// default when the region isn't one we cover or the lookup fails.
+async function cityFromCoords(coords: Coords): Promise<string> {
+  try {
+    const { data } = await supabase.functions.invoke('reverse-geocode-region', {
+      body: { latitude: coords.latitude, longitude: coords.longitude },
+    });
+    const shortCode: string | undefined = data?.shortCode?.toUpperCase?.();
+    return (shortCode && STATE_TO_CITY[shortCode]) || DEFAULT_CITY;
+  } catch {
+    return DEFAULT_CITY;
+  }
+}
+
 export default function News() {
   // If the user has manually picked a city before, respect it. Otherwise we
   // detect from their location on mount.
@@ -68,41 +83,44 @@ export default function News() {
     return localStorage.getItem('news_city_manual') || DEFAULT_CITY;
   });
 
-  // Detect default city from geolocation on first visit (no manual choice yet).
+  // Detect the default city from location on first visit - but only if the
+  // user has already allowed location. This is the first screen a new user
+  // sees, and it used to put the system location prompt in front of them
+  // immediately, for nothing more than picking which city's news to show.
+  // If location hasn't been granted we show the default city and the
+  // "use my location" button below, which asks only when tapped.
   useEffect(() => {
     if (localStorage.getItem('news_city_manual')) return;
 
     let cancelled = false;
-
-    const applyDetected = (detected: string) => {
+    void getCurrentPositionIfGranted().then(async (coords) => {
+      if (!coords || cancelled) return;
+      const detected = await cityFromCoords(coords);
       if (!cancelled) setCity(detected);
-    };
-
-    // getCurrentPosition() (not raw navigator.geolocation) so this routes
-    // through the native Capacitor plugin on iOS/Android instead of relying
-    // on the web geolocation API inside the WebView.
-    getCurrentPosition()
-      .then(async (coords) => {
-        try {
-          const { data } = await supabase.functions.invoke('reverse-geocode-region', {
-            body: {
-              latitude: coords.latitude,
-              longitude: coords.longitude,
-            },
-          });
-          const shortCode: string | undefined = data?.shortCode?.toUpperCase?.();
-          applyDetected((shortCode && STATE_TO_CITY[shortCode]) || DEFAULT_CITY);
-        } catch {
-          applyDetected(DEFAULT_CITY);
-        }
-      })
-      // Denied or unavailable -> default to Chicago.
-      .catch(() => applyDetected(DEFAULT_CITY));
+    });
 
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const [locating, setLocating] = useState(false);
+
+  // User-initiated, so this is the right moment for the permission prompt.
+  const handleUseMyLocation = async () => {
+    setLocating(true);
+    try {
+      const coords = await getCurrentPosition();
+      const detected = await cityFromCoords(coords);
+      // Remembered like a manual pick, so it sticks on the next visit.
+      localStorage.setItem('news_city_manual', detected);
+      setCity(detected);
+    } catch {
+      toast.info('Couldn\'t get your location. Pick a city from the list instead.');
+    } finally {
+      setLocating(false);
+    }
+  };
 
   const { data: items = [], isLoading: loading } = useQuery({
     queryKey: ['news_items', city],
@@ -143,7 +161,21 @@ export default function News() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 shrink-0"
+                aria-label="Use my location"
+                onClick={handleUseMyLocation}
+                disabled={locating}
+              >
+                {locating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <LocateFixed className="h-4 w-4" />
+                )}
+              </Button>
               <Select value={city} onValueChange={handleCityChange}>
                 <SelectTrigger className="w-[180px] bg-card">
                   <SelectValue placeholder="Choose city" />

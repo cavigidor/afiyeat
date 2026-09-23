@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.afiyeat.app',
-  appName: 'afiyeat',
+  appName: 'Afiyeat',
   webDir: 'dist',
   // Matches --background in index.css (light mode). Without this, the
   // native window behind the WKWebView is plain white by default, which

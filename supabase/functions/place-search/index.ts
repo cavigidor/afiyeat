@@ -41,8 +41,11 @@ serve(async (req) => {
     }
 
     const { query, latitude, longitude, sessionToken } = await req.json();
-    console.log("Search query:", query, "Location:", latitude, longitude);
-    
+    // Deliberately not logging the query or the coordinates. Function logs
+    // are retained, and together those are a record of what someone searched
+    // for and where they were standing - neither needed to debug this, and
+    // retaining location would have to be disclosed as collected data.
+
     if (!query || query.length < 2) {
       return new Response(
         JSON.stringify({ results: [] }),
@@ -74,8 +77,9 @@ serve(async (req) => {
     }
 
     const searchUrl = `https://api.mapbox.com/search/searchbox/v1/suggest?${params.toString()}`;
-    console.log("Search Box API URL:", searchUrl.replace(mapboxToken, "***"));
-    
+    // Not logging the URL either: it carries the query and the proximity
+    // coordinates as parameters.
+
     const response = await fetch(searchUrl);
     const data = await response.json();
 

@@ -16,6 +16,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Search, UserPlus, UserMinus, Loader2, Users, Sparkles, Map, Check, Clock, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { hapticSuccess } from '@/lib/haptics';
+import { offerPushAfterFollow } from '@/lib/pushPrompt';
 import { useMapCenter } from '@/hooks/useMapCenter';
 import { getDirectionsPopupHtml } from '@/lib/directions';
 import { createPinElement } from '@/lib/mapPin';
@@ -252,7 +254,9 @@ export default function Friends() {
       }
     } else {
       toast.success('Now following!');
+      void hapticSuccess();
       invalidateFollowing();
+      void offerPushAfterFollow({ pending: false });
     }
   };
 

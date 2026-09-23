@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
 import { AddedByBadge, type AddedByInfo } from '@/components/shared/AddedByBadge';
 import type { SharedItem } from './EditSharedItemDialog';
+import { blockedByContentFilter } from '@/lib/contentFilter';
 
 interface MiniProfile {
   display_name: string | null;
@@ -94,6 +95,7 @@ export function SharedItemDetailDialog({
 
   const handlePostComment = async () => {
     if (!newComment.trim()) return;
+    if (blockedByContentFilter(newComment)) return;
     setPosting(true);
     const { error } = await supabase.from('shared_list_item_comments').insert({
       item_id: item.id,

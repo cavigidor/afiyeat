@@ -1,45 +1,30 @@
 import { SITE_URL } from '@/lib/site';
+import { shareLink, type ShareResult } from '@/lib/share';
+import { withReferral } from '@/lib/passport';
 
-export type ShareResult = 'shared' | 'copied' | 'cancelled' | 'failed';
+export type { ShareResult };
 
 /**
- * Shares a link to a public list (a custom list, or in future anything
- * else reachable at this shape of URL) via the OS share sheet.
+ * Shares a link to one of the user's lists via the OS share sheet.
  *
- * navigator.share() works inside a Capacitor WKWebView on iOS without any
- * plugin - no @capacitor/share dependency needed. Falls back to copying
- * the link to the clipboard on platforms/browsers without it.
+ * The link opens the list itself, not a signup page: someone without an
+ * account sees a preview of the places on it (get_shared_preview) with an
+ * invitation to join, and the sharer's referral code rides along so a
+ * signup it produces is credited to them.
  *
- * Note: whoever opens this link still goes through the normal
- * custom_lists RLS (owner, public profile, or an accepted follower) - a
- * private-profile owner sharing this link only actually works for people
- * who already follow them. Callers should surface that to the user
- * separately rather than this function silently producing a dead link.
+ * A private-profile owner's list only opens for people who already follow
+ * them - callers should tell the user (see announceShareResult).
  */
 export async function shareListLink(
   userId: string,
   listId: string,
   listName: string,
+  referralCode: string | null = null,
 ): Promise<ShareResult> {
-  const url = `${SITE_URL}/u/${userId}/lists/${listId}`;
-
-  if (typeof navigator !== 'undefined' && navigator.share) {
-    try {
-      await navigator.share({ title: listName, text: `Check out my "${listName}" list on Afiyeat`, url });
-      return 'shared';
-    } catch (err) {
-      if ((err as { name?: string })?.name === 'AbortError') {
-        return 'cancelled';
-      }
-      console.error('navigator.share failed, falling back to clipboard:', err);
-    }
-  }
-
-  try {
-    await navigator.clipboard.writeText(url);
-    return 'copied';
-  } catch (err) {
-    console.error('Clipboard copy failed:', err);
-    return 'failed';
-  }
+  const url = withReferral(`${SITE_URL}/u/${userId}/lists/${listId}`, referralCode, 'custom_list');
+  return shareLink({
+    url,
+    title: listName,
+    text: `Here are the places on my "${listName}" list on Afiyeat`,
+  });
 }
