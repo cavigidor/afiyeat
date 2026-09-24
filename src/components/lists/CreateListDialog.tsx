@@ -54,16 +54,81 @@ interface CreateListDialogProps {
   editList?: CustomList | null;
 }
 
-// A blank "List name" field with no other context is a hard place to start,
-// so offer a few concrete, common ideas as one-tap chips - just fills in the
-// name text, nothing else (icon/color are no longer list-level settings; see
-// the per-list Types feature on the list's own page for that).
-const LIST_SUGGESTIONS: { label: string; icon: string }[] = [
-  { label: 'Movies', icon: '🎬' },
-  { label: 'Shows', icon: '📺' },
-  { label: 'Concerts', icon: '🎵' },
-  { label: 'Books', icon: '📚' },
+interface ListPreset {
+  label: string;
+  icon: string;
+  /** Short phrase for the confirmation line, e.g. "books". */
+  noun: string;
+  showLocation: boolean;
+  showPrice: boolean;
+  priceMode: PriceMode;
+  showRating: boolean;
+  ratingMode: RatingMode;
+  showNotes: boolean;
+  showPhotos: boolean;
+  /** Seeded instead of the generic To Do / Done. */
+  statuses: string[];
+}
+
+// One-tap starting points. Each fills in the name AND the whole setup below
+// it - which fields apply, how price and rating are recorded, and statuses
+// in that thing's own words ("Want to Read / Reading / Read" rather than
+// "To Do / Done"). The point is that choosing "Books" should produce a
+// usable books list in one tap; everything stays editable before saving
+// and afterwards from the list's settings.
+//
+// Media is rated in stars, the way people rate films and books; food and
+// drink use 1-10 to match how restaurants are rated elsewhere in the app.
+const LIST_PRESETS: ListPreset[] = [
+  {
+    label: 'Movies', icon: '🎬', noun: 'movies',
+    showLocation: false, showPrice: false, priceMode: 'dollar',
+    showRating: true, ratingMode: 'stars_5', showNotes: true, showPhotos: false,
+    statuses: ['Want to Watch', 'Watched'],
+  },
+  {
+    label: 'Shows', icon: '📺', noun: 'shows',
+    showLocation: false, showPrice: false, priceMode: 'dollar',
+    showRating: true, ratingMode: 'stars_5', showNotes: true, showPhotos: false,
+    statuses: ['Want to Watch', 'Watching', 'Finished'],
+  },
+  {
+    label: 'Books', icon: '📚', noun: 'books',
+    showLocation: false, showPrice: false, priceMode: 'dollar',
+    showRating: true, ratingMode: 'stars_5', showNotes: true, showPhotos: true,
+    statuses: ['Want to Read', 'Reading', 'Read'],
+  },
+  {
+    // Venue matters and so does the ticket price, which is a specific
+    // amount rather than a $-$$$$ band.
+    label: 'Concerts', icon: '🎵', noun: 'concerts',
+    showLocation: true, showPrice: true, priceMode: 'manual',
+    showRating: true, ratingMode: 'stars_5', showNotes: true, showPhotos: true,
+    statuses: ['Want to Go', 'Been'],
+  },
+  {
+    // Bottles are bought, not visited: no address, an actual price.
+    label: 'Wines', icon: '🍷', noun: 'wines',
+    showLocation: false, showPrice: true, priceMode: 'manual',
+    showRating: true, ratingMode: 'scale_10', showNotes: true, showPhotos: true,
+    statuses: ['Want to Try', 'Tried'],
+  },
+  {
+    label: 'Beers', icon: '🍺', noun: 'beers',
+    showLocation: false, showPrice: false, priceMode: 'dollar',
+    showRating: true, ratingMode: 'scale_10', showNotes: true, showPhotos: true,
+    statuses: ['Want to Try', 'Tried'],
+  },
+  {
+    // A place you go to, so it's set up like restaurants.
+    label: 'Coffee Shops', icon: '☕', noun: 'coffee shops',
+    showLocation: true, showPrice: true, priceMode: 'dollar',
+    showRating: true, ratingMode: 'scale_10', showNotes: true, showPhotos: true,
+    statuses: ['Want to Go', 'Been There'],
+  },
 ];
+
+const DEFAULT_STATUSES = ['To Do', 'Done'];
 
 export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: CreateListDialogProps) {
   const { user } = useAuth();
@@ -76,11 +141,27 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
   const [ratingMode, setRatingMode] = useState<RatingMode>('scale_10');
   const [showNotes, setShowNotes] = useState(true);
   const [showPhotos, setShowPhotos] = useState(true);
+  // The preset last tapped, if any. Kept even if the name is then edited:
+  // renaming "Books" to "Books 2026" shouldn't lose the books statuses.
+  const [preset, setPreset] = useState<ListPreset | null>(null);
 
   const isEditing = !!editList;
 
+  const applyPreset = (p: ListPreset) => {
+    setPreset(p);
+    setName(p.label);
+    setShowLocation(p.showLocation);
+    setShowPrice(p.showPrice);
+    setPriceMode(p.priceMode);
+    setShowRating(p.showRating);
+    setRatingMode(p.ratingMode);
+    setShowNotes(p.showNotes);
+    setShowPhotos(p.showPhotos);
+  };
+
   useEffect(() => {
     if (!open) return;
+    setPreset(null);
     if (editList) {
       setName(editList.name);
       setShowLocation(editList.show_location);
@@ -138,7 +219,9 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
 
     const { data: newList, error } = await supabase
       .from('custom_lists')
-      .insert({ ...payload, user_id: user.id })
+      // A preset list gets its own icon on the My Lists card and list
+      // header; otherwise the column default applies.
+      .insert({ ...payload, user_id: user.id, ...(preset ? { icon: preset.icon } : {}) })
       .select()
       .single();
 
@@ -149,14 +232,19 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
       return;
     }
 
-    // Every list needs at least one status - seed two sensible defaults
-    // (renameable/removable/expandable afterward from the list's own page,
-    // via Modify > Statuses) rather than asking for status names up front
-    // before the user has even decided what the list is for.
-    const { error: statusError } = await supabase.from('custom_list_statuses').insert([
-      { list_id: newList.id, user_id: user.id, name: 'To Do', sort_order: 0 },
-      { list_id: newList.id, user_id: user.id, name: 'Done', sort_order: 1 },
-    ]);
+    // Every list needs at least one status. A preset seeds statuses in its
+    // own words; otherwise the generic pair. Either way they're renameable,
+    // removable and expandable afterward from the list's own page (Modify >
+    // Statuses), so nothing has to be decided up front.
+    const statusNames = preset?.statuses ?? DEFAULT_STATUSES;
+    const { error: statusError } = await supabase.from('custom_list_statuses').insert(
+      statusNames.map((statusName, i) => ({
+        list_id: newList.id,
+        user_id: user.id,
+        name: statusName,
+        sort_order: i,
+      })),
+    );
     if (statusError) console.error('Failed to seed default statuses:', statusError);
 
     setLoading(false);
@@ -183,27 +271,45 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
             />
             {!isEditing && (
               <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                <span className="text-xs text-muted-foreground mr-0.5">Need ideas?</span>
-                {LIST_SUGGESTIONS.map((s) => (
-                  <button
-                    key={s.label}
-                    type="button"
-                    onClick={() => setName(s.label)}
-                    className="text-xs px-2.5 py-1 rounded-full bg-muted/60 hover:bg-muted transition-colors"
-                  >
-                    {s.icon} {s.label}
-                  </button>
-                ))}
+                <span className="text-xs text-muted-foreground mr-0.5">Quick start:</span>
+                {LIST_PRESETS.map((p) => {
+                  const selected = preset?.label === p.label;
+                  return (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => applyPreset(p)}
+                      aria-pressed={selected}
+                      className={`active-press text-xs px-2.5 py-1.5 rounded-full border transition-colors duration-150 ${
+                        selected
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-muted/60 border-transparent active:bg-muted'
+                      }`}
+                    >
+                      {p.icon} {p.label}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
 
           <div className="space-y-3 rounded-lg border p-3">
             <p className="text-sm font-medium">What to include when adding items</p>
-            <p className="text-xs text-muted-foreground -mt-2">
-              Turn off what doesn't apply - a beer list probably doesn't need an address, a book
-              list probably doesn't need a price.
-            </p>
+            {preset && !isEditing ? (
+              // Says what just happened. The toggles sit below the chips and
+              // are often off-screen on a phone, so without this a tap looks
+              // like it only changed the name.
+              <p className="text-xs text-primary -mt-2">
+                Set up for {preset.noun}, with “{preset.statuses.join(' / ')}” statuses. Change
+                anything below.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground -mt-2">
+                Turn off what doesn't apply - a beer list probably doesn't need an address, a book
+                list probably doesn't need a price.
+              </p>
+            )}
 
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 min-w-0">
