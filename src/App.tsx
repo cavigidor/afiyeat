@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { configureStatusBar, hideSplashScreen } from "@/lib/native";
 import { useAuth } from "@/contexts/AuthContext";
-import { claimPendingReferral, readPendingReferral } from "@/lib/passport";
+import { claimPendingReferral, readPendingReferral, type ReferrerInfo } from "@/lib/passport";
+import { InvitedByDialog } from "@/components/passport/InvitedByDialog";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -121,14 +122,19 @@ function AnimatedRoutes() {
  */
 function ReferralClaimer() {
   const { user } = useAuth();
+  // Set only when the server confirmed the referral - so "X invited you"
+  // always names the real inviter.
+  const [inviter, setInviter] = useState<ReferrerInfo | null>(null);
 
   useEffect(() => {
     if (!user) return;
     if (!readPendingReferral()) return;
-    void claimPendingReferral();
+    void claimPendingReferral().then((result) => {
+      if (result.claimed && result.referrer) setInviter(result.referrer);
+    });
   }, [user]);
 
-  return null;
+  return inviter ? <InvitedByDialog inviter={inviter} onClose={() => setInviter(null)} /> : null;
 }
 
 function NativeLaunchGate() {

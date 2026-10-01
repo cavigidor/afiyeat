@@ -306,8 +306,17 @@ export function clearPendingReferral(): void {
  * always clears the parked code, since a rejected claim should not be
  * retried on every subsequent launch.
  */
+/** The inviter, as claim_referral returns them - name and avatar only. */
+export interface ReferrerInfo {
+  user_id: string;
+  display_name: string | null;
+  username: string | null;
+  avatar_emoji: string | null;
+  avatar_color: string | null;
+}
+
 export async function claimPendingReferral(): Promise<
-  { claimed: true; referrerId: string } | { claimed: false; reason: string }
+  { claimed: true; referrerId: string; referrer: ReferrerInfo | null } | { claimed: false; reason: string }
 > {
   const pending = readPendingReferral();
   if (!pending) return { claimed: false, reason: 'none' };
@@ -327,5 +336,77 @@ export async function claimPendingReferral(): Promise<
   }
   const row = data as Record<string, unknown>;
   if (!row.ok) return { claimed: false, reason: String(row.reason ?? 'rejected') };
-  return { claimed: true, referrerId: String(row.referrer_id) };
+  return {
+    claimed: true,
+    referrerId: String(row.referrer_id),
+    referrer: (row.referrer as ReferrerInfo | null) ?? null,
+  };
+}
+
+// ---------------------------------------------------------------------
+// History and badges
+// ---------------------------------------------------------------------
+
+/**
+ * Calls an RPC by name without needing it in the generated Database types.
+ *
+ * Lovable regenerates src/integrations/supabase/types.ts whenever a
+ * migration is applied. Hand-adding a function there as well produced two
+ * entries for the same function after the next pull, which broke the
+ * build once already. Going through this keeps new RPCs independent of
+ * that file. Results are validated by the caller rather than trusted.
+ */
+const untypedRpc = supabase.rpc.bind(supabase) as unknown as (
+  fn: string,
+  args?: Record<string, unknown>,
+) => Promise<{ data: unknown; error: { message: string } | null }>;
+
+export type ReferralStatus = 'signed_up' | 'qualified' | 'rewarded' | 'rejected';
+
+export interface ReferralHistoryEntry {
+  status: ReferralStatus;
+  signupAt: string | null;
+  qualifiedAt: string | null;
+  /** Null when the friend has since deleted their account, or a block applies. */
+  friend: ReferrerInfo | null;
+}
+
+export async function fetchReferralHistory(): Promise<ReferralHistoryEntry[]> {
+  const { data, error } = await untypedRpc('get_referral_history');
+  if (error || !Array.isArray(data)) {
+    if (error) console.error('fetchReferralHistory failed:', error);
+    return [];
+  }
+  return (data as Record<string, unknown>[]).map((row) => ({
+    status: String(row.status) as ReferralStatus,
+    signupAt: (row.signup_at as string | null) ?? null,
+    qualifiedAt: (row.qualified_at as string | null) ?? null,
+    friend: row.user_id
+      ? {
+          user_id: String(row.user_id),
+          display_name: (row.display_name as string | null) ?? null,
+          username: (row.username as string | null) ?? null,
+          avatar_emoji: (row.avatar_emoji as string | null) ?? null,
+          avatar_color: (row.avatar_color as string | null) ?? null,
+        }
+      : null,
+  }));
+}
+
+/**
+ * How many friends this person has brought to Afiyeat, for showing their
+ * badge on a profile. Passport stamps are public by design - they exist
+ * to be shown - so this works for anyone's profile.
+ */
+export async function fetchQualifiedReferralCount(userId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('passport_stamps')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('kind', 'referral');
+  if (error) {
+    console.error('fetchQualifiedReferralCount failed:', error);
+    return 0;
+  }
+  return count ?? 0;
 }

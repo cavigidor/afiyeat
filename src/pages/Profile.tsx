@@ -43,6 +43,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Pencil, Save, LogOut, Lock, Check, X, UserPlus, Trash2, Stamp } from 'lucide-react';
 import { buildLabel } from '@/lib/buildInfo';
 import { BlockedAccountsCard } from '@/components/moderation/BlockedAccountsCard';
+import { PassportBadge } from '@/components/passport/PassportBadge';
 import { toast } from 'sonner';
 import { blockedByContentFilter } from '@/lib/contentFilter';
 
@@ -426,21 +427,25 @@ export default function Profile() {
         <Card className="mb-6">
           <CardContent className="pt-6">
             <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 mb-6">
-              <div className="relative shrink-0">
-                <AnimalAvatar
-                  emoji={profile?.avatar_emoji}
-                  color={profile?.avatar_color}
-                  className="h-20 w-20 sm:h-24 sm:w-24"
-                  emojiClassName="text-4xl sm:text-5xl"
-                />
-                <button
-                  type="button"
-                  onClick={() => setAvatarPickerOpen(true)}
-                  className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-2 cursor-pointer hover:bg-primary/90 transition-colors"
-                  aria-label="Change avatar"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
+              <div className="flex flex-col items-center gap-2 shrink-0">
+                <div className="relative">
+                  <AnimalAvatar
+                    emoji={profile?.avatar_emoji}
+                    color={profile?.avatar_color}
+                    className="h-20 w-20 sm:h-24 sm:w-24"
+                    emojiClassName="text-4xl sm:text-5xl"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setAvatarPickerOpen(true)}
+                    className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-2 cursor-pointer hover:bg-primary/90 transition-colors"
+                    aria-label="Change avatar"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                </div>
+                {/* Your own milestone, as others see it on your profile. */}
+                {user && <PassportBadge userId={user.id} />}
               </div>
               <div className="flex gap-6 sm:gap-8">
                 <div className="text-center">

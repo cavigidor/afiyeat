@@ -11,6 +11,7 @@ import { RestaurantListRow } from '@/components/restaurants/RestaurantListRow';
 import { RestaurantDetailDialog, type DetailRestaurant } from '@/components/restaurants/RestaurantDetailDialog';
 import { RestaurantListToolbar } from '@/components/restaurants/RestaurantListToolbar';
 import { UserSafetyMenu } from '@/components/moderation/UserSafetyMenu';
+import { PassportBadge, usePassportFrame } from '@/components/passport/PassportBadge';
 import { hapticSuccess } from '@/lib/haptics';
 import { offerPushAfterFollow } from '@/lib/pushPrompt';
 import { useRestaurantListControls } from '@/hooks/useRestaurantListControls';
@@ -107,6 +108,10 @@ async function fetchPublicLists(userId: string): Promise<PublicListSummary[]> {
 
 export default function PublicProfile() {
   const { userId } = useParams<{ userId: string }>();
+  // Ambassador and above get a ring around their avatar (the Passport
+  // "profile frame" perk). Declared up here with the other hooks, ahead of
+  // this component's early returns.
+  const hasPassportFrame = usePassportFrame(userId);
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -247,7 +252,9 @@ export default function PublicProfile() {
             <AnimalAvatar
               emoji={profile.avatar_emoji}
               color={profile.avatar_color}
-              className="h-16 w-16"
+              className={`h-16 w-16 ${
+                hasPassportFrame ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''
+              }`}
               emojiClassName="text-3xl"
             />
             <div>
@@ -257,6 +264,7 @@ export default function PublicProfile() {
               {profile.username && (
                 <p className="text-sm text-muted-foreground">@{profile.username}</p>
               )}
+              {userId && <PassportBadge userId={userId} className="mt-1.5" />}
               {profile.bio && <p className="text-sm mt-1 max-w-md">{profile.bio}</p>}
             </div>
           </div>

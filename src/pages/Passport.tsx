@@ -8,13 +8,26 @@ import { Copy, Share2, Check, Stamp } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { hapticSuccess } from '@/lib/haptics';
+import { Link } from 'react-router-dom';
+import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import {
   MILESTONES,
   currentMilestone,
   fetchPassportSummary,
+  fetchReferralHistory,
   inviteUrl,
   nextMilestone,
+  type ReferralStatus,
 } from '@/lib/passport';
+
+// How each stage reads to the person who sent the invite. Plain and warm,
+// and never framed as the friend having failed at something.
+const REFERRAL_STATUS_LABEL: Record<ReferralStatus, string> = {
+  signed_up: 'Joined — getting started',
+  qualified: 'Joined — stamp earned',
+  rewarded: 'Joined — stamp earned',
+  rejected: 'Joined, but didn’t get started in their first week',
+};
 
 /**
  * Afiyeat Passport - the invite screen.
@@ -31,6 +44,13 @@ export default function Passport() {
   const { data: summary, isLoading } = useQuery({
     queryKey: ['passport-summary', user?.id],
     queryFn: fetchPassportSummary,
+    enabled: !!user,
+    staleTime: 60 * 1000,
+  });
+
+  const { data: history = [] } = useQuery({
+    queryKey: ['passport-history', user?.id],
+    queryFn: fetchReferralHistory,
     enabled: !!user,
     staleTime: 60 * 1000,
   });
@@ -152,6 +172,47 @@ export default function Passport() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {history.length > 0 && (
+          <div className="space-y-2">
+            <h2 className="text-lg font-semibold">Friends you've invited</h2>
+            <Card>
+              <CardContent className="p-0 divide-y">
+                {history.map((entry, i) => {
+                  const name =
+                    entry.friend?.display_name || entry.friend?.username || 'A friend';
+                  const row = (
+                    <div className="flex items-center gap-3 p-3">
+                      <AnimalAvatar
+                        emoji={entry.friend?.avatar_emoji}
+                        color={entry.friend?.avatar_color}
+                        className="h-9 w-9 shrink-0"
+                        emojiClassName="text-base"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">{name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {REFERRAL_STATUS_LABEL[entry.status]}
+                        </p>
+                      </div>
+                      {(entry.status === 'rewarded' || entry.status === 'qualified') && (
+                        <Stamp className="h-4 w-4 text-primary shrink-0" aria-label="Stamp earned" />
+                      )}
+                    </div>
+                  );
+                  // Rows link to the friend's profile when there still is one.
+                  return entry.friend ? (
+                    <Link key={i} to={`/u/${entry.friend.user_id}`} className="block active:bg-muted/60">
+                      {row}
+                    </Link>
+                  ) : (
+                    <div key={i}>{row}</div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         <div className="space-y-2">
