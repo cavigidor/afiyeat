@@ -263,7 +263,7 @@ export function FolderList({
                   <span className="truncate">{folder.name}</span>
                   <span className="text-xs opacity-60 shrink-0">({folderRestaurants.length})</span>
                 </button>
-                <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <div className="flex items-center reveal-on-hover shrink-0">
                   <button
                     onClick={() => moveFolder(folder.id, 'up')}
                     disabled={index === 0}

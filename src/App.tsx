@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { configureStatusBar, hideSplashScreen } from "@/lib/native";
 import { useAuth } from "@/contexts/AuthContext";
 import { claimPendingReferral, readPendingReferral } from "@/lib/passport";
-import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -165,7 +164,6 @@ const App = () => {
       <ReferralClaimer />
       <PushNotificationManager />
       <TooltipProvider>
-        <Toaster />
         <Sonner />
         <BrowserRouter>
           <BottomTabBar />

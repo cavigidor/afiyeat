@@ -284,6 +284,29 @@ All colors MUST be HSL.
     animation: route-fade-in 200ms ease-out;
   }
 
+  /* Secondary controls (a card's "..." menu, a photo's delete button) that
+     are tucked away until hover on a computer. Several screens used
+     `opacity-0 group-hover:opacity-100` directly - which on a phone meant
+     the control was invisible forever, because a touchscreen never hovers.
+     The Edit / Delete / Mark visited menu on restaurant cards simply could
+     not be found on an iPhone.
+
+     This hides them only on devices that actually have a mouse, and shows
+     them again when the card is hovered, the control is focused from the
+     keyboard, or its menu is open. Everywhere else they're always visible. */
+  @media (hover: hover) and (pointer: fine) {
+    .reveal-on-hover {
+      opacity: 0;
+      transition: opacity 150ms ease-out;
+    }
+    .group:hover .reveal-on-hover,
+    .reveal-on-hover:focus-visible,
+    .reveal-on-hover:focus-within,
+    .reveal-on-hover[data-state='open'] {
+      opacity: 1;
+    }
+  }
+
   /* iOS safe-area insets (notch / Dynamic Island / home indicator).
      Requires viewport-fit=cover in index.html to resolve to non-zero values. */
   .pt-safe {

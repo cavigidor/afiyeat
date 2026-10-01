@@ -34,7 +34,7 @@ function ImageThumbnail({ image, onDelete }: { image: ExistingImage; onDelete: (
         type="button"
         onClick={handleDelete}
         disabled={deleting}
-        className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 reveal-on-hover"
       >
         {deleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
       </button>

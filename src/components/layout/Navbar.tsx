@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Users, LogOut, User, ListChecks, Newspaper, Compass } from 'lucide-react';
+import { Users, LogOut, User, ListChecks, Newspaper, Compass, Stamp } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import logo from '@/assets/logo.png';
@@ -81,10 +81,19 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60 pt-safe">
-      <div className="container flex h-16 items-center justify-between">
-        <Link to="/" className="active-press flex items-center gap-2 transition-opacity duration-150 ease-out active:opacity-70">
-          <img src={logo} alt="Afiyeat" className="h-12 w-12 object-contain" />
-          <span className="font-semibold text-xl">Afiyeat</span>
+      {/* Slimmer on phones: every screen already has its own title, so a
+          64px header with a 48px logo was spending a lot of a small screen
+          on branding above a bottom tab bar that takes another 56px. */}
+      <div className="container flex h-14 sm:h-16 items-center justify-between gap-3">
+        <Link to="/" className="active-press flex items-center gap-2 min-w-0 transition-opacity duration-150 ease-out active:opacity-70">
+          <img
+            src={logo}
+            alt="Afiyeat"
+            width={48}
+            height={48}
+            className="h-9 w-9 sm:h-12 sm:w-12 object-contain shrink-0"
+          />
+          <span className="font-semibold text-lg sm:text-xl">Afiyeat</span>
         </Link>
 
         {user && (
@@ -111,6 +120,12 @@ export function Navbar() {
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
                 </DropdownMenuItem>
+                {/* Passport was only reachable from a card halfway down
+                    Profile. Inviting friends deserves one tap from anywhere. */}
+                <DropdownMenuItem onClick={() => navigate('/passport')}>
+                  <Stamp className="mr-2 h-4 w-4" />
+                  <span>Invite friends</span>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
@@ -119,12 +134,16 @@ export function Navbar() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <div className="flex items-center gap-2">
+            // On a phone there's only room for one button next to the
+            // logo - two made the wordmark run straight into "Sign In".
+            // Returning users need Sign in in the header; new users get a
+            // full-width "Join" in the page itself.
+            <div className="flex items-center gap-2 shrink-0">
               <Button variant="ghost" onClick={() => navigate('/auth')}>
-                Sign In
+                Sign in
               </Button>
-              <Button onClick={() => navigate('/auth?mode=signup')}>
-                Get Started
+              <Button className="hidden sm:inline-flex" onClick={() => navigate('/auth?mode=signup')}>
+                Join free
               </Button>
             </div>
           )}
