@@ -159,9 +159,11 @@ afiyeat-app/
 14. Goodreads CSV import/export into a Books list.
 15. Letterboxd CSV import/export into a Movies list.
 16. An activity inbox for follows and follow requests.
+17. Fix the News section (`src/pages/News.tsx`, `supabase/functions/generate-news`, `src/components/news/`). The exact symptoms are still to be confirmed.
+18. Travel lists: a "Travels" list preset with ordered stops (cities or places, optional dates). A per-list toggle draws a line connecting the stops in order on the map. This needs a backwards-compatible position column on list items, drag-to-reorder, and a Mapbox line layer (plus the native map later).
 
 **Links:**
-17. Universal Links (AASA file, associated-domains entitlement, route handling).
-18. Rich link previews for shared items. This needs a hosting decision, because Lovable serves a static SPA.
+19. Universal Links (AASA file, associated-domains entitlement, route handling).
+20. Rich link previews for shared items. This needs a hosting decision, because Lovable serves a static SPA.
 
 **Not planned:** Beli import (Beli has no export) and Google Maps place-data import (Google's terms).
