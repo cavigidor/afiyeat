@@ -19,7 +19,7 @@ const IMAGE_BUCKETS = ["restaurant-images", "custom-list-images"] as const;
 // walk down until every leaf file path under the user's folder is found.
 // Entries with a null id are pseudo-folders (no object of their own).
 async function collectUserFilePaths(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   bucket: string,
   prefix: string,
 ): Promise<string[]> {
