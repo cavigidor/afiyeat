@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,7 +19,7 @@ const IMAGE_BUCKETS = ["restaurant-images", "custom-list-images"] as const;
 // walk down until every leaf file path under the user's folder is found.
 // Entries with a null id are pseudo-folders (no object of their own).
 async function collectUserFilePaths(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   bucket: string,
   prefix: string,
 ): Promise<string[]> {
