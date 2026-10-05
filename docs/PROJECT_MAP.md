@@ -126,44 +126,73 @@ afiyeat-app/
 
 ---
 
-## 7. Status and roadmap
+## 7. Status and final plan (agreed October 2026)
 
 **Done:**
 - Native-feel overhaul: persistent tabs, caching, skeletons, haptics, iOS-safe dialogs.
 - Multi-tag places, custom list statuses and list presets.
-- Report, block and moderation queue, with a content filter on every publish path.
+- Report and block, with a content filter on every publish path.
 - Afiyeat Passport referrals with re-referral loophole fixes.
 - Share links with signed-out previews.
 - New landing page.
 - Permission prompts made contextual.
-- Privacy manifest, display name and permission strings.
+- App display name and permission strings.
+- support@afiyeat.com set up (IONOS forward to Cem's Gmail).
 
-**Before App Store submission:**
-1. Mapbox licence: the app stores Search Box results, which are temporary geocodes that the terms forbid caching. Fix it with Mapbox permanent geocoding, or with Apple MapKit place IDs on iOS.
-2. Rewrite the privacy policy (`src/pages/Privacy.tsx`) and confirm the contact email.
-3. Add an in-app "Contact support" entry.
-4. Push notifications: verify the APNs key and internal secret, set `aps-environment` to production, then re-enable `PUSH_PROMPT_ENABLED`.
-5. Release docs: metadata (no competitor names), reviewer notes plus a demo account, privacy labels.
-6. Remove Capgo (package, `notifyAppReady` in main.tsx, config block, privacy manifest note).
-7. A minimal moderator screen for the `moderation_queue`.
+**Decisions:**
 
-**App feel:**
-8. Edge swipe-back and slide transitions on detail screens, plus collapsing large titles.
-9. A native Apple map on iOS (`capacitor-plugin-apple-maps`, free, no key).
-10. A Share Extension ("Save to Afiyeat" from Maps/Safari/Instagram), which needs an App Group.
-11. A home-screen widget (WidgetKit + App Group). Can come after launch.
+| Topic | Decision |
+|---|---|
+| Maps and place data | Switch from Mapbox to **Apple** (native MapKit on iOS, MapKit JS on web). Store the Apple Place ID plus user-owned content only; fetch name/address on display with a short-lived cache. |
+| Support contact | **support@afiyeat.com**. Upgrade later to a real mailbox to reply as support. |
+| Devices | **iPhone only** for the first release (`TARGETED_DEVICE_FAMILY = 1`). |
+| Recipe photo scanning | Keep it, with a one-time disclosure (photo sent to Google Gemini via Lovable AI) and a "type it in instead" option. Lock the function to signed-in users, with a size cap and a daily limit. |
+| News | **Hidden for launch.** Stop its scheduled refresh and spend. Replace it after launch with an activity-based feed. |
+| Moderation | Cem moderates and checks daily. Email alert per report, plus auto-hide after 3 reports from distinct users until reviewed. |
+| Push | Off for launch; finish after launch. |
 
-**Features:**
-12. Pick a location by tapping the map when adding a place.
-13. A clearer Add Place button.
-14. Goodreads CSV import/export into a Books list.
-15. Letterboxd CSV import/export into a Movies list.
-16. An activity inbox for follows and follow requests.
-17. Fix the News section (`src/pages/News.tsx`, `supabase/functions/generate-news`, `src/components/news/`). The exact symptoms are still to be confirmed.
-18. Travel lists: a "Travels" list preset with ordered stops (cities or places, optional dates). A per-list toggle draws a line connecting the stops in order on the map. This needs a backwards-compatible position column on list items, drag-to-reorder, and a Mapbox line layer (plus the native map later).
+### Before launch, in order
 
-**Links:**
-19. Universal Links (AASA file, associated-domains entitlement, route handling).
-20. Rich link previews for shared items. This needs a hosting decision, because Lovable serves a static SPA.
+**Phase 1: security and privacy fixes**
+1. Explore RPCs: add block and privacy checks. Private users' IDs, notes and list names currently leak, and blocked users still appear.
+2. Add `PrivacyInfo.xcprivacy` to the Xcode target. It currently isn't bundled.
+3. Clear private caches and remount account state on logout or account switch.
+4. Harden `delete-account`: check errors, paginate storage, log or retry cleanup.
+5. Harden the OTP flows: crypto randomness, normalized email, purpose-bound codes, atomic attempts and consumption.
+6. Fix the small bugs: autocomplete race; `0` coordinates turned into null; list created despite status-seeding failure; pending referral cleared on a transient error.
+7. Recipe scan: disclosure screen plus a locked-down `parse-recipe-image`. Build it generically so "Scan anything" can extend it.
 
-**Not planned:** Beli import (Beli has no export) and Google Maps place-data import (Google's terms).
+**Phase 2: platform changes**
+8. Switch to Apple Maps and places, migrate saved places to Apple Place IDs, remove Mapbox-derived stored data, close Mapbox.
+9. Remove Capgo.
+10. Set the app to iPhone only.
+11. Hide News.
+
+**Phase 3: trust and support**
+12. Rewrite the privacy policy (support@afiyeat.com, AI scanning, Apple Maps, reports, referrals, deletion) and align it with the privacy labels.
+13. Add a `/support` page and a Profile entry (it doubles as the App Store Support URL).
+14. Moderator screen, report email alerts, auto-hide after 3 reports, and server-side report and moderation enforcement.
+
+**Phase 4: polish**
+15. A clearer Add Place button.
+16. Universal Links.
+
+**Phase 5: submit**
+17. Release docs (metadata, reviewer notes plus a demo account, privacy labels, release checklist), the full device checklist, a TestFlight build, then submit.
+
+### After launch
+18. Push notifications end to end.
+19. Edge swipe-back, slide transitions and large titles.
+20. Pick a location by tapping the map.
+21. Activity inbox (follows and requests).
+22. Share Extension ("Save to Afiyeat").
+23. **Scan anything:** photos and screenshots become recipes, restaurants or list items, with a review screen before saving.
+24. An activity-based discovery feed to replace News (friends' saves, trending near you).
+25. Rich link previews (small preview service on `share.afiyeat.com`).
+26. Goodreads CSV import/export.
+27. Letterboxd CSV import/export.
+28. Travel lists: ordered stops, with an optional line connecting them on the map.
+29. Home-screen widget.
+30. Later: iPad support; a support mailbox that can send as support@.
+
+**Not planned:** Beli import (no export) and Google Maps place-data import (Google's terms).
