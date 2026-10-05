@@ -298,14 +298,6 @@ export function clearPendingReferral(): void {
   }
 }
 
-/**
- * Claims a parked referral for the freshly created account.
- *
- * All the validation - unknown code, self-referral, already referred,
- * account too old - happens in the database. This reports the outcome and
- * always clears the parked code, since a rejected claim should not be
- * retried on every subsequent launch.
- */
 /** The inviter, as claim_referral returns them - name and avatar only. */
 export interface ReferrerInfo {
   user_id: string;
@@ -315,6 +307,16 @@ export interface ReferrerInfo {
   avatar_color: string | null;
 }
 
+/**
+ * Claims a parked referral for the freshly created account.
+ *
+ * All the validation - unknown code, self-referral, already referred,
+ * account too old - happens in the database. Once the server has given
+ * an answer, accepted or rejected, the parked code is cleared so a
+ * rejected claim isn't retried on every launch. If the request itself
+ * failed (offline, timeout, server error) the code is kept, so the next
+ * launch can try again; the 30-day expiry on parked codes bounds that.
+ */
 export async function claimPendingReferral(): Promise<
   { claimed: true; referrerId: string; referrer: ReferrerInfo | null } | { claimed: false; reason: string }
 > {
@@ -328,12 +330,13 @@ export async function claimPendingReferral(): Promise<
     p_content_id: pending.contentId ?? null,
   });
 
-  clearPendingReferral();
-
   if (error || !data || typeof data !== 'object') {
+    // No answer from the server: keep the code for a later retry.
     if (error) console.error('claimPendingReferral failed:', error);
     return { claimed: false, reason: 'error' };
   }
+
+  clearPendingReferral();
   const row = data as Record<string, unknown>;
   if (!row.ok) return { claimed: false, reason: String(row.reason ?? 'rejected') };
   return {

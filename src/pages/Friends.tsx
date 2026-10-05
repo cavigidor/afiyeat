@@ -211,7 +211,7 @@ export default function Friends() {
     queryClient.invalidateQueries({ queryKey: ['following', user?.id] });
 
   const handleRestaurantClick = (restaurant: any) => {
-    if (restaurant.latitude && restaurant.longitude) {
+    if (restaurant.latitude != null && restaurant.longitude != null) {
       setFocusedRestaurantId(restaurant.id);
       setTimeout(() => {
         mapFlyToRef.current?.(restaurant.latitude!, restaurant.longitude!, restaurant.id);

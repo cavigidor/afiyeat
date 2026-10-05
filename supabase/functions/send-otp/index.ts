@@ -14,8 +14,20 @@ const corsHeaders = {
 const MAX_REQUESTS_PER_WINDOW = 3; // Max 3 OTP requests per email
 const RATE_LIMIT_WINDOW_MINUTES = 15; // 15 minute window
 
+const CODE_TTL_MINUTES = 10;
+
+// Cryptographically random 6-digit code. Math.random() is predictable
+// enough that codes could in principle be guessed from earlier ones.
+// Rejection sampling keeps every code equally likely (2^32 isn't a
+// multiple of 900000, so a plain modulo would slightly favour some).
 function generateOTP(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  const range = 900000;
+  const limit = Math.floor(0x1_0000_0000 / range) * range;
+  const buf = new Uint32Array(1);
+  do {
+    crypto.getRandomValues(buf);
+  } while (buf[0] >= limit);
+  return (100000 + (buf[0] % range)).toString();
 }
 
 interface SendOTPRequest {
@@ -28,7 +40,10 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email }: SendOTPRequest = await req.json();
+    const body: SendOTPRequest = await req.json();
+    // One spelling per address, so "Me@x.com" and "me@x.com" share a rate
+    // limit and a code.
+    const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
 
     if (!email) {
       throw new Error("Email is required");
@@ -36,7 +51,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(email) || email.length > 254) {
       throw new Error("Invalid email format");
     }
 
@@ -44,70 +59,36 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check rate limit
-    const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60 * 1000).toISOString();
-    
-    const { data: rateLimitData, error: rateLimitError } = await supabase
-      .from("otp_rate_limits")
-      .select("*")
-      .eq("email", email)
-      .gte("window_start", windowStart)
-      .order("window_start", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (rateLimitError) {
-      console.error("Rate limit check error:", rateLimitError);
-    }
-
-    if (rateLimitData) {
-      if (rateLimitData.request_count >= MAX_REQUESTS_PER_WINDOW) {
-        const waitTime = Math.ceil(
-          (new Date(rateLimitData.window_start).getTime() + RATE_LIMIT_WINDOW_MINUTES * 60 * 1000 - Date.now()) / 60000
-        );
-        return new Response(
-          JSON.stringify({ 
-            error: `Too many verification requests. Please try again in ${waitTime} minutes.` 
-          }),
-          {
-            status: 429,
-            headers: { "Content-Type": "application/json", ...corsHeaders },
-          }
-        );
-      }
-
-      // Update request count
-      await supabase
-        .from("otp_rate_limits")
-        .update({ request_count: rateLimitData.request_count + 1 })
-        .eq("id", rateLimitData.id);
-    } else {
-      // Create new rate limit entry
-      await supabase.from("otp_rate_limits").insert({
-        email,
-        request_count: 1,
-        window_start: new Date().toISOString(),
-      });
-    }
-
-    // Generate OTP code
     const code = generateOTP();
 
-    // Delete any existing OTP for this email
-    await supabase.from("email_otp").delete().eq("email", email);
-
-    // Store the new OTP with verification attempts reset
-    const { error: insertError } = await supabase.from("email_otp").insert({
-      email,
-      code,
-      expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 minutes
-      verification_attempts: 0,
-      locked_until: null,
+    // Rate-limit check and code replacement happen together in one locked
+    // database call (see migration otp_atomic_operations), so simultaneous
+    // requests can't slip past the limit or leave two live codes.
+    const { data: issued, error: issueError } = await supabase.rpc("otp_issue_code", {
+      p_email: email,
+      p_code: code,
+      p_max_requests: MAX_REQUESTS_PER_WINDOW,
+      p_window_minutes: RATE_LIMIT_WINDOW_MINUTES,
+      p_ttl_minutes: CODE_TTL_MINUTES,
     });
 
-    if (insertError) {
-      console.error("Failed to store OTP:", insertError);
+    if (issueError) {
+      console.error("Failed to issue OTP:", issueError.message);
       throw new Error("Failed to generate verification code");
+    }
+
+    const result = Array.isArray(issued) ? issued[0] : issued;
+    if (!result?.allowed) {
+      const waitTime = result?.retry_after_minutes ?? RATE_LIMIT_WINDOW_MINUTES;
+      return new Response(
+        JSON.stringify({
+          error: `Too many verification requests. Please try again in ${waitTime} minutes.`,
+        }),
+        {
+          status: 429,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
     }
 
     // Send email with OTP
@@ -122,13 +103,16 @@ const handler = async (req: Request): Promise<Response> => {
           <div style="background-color: #f4f4f4; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
             <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #333;">${code}</span>
           </div>
-          <p>This code will expire in 10 minutes.</p>
+          <p>This code will expire in ${CODE_TTL_MINUTES} minutes.</p>
           <p style="color: #666; font-size: 14px;">If you didn't request this code, you can safely ignore this email.</p>
         </div>
       `,
     });
 
-    console.log("OTP email sent successfully:", emailResponse);
+    if ((emailResponse as { error?: unknown })?.error) {
+      console.error("OTP email failed to send:", (emailResponse as { error?: unknown }).error);
+      throw new Error("Couldn't send the verification email. Please try again.");
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

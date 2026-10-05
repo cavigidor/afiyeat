@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,6 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RecipeCard } from '@/components/recipes/RecipeCard';
 import { RecipeListRow } from '@/components/recipes/RecipeListRow';
 import { AddRecipeDialog } from '@/components/recipes/AddRecipeDialog';
+import { ScanConsentDialog, hasScanConsent } from '@/components/recipes/ScanConsentDialog';
+import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError';
 import { RecipeDetailDialog } from '@/components/recipes/RecipeDetailDialog';
 import { ListViewToggle } from '@/components/shared/ListViewToggle';
 import { useViewMode } from '@/hooks/useViewMode';
@@ -97,6 +99,20 @@ export default function Recipes() {
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'newest' | 'title' | 'prep_time'>('newest');
   const [viewMode, setViewMode] = useViewMode('recipes');
+  const [scanConsentOpen, setScanConsentOpen] = useState(false);
+  const scanInputRef = useRef<HTMLInputElement>(null);
+
+  // The first scan asks permission before any photo goes to the AI
+  // service (see ScanConsentDialog); after that the button opens the
+  // photo picker directly.
+  const startScan = () => {
+    if (scanning) return;
+    if (hasScanConsent()) {
+      scanInputRef.current?.click();
+    } else {
+      setScanConsentOpen(true);
+    }
+  };
 
   const handleScanRecipe = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -121,7 +137,11 @@ export default function Recipes() {
       const { data, error } = await supabase.functions.invoke('parse-recipe-image', {
         body: { imageBase64: base64, mimeType: file.type },
       });
-      if (error) throw error;
+      if (error) {
+        throw new Error(
+          await getEdgeFunctionErrorMessage(error, 'Failed to extract recipe'),
+        );
+      }
       if (data?.error) throw new Error(data.error);
 
       setScanInitialData(data?.recipe || {});
@@ -213,23 +233,31 @@ export default function Recipes() {
                 className="pl-9"
               />
             </div>
-            <Button variant="outline" asChild disabled={scanning}>
-              <label className="cursor-pointer">
-                {scanning ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <ScanLine className="h-4 w-4 mr-2" />
-                )}
-                {scanning ? 'Scanning…' : 'Scan Recipe'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleScanRecipe}
-                  disabled={scanning}
-                />
-              </label>
+            <Button variant="outline" onClick={startScan} disabled={scanning}>
+              {scanning ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <ScanLine className="h-4 w-4 mr-2" />
+              )}
+              {scanning ? 'Scanning…' : 'Scan Recipe'}
             </Button>
+            <input
+              ref={scanInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleScanRecipe}
+              disabled={scanning}
+            />
+            <ScanConsentDialog
+              open={scanConsentOpen}
+              onOpenChange={setScanConsentOpen}
+              onContinue={() => scanInputRef.current?.click()}
+              onTypeInstead={() => {
+                setScanInitialData(null);
+                setAddDialogOpen(true);
+              }}
+            />
             <Button onClick={() => { setScanInitialData(null); setAddDialogOpen(true); }}>
               <Plus className="h-4 w-4 mr-2" />
               Add Recipe

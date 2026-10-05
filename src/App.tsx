@@ -11,6 +11,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { PushNotificationManager } from "@/components/shared/PushNotificationManager";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { PersistentTabs } from "@/components/layout/PersistentTabs";
+import { AccountBoundary } from "@/components/layout/AccountBoundary";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Search from "./pages/Search";
@@ -127,12 +128,17 @@ function ReferralClaimer() {
   const [inviter, setInviter] = useState<ReferrerInfo | null>(null);
 
   useEffect(() => {
+    // A welcome meant for one account must not linger into the next.
+    setInviter(null);
     if (!user) return;
     if (!readPendingReferral()) return;
     void claimPendingReferral().then((result) => {
       if (result.claimed && result.referrer) setInviter(result.referrer);
     });
-  }, [user]);
+    // Keyed on the account id, not the user object: the object is replaced
+    // on every token refresh, which would otherwise close the welcome.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   return inviter ? <InvitedByDialog inviter={inviter} onClose={() => setInviter(null)} /> : null;
 }
@@ -172,15 +178,19 @@ const App = () => {
       <TooltipProvider>
         <Sonner />
         <BrowserRouter>
-          <BottomTabBar />
           <ReferralCapture />
-          {/* Renders the four bottom-tab pages itself, kept mounted across
-              switches instead of the normal Route mount/unmount cycle below
-              (see PersistentTabs.tsx) - the matching routes for their paths
-              render nothing so react-router still matches them instead of
-              falling through to the catch-all NotFound. */}
-          <PersistentTabs />
-          <AnimatedRoutes />
+          {/* Drops cached data and remounts everything below when the
+              signed-in account changes - see AccountBoundary.tsx. */}
+          <AccountBoundary>
+            <BottomTabBar />
+            {/* Renders the four bottom-tab pages itself, kept mounted across
+                switches instead of the normal Route mount/unmount cycle below
+                (see PersistentTabs.tsx) - the matching routes for their paths
+                render nothing so react-router still matches them instead of
+                falling through to the catch-all NotFound. */}
+            <PersistentTabs />
+            <AnimatedRoutes />
+          </AccountBoundary>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>

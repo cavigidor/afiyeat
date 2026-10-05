@@ -11,7 +11,9 @@ import { formatCategory, toNumber, type ExplorePlace } from './ExplorePlaceCard'
 import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
 
 interface PlaceComment {
-  user_id: string;
+  // Null for anonymous rows: the RPC withholds a private contributor's
+  // user id from anyone who isn't them or an accepted follower.
+  user_id: string | null;
   username: string | null;
   display_name: string | null;
   avatar_emoji: string | null;
@@ -134,22 +136,22 @@ export function PlaceDetailSheet({ place, mode, onOpenChange, onAddToList }: Pla
                   No comments visible for this place yet.
                 </p>
               ) : (
-                comments.map((c) => {
-                  // Private contributors show up (per-place rating/notes still
-                  // count), but their identity is withheld - the RPC already
-                  // nulled username/display_name/avatar_emoji/avatar_color for them, and
-                  // is_anonymous tells us not to link through to their
-                  // profile page either (that page shows the real username,
-                  // which would defeat the anonymization above).
-                  const nameLabel = c.display_name || c.username || 'Someone';
+                comments.map((c, index) => {
+                  // Private contributors (to anyone but themselves and their
+                  // accepted followers) show up as an anonymous rating only:
+                  // the RPC nulls their user id, name, avatar and notes.
+                  const anonymous = c.is_anonymous || !c.user_id;
+                  const nameLabel = anonymous
+                    ? 'Anonymous'
+                    : c.display_name || c.username || 'Someone';
 
                   const avatar = (
                     <AnimalAvatar emoji={c.avatar_emoji} color={c.avatar_color} className="h-9 w-9" />
                   );
 
                   return (
-                    <div key={c.user_id} className="flex gap-3 p-3 rounded-lg bg-muted/40">
-                      {c.is_anonymous ? (
+                    <div key={c.user_id ?? `anon-${index}`} className="flex gap-3 p-3 rounded-lg bg-muted/40">
+                      {anonymous ? (
                         avatar
                       ) : (
                         <Link to={`/u/${c.user_id}`} onClick={() => onOpenChange(false)}>
@@ -158,7 +160,7 @@ export function PlaceDetailSheet({ place, mode, onOpenChange, onAddToList }: Pla
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          {c.is_anonymous ? (
+                          {anonymous ? (
                             <span className="font-medium text-sm text-muted-foreground">{nameLabel}</span>
                           ) : (
                             <Link

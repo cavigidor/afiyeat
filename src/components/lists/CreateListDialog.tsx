@@ -237,15 +237,28 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
     // removable and expandable afterward from the list's own page (Modify >
     // Statuses), so nothing has to be decided up front.
     const statusNames = preset?.statuses ?? DEFAULT_STATUSES;
-    const { error: statusError } = await supabase.from('custom_list_statuses').insert(
-      statusNames.map((statusName, i) => ({
-        list_id: newList.id,
-        user_id: user.id,
-        name: statusName,
-        sort_order: i,
-      })),
-    );
-    if (statusError) console.error('Failed to seed default statuses:', statusError);
+    const statusRows = statusNames.map((statusName, i) => ({
+      list_id: newList.id,
+      user_id: user.id,
+      name: statusName,
+      sort_order: i,
+    }));
+    let { error: statusError } = await supabase.from('custom_list_statuses').insert(statusRows);
+    if (statusError) {
+      // One retry covers a dropped connection; anything still failing after
+      // that is a real problem.
+      ({ error: statusError } = await supabase.from('custom_list_statuses').insert(statusRows));
+    }
+    if (statusError) {
+      // A list with no statuses can't hold items properly, so don't leave a
+      // half-made one behind and call it a success. Removing the list also
+      // removes anything partially inserted with it.
+      console.error('Failed to seed default statuses:', statusError);
+      await supabase.from('custom_lists').delete().eq('id', newList.id);
+      setLoading(false);
+      toast.error("Couldn't finish creating the list. Please try again.");
+      return;
+    }
 
     setLoading(false);
     toast.success('List created!');

@@ -17,13 +17,76 @@ interface CreateAccountRequest {
   otp_code: string;
 }
 
+type CodeCheck =
+  | { ok: true }
+  | { ok: false; status: number; message: string };
+
+// Checks a code through otp_check_code, which locks the code row so that
+// attempts are counted exactly and a correct code works only once (see
+// migration otp_atomic_operations). consume=true deletes the code on
+// success; consume=false only marks it verified.
+async function checkCode(
+  supabase: ReturnType<typeof createClient>,
+  email: string,
+  code: string,
+  consume: boolean,
+): Promise<CodeCheck> {
+  const { data, error } = await supabase.rpc("otp_check_code", {
+    p_email: email,
+    p_code: code,
+    p_consume: consume,
+    p_max_attempts: MAX_VERIFICATION_ATTEMPTS,
+    p_lockout_minutes: LOCKOUT_MINUTES,
+  });
+  if (error) {
+    console.error("otp_check_code failed:", error.message);
+    return { ok: false, status: 500, message: "Couldn't check the verification code. Please try again." };
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { status: string; remaining_attempts: number; retry_after_minutes: number }
+    | null;
+
+  switch (row?.status) {
+    case "ok":
+      return { ok: true };
+    case "locked":
+      return {
+        ok: false,
+        status: 429,
+        message: `Too many failed attempts. Please try again in ${row.retry_after_minutes} minutes.`,
+      };
+    case "locked_now":
+      return {
+        ok: false,
+        status: 429,
+        message: `Too many failed attempts. Please request a new code after ${LOCKOUT_MINUTES} minutes.`,
+      };
+    case "expired":
+      return { ok: false, status: 400, message: "Verification code has expired. Please request a new one." };
+    case "invalid": {
+      const remaining = row.remaining_attempts;
+      return {
+        ok: false,
+        status: 400,
+        message: `Invalid verification code. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.`,
+      };
+    }
+    default:
+      return { ok: false, status: 400, message: "No pending verification found. Please request a new code." };
+  }
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { email, password, username, otp_code }: CreateAccountRequest = await req.json();
+    const body: CreateAccountRequest = await req.json();
+    const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+    const password = typeof body?.password === "string" ? body.password : "";
+    const username = typeof body?.username === "string" ? body.username.trim() : "";
+    const otp_code = typeof body?.otp_code === "string" ? body.otp_code.trim() : "";
 
     if (!email || !password || !username || !otp_code) {
       return new Response(
@@ -66,77 +129,17 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Step 1: Verify OTP server-side
-    const { data: otpRecord, error: fetchError } = await supabase
-      .from("email_otp")
-      .select("*")
-      .eq("email", email)
-      .eq("verified", false)
-      .single();
-
-    if (fetchError || !otpRecord) {
+    // Step 1: verify and spend the code in one locked step, so the same
+    // code can't create two accounts if submitted twice at once.
+    const check = await checkCode(supabase, email, otp_code, true);
+    if (!check.ok) {
       return new Response(
-        JSON.stringify({ error: "No pending verification found. Please request a new code." }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ error: check.message }),
+        { status: check.status, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    // Check lockout
-    if (otpRecord.locked_until && new Date(otpRecord.locked_until) > new Date()) {
-      const waitTime = Math.ceil(
-        (new Date(otpRecord.locked_until).getTime() - Date.now()) / 60000
-      );
-      return new Response(
-        JSON.stringify({ error: `Too many failed attempts. Please try again in ${waitTime} minutes.` }),
-        { status: 429, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
-    // Check expiry
-    if (new Date(otpRecord.expires_at) < new Date()) {
-      await supabase.from("email_otp").delete().eq("id", otpRecord.id);
-      return new Response(
-        JSON.stringify({ error: "Verification code has expired. Please request a new one." }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
-    // Check code match
-    if (otpRecord.code !== otp_code) {
-      const newAttempts = (otpRecord.verification_attempts || 0) + 1;
-
-      if (newAttempts >= MAX_VERIFICATION_ATTEMPTS) {
-        const lockUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000).toISOString();
-        await supabase
-          .from("email_otp")
-          .update({ verification_attempts: newAttempts, locked_until: lockUntil })
-          .eq("id", otpRecord.id);
-
-        return new Response(
-          JSON.stringify({ error: `Too many failed attempts. Please request a new code after ${LOCKOUT_MINUTES} minutes.` }),
-          { status: 429, headers: { "Content-Type": "application/json", ...corsHeaders } }
-        );
-      }
-
-      await supabase
-        .from("email_otp")
-        .update({ verification_attempts: newAttempts })
-        .eq("id", otpRecord.id);
-
-      const remaining = MAX_VERIFICATION_ATTEMPTS - newAttempts;
-      return new Response(
-        JSON.stringify({ error: `Invalid verification code. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.` }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-
-    // Step 2: OTP is valid - mark as verified
-    await supabase
-      .from("email_otp")
-      .update({ verified: true })
-      .eq("id", otpRecord.id);
-
-    // Step 3: Create the user account using Admin API
+    // Step 2: Create the user account using Admin API
     const { data: userData, error: createError } = await supabase.auth.admin.createUser({
       email,
       password,
@@ -148,12 +151,9 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     if (createError) {
-      // Revert OTP verification on failure
-      await supabase
-        .from("email_otp")
-        .update({ verified: false })
-        .eq("id", otpRecord.id);
-
+      // The code has already been spent; the user requests a fresh one to
+      // try again. Re-issuing the old code here would reopen the race the
+      // locked check above exists to close.
       if (createError.message.includes('already been registered') || createError.message.includes('already registered')) {
         return new Response(
           JSON.stringify({ error: "An account with this email already exists" }),
@@ -167,9 +167,6 @@ const handler = async (req: Request): Promise<Response> => {
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
-
-    // Clean up OTP record
-    await supabase.from("email_otp").delete().eq("id", otpRecord.id);
 
     return new Response(
       JSON.stringify({ 

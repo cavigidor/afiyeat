@@ -16,13 +16,74 @@ interface VerifyOTPRequest {
   code: string;
 }
 
+type CodeCheck =
+  | { ok: true }
+  | { ok: false; status: number; message: string };
+
+// Checks a code through otp_check_code, which locks the code row so that
+// attempts are counted exactly and a correct code works only once (see
+// migration otp_atomic_operations). consume=true deletes the code on
+// success; consume=false only marks it verified.
+async function checkCode(
+  supabase: ReturnType<typeof createClient>,
+  email: string,
+  code: string,
+  consume: boolean,
+): Promise<CodeCheck> {
+  const { data, error } = await supabase.rpc("otp_check_code", {
+    p_email: email,
+    p_code: code,
+    p_consume: consume,
+    p_max_attempts: MAX_VERIFICATION_ATTEMPTS,
+    p_lockout_minutes: LOCKOUT_MINUTES,
+  });
+  if (error) {
+    console.error("otp_check_code failed:", error.message);
+    return { ok: false, status: 500, message: "Couldn't check the verification code. Please try again." };
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { status: string; remaining_attempts: number; retry_after_minutes: number }
+    | null;
+
+  switch (row?.status) {
+    case "ok":
+      return { ok: true };
+    case "locked":
+      return {
+        ok: false,
+        status: 429,
+        message: `Too many failed attempts. Please try again in ${row.retry_after_minutes} minutes.`,
+      };
+    case "locked_now":
+      return {
+        ok: false,
+        status: 429,
+        message: `Too many failed attempts. Please request a new code after ${LOCKOUT_MINUTES} minutes.`,
+      };
+    case "expired":
+      return { ok: false, status: 400, message: "Verification code has expired. Please request a new one." };
+    case "invalid": {
+      const remaining = row.remaining_attempts;
+      return {
+        ok: false,
+        status: 400,
+        message: `Invalid verification code. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.`,
+      };
+    }
+    default:
+      return { ok: false, status: 400, message: "No pending verification found. Please request a new code." };
+  }
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { email, code }: VerifyOTPRequest = await req.json();
+    const body: VerifyOTPRequest = await req.json();
+    const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+    const code = typeof body?.code === "string" ? body.code.trim() : "";
 
     if (!email || !code) {
       throw new Error("Email and code are required");
@@ -40,105 +101,13 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Find the OTP record for this email (not yet verified)
-    const { data: otpRecord, error: fetchError } = await supabase
-      .from("email_otp")
-      .select("*")
-      .eq("email", email)
-      .eq("verified", false)
-      .single();
+    // A check without an action: mark verified rather than spend the code.
+    const result = await checkCode(supabase, email, code, false);
 
-    if (fetchError || !otpRecord) {
-      return new Response(JSON.stringify({ valid: false, error: "No pending verification found" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-
-    // Check if locked out
-    if (otpRecord.locked_until && new Date(otpRecord.locked_until) > new Date()) {
-      const waitTime = Math.ceil(
-        (new Date(otpRecord.locked_until).getTime() - Date.now()) / 60000
-      );
-      return new Response(
-        JSON.stringify({ 
-          valid: false, 
-          error: `Too many failed attempts. Please try again in ${waitTime} minutes.` 
-        }),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
-    }
-
-    // Check if OTP has expired
-    if (new Date(otpRecord.expires_at) < new Date()) {
-      // Clean up expired OTP
-      await supabase.from("email_otp").delete().eq("id", otpRecord.id);
-      
-      return new Response(JSON.stringify({ valid: false, error: "Verification code has expired" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      });
-    }
-
-    // Check if code matches
-    if (otpRecord.code !== code) {
-      const newAttempts = (otpRecord.verification_attempts || 0) + 1;
-      
-      if (newAttempts >= MAX_VERIFICATION_ATTEMPTS) {
-        // Lock out the OTP
-        const lockUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000).toISOString();
-        await supabase
-          .from("email_otp")
-          .update({ 
-            verification_attempts: newAttempts,
-            locked_until: lockUntil
-          })
-          .eq("id", otpRecord.id);
-
-        return new Response(
-          JSON.stringify({ 
-            valid: false, 
-            error: `Too many failed attempts. Please request a new code after ${LOCKOUT_MINUTES} minutes.` 
-          }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json", ...corsHeaders },
-          }
-        );
-      }
-
-      // Increment attempt counter
-      await supabase
-        .from("email_otp")
-        .update({ verification_attempts: newAttempts })
-        .eq("id", otpRecord.id);
-
-      const remainingAttempts = MAX_VERIFICATION_ATTEMPTS - newAttempts;
-      return new Response(
-        JSON.stringify({ 
-          valid: false, 
-          error: `Invalid verification code. ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining.` 
-        }),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
-    }
-
-    // Mark as verified
-    await supabase
-      .from("email_otp")
-      .update({ verified: true })
-      .eq("id", otpRecord.id);
-
-    return new Response(JSON.stringify({ valid: true }), {
-      status: 200,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    return new Response(
+      JSON.stringify(result.ok ? { valid: true } : { valid: false, error: result.message }),
+      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
+    );
   } catch (error: any) {
     console.error("Error in verify-otp function:", error);
     return new Response(JSON.stringify({ error: error.message }), {

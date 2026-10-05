@@ -240,7 +240,7 @@ export default function MyList() {
   };
 
   const handleRestaurantClick = (restaurant: Restaurant | { id: string; name: string; latitude: number | null; longitude: number | null; folder_ids: string[] }) => {
-    if (restaurant.latitude && restaurant.longitude) {
+    if (restaurant.latitude != null && restaurant.longitude != null) {
       setFocusedRestaurantId(restaurant.id);
       // Scroll to map
       mapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });

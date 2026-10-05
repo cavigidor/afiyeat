@@ -178,8 +178,8 @@ export function EditRestaurantDialog({
       form.reset({
         name: restaurant.name,
         address: restaurant.address || '',
-        latitude: restaurant.latitude || undefined,
-        longitude: restaurant.longitude || undefined,
+        latitude: restaurant.latitude ?? undefined,
+        longitude: restaurant.longitude ?? undefined,
         notes: restaurant.notes || '',
         status: restaurant.status as 'to_go' | 'went_to',
         folder_ids: restaurant.folder_ids || [],
@@ -206,8 +206,8 @@ export function EditRestaurantDialog({
         .update({
           name: submitValues.name,
           address: submitValues.address || null,
-          latitude: submitValues.latitude || null,
-          longitude: submitValues.longitude || null,
+          latitude: submitValues.latitude ?? null,
+          longitude: submitValues.longitude ?? null,
           notes: submitValues.notes || null,
           status: submitValues.status,
           folder_ids: submitValues.folder_ids,
