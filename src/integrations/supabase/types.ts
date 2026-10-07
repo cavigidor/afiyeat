@@ -1180,6 +1180,19 @@ export type Database = {
           username: string
         }[]
       }
+      get_referral_history: {
+        Args: never
+        Returns: {
+          avatar_color: string
+          avatar_emoji: string
+          display_name: string
+          qualified_at: string
+          signup_at: string
+          status: string
+          user_id: string
+          username: string
+        }[]
+      }
       get_shared_preview: {
         Args: { p_id: string; p_type: string }
         Returns: Json

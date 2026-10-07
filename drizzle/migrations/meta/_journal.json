@@ -8,6 +8,13 @@
       "when": 1791341084663,
       "tag": "0000_explore_privacy_blocks_cleanup_otp_atomic_ai_scan_limit",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791341570724,
+      "tag": "0001_referral_hardening_and_history",
+      "breakpoints": true
     }
   ]
 }
