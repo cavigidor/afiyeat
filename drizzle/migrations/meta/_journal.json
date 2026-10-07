@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791341084663,
+      "tag": "0000_explore_privacy_blocks_cleanup_otp_atomic_ai_scan_limit",
+      "breakpoints": true
+    }
+  ]
+}
