@@ -244,6 +244,16 @@ async function run(targetCity: string | null) {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // News is switched off for the first release. Nothing is scraped or sent
+  // to the AI (so nothing is spent) unless the NEWS_ENABLED secret is set
+  // to "true" - whatever schedule or caller still invokes this function.
+  if (Deno.env.get("NEWS_ENABLED") !== "true") {
+    return new Response(
+      JSON.stringify({ ok: true, skipped: true, reason: "news disabled" }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
   let targetCity: string | null = null;
   try {
     const body = await req.json();

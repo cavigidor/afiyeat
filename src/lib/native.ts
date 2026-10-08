@@ -2,12 +2,6 @@ import { Capacitor } from '@capacitor/core';
 
 export const isNative = (): boolean => Capacitor.isNativePlatform();
 
-// Note: CapacitorUpdater.notifyAppReady() - telling Capgo's live-update
-// plugin that this launch succeeded - is called directly in main.tsx
-// (added by Capgo's own CLI onboarding), as early as possible at module
-// load time, before React even mounts. Safe to call unconditionally on
-// web too - the plugin's web implementation is a harmless no-op there.
-
 /**
  * Registers this device for push and hands the token to `onToken`.
  *
@@ -72,10 +66,7 @@ export async function initPushNotifications(
  * has something to show, not on a timer.
  *
  * capacitor.config.ts sets `launchAutoHide: false`, so the splash stays up
- * until something asks it to go away. Nothing in this app ever did - the
- * only thing hiding it was Capgo's `autoSplashscreen`, which by its own
- * documentation only applies while auto-updates are enabled. With
- * auto-update now off, that prop is inert and the splash is ours to manage.
+ * until something asks it to go away - this is the only thing that does.
  *
  * Doing it this way is also what makes the launch feel like an app rather
  * than a page load: the splash hands over directly to populated content,

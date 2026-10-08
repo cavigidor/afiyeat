@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Newspaper, ListChecks, Users, Compass } from 'lucide-react';
+import { ChefHat, ListChecks, Users, Compass } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { hapticTap } from '@/lib/haptics';
@@ -8,7 +8,7 @@ import { hapticTap } from '@/lib/haptics';
 interface Tab {
   to: string;
   label: string;
-  icon: typeof Newspaper;
+  icon: typeof ChefHat;
   isActive: (pathname: string) => boolean;
 }
 
@@ -16,7 +16,7 @@ const TABS: Tab[] = [
   {
     to: '/foodie',
     label: 'Foodie',
-    icon: Newspaper,
+    icon: ChefHat,
     isActive: (p) => p === '/foodie' || p === '/news' || p === '/recipes',
   },
   {

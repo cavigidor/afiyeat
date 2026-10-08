@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Users, LogOut, User, ListChecks, Newspaper, Compass, Stamp } from 'lucide-react';
+import { Users, LogOut, User, ListChecks, ChefHat, Compass, Stamp } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import logo from '@/assets/logo.png';
@@ -52,7 +52,7 @@ export function Navbar() {
         to="/foodie"
         className="active-press flex items-center gap-2 text-foreground/80 hover:text-foreground transition-[color,transform] duration-150 ease-out active:opacity-60"
       >
-        <Newspaper className="h-4 w-4" />
+        <ChefHat className="h-4 w-4" />
         <span>Foodie</span>
       </Link>
       <Link

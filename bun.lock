@@ -16,7 +16,6 @@
         "@capacitor/push-notifications": "^8.1.1",
         "@capacitor/splash-screen": "^8.0.1",
         "@capacitor/status-bar": "^8.0.2",
-        "@capgo/capacitor-updater": "^8.51.10",
         "@fontsource/poppins": "^5.3.0",
         "@hookform/resolvers": "^3.10.0",
         "@radix-ui/react-accordion": "^1.2.11",
@@ -135,7 +134,6 @@
 
     "@capacitor/synapse": ["@capacitor/synapse@1.0.4", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/synapse/-/synapse-1.0.4.tgz", {}, "sha512-/C1FUo8/OkKuAT4nCIu/34ny9siNHr9qtFezu4kxm6GY1wNFxrCFWjfYx5C1tUhVGz3fxBABegupkpjXvjCHrw=="],
 
-    "@capgo/capacitor-updater": ["@capgo/capacitor-updater@8.51.13", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capgo/capacitor-updater/-/capacitor-updater-8.51.13.tgz", { "peerDependencies": { "@capacitor/core": "^8.0.0" } }, "sha512-9YwIbV7kJid4WRlU3a8fCXtkXKsCRo3ke9Ypavn8HPoP7EVw8HK1nIIDLsWJN8wrmG8/K0tLCfPIKUJ+7/XmAg=="],
 
     "@drizzle-team/brocli": ["@drizzle-team/brocli@0.10.2", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@drizzle-team/brocli/-/brocli-0.10.2.tgz", {}, "sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w=="],
 

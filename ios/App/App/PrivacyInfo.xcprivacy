@@ -100,8 +100,11 @@
 
     <key>NSPrivacyAccessedAPITypes</key>
     <array>
-      <!-- Required by @capgo/capacitor-updater, which reads/writes
-           UserDefaults to track the currently-applied live-update bundle. -->
+      <!-- UserDefaults is used for the app's own small settings (CA92.1:
+           read/written only by this app). Kept after removing the Capgo
+           live-update plugin as a conservative declaration; declaring an
+           API the app may not call is harmless, omitting one it does call
+           is a rejection. -->
       <dict>
         <key>NSPrivacyAccessedAPIType</key>
         <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
