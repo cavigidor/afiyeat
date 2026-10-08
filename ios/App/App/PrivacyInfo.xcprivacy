@@ -80,10 +80,10 @@
           <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
         </array>
       </dict>
-      <!-- Location is sent to the place-search service (Mapbox) to rank
-           nearby results, and is not stored against the account. Declared
-           rather than omitted because a third party receives it; it is not
-           linked to the user's identity. -->
+      <!-- Location is sent to place search (Apple Maps, via Afiyeat's
+           server) to rank nearby results, and is not stored against the
+           account. Declared rather than omitted because a third party
+           receives it; it is not linked to the user's identity. -->
       <dict>
         <key>NSPrivacyCollectedDataType</key>
         <string>NSPrivacyCollectedDataTypePreciseLocation</string>

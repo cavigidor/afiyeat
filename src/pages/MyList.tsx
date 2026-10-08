@@ -305,7 +305,7 @@ export default function MyList() {
               intrinsic minimum width of its contents. This column holds the
               search field, the tab bar, the map canvas and the restaurant
               grid, so any one of them with a wide intrinsic minimum (a long
-              unbroken address, the Mapbox canvas) would stretch this column
+              unbroken address, the map canvas) would stretch this column
               past the viewport. html/body/#root set overflow-x:hidden,
               which hides the scrollbar but doesn't stop the layout from
               being too wide - so on a phone the content simply sat wider

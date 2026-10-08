@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -169,7 +169,6 @@ async function fetchFollowingListFor(userId: string): Promise<FollowUser[]> {
 export default function Profile() {
   const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
-  const buildTaps = useRef<number[]>([]);
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [savingAvatar, setSavingAvatar] = useState(false);
@@ -606,20 +605,7 @@ export default function Profile() {
             Deliberately visible rather than hidden behind a debug gesture:
             when a fix "isn't showing up", this line settles in one glance
             whether the app is running the build you just installed. */}
-        {/* Tapping the build line five times quickly opens the temporary
-            Apple Maps check page - the only way to reach it inside the iOS
-            app, which has no address bar. Remove with that page. */}
-        <p
-          className="text-center text-xs text-muted-foreground/70 pb-2 select-none"
-          onClick={() => {
-            const now = Date.now();
-            buildTaps.current = buildTaps.current.filter((t) => now - t < 2000).concat(now);
-            if (buildTaps.current.length >= 5) {
-              buildTaps.current = [];
-              navigate('/dev/apple-maps');
-            }
-          }}
-        >
+        <p className="text-center text-xs text-muted-foreground/70 pb-2">
           Build {buildLabel()}
         </p>
       </main>

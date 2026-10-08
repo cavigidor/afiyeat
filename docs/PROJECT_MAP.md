@@ -26,8 +26,8 @@ This is a read-only orientation guide. Codex plans; Claude implements. Don't edi
 - **Frontend:** React 18 + TypeScript + Vite, Tailwind + shadcn/ui, React Router, TanStack Query.
 - **Native:** Capacitor 8, using Swift Package Manager (`ios/App/CapApp-SPM/Package.swift`), not CocoaPods.
 - **Data:** Supabase (Postgres + RLS, Auth, Storage, Edge Functions in Deno).
-- **Maps and place search:** Mapbox (GL JS on the client, Search Box API via edge functions).
-- **No paid SDKs.** Capgo (live updates) is installed but switched off (`autoUpdate: 'off'`) and is due for removal.
+- **Maps and place search:** Apple Maps. MapKit JS draws every map (`src/components/maps/PlaceMap.tsx`); search and place details go through the `apple-maps` edge function. Saved items store only `apple_place_id`; details live in `place_cache` for 7 days (see `src/lib/appleMaps.ts`).
+- **No paid SDKs.** Capgo and Mapbox have been removed.
 
 ---
 

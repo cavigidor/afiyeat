@@ -18,7 +18,7 @@ export function useMapCenter(restaurants: Restaurant[] = []) {
   const [isLoading, setIsLoading] = useState(true);
 
   // Ask for the device's GPS position once. This used to be re-run (and the
-  // caller's Mapbox map fully torn down and rebuilt) on every render that
+  // caller's map fully torn down and rebuilt) on every render that
   // happened to pass a new `restaurants` array reference - callers commonly
   // do `.filter()` inline, which creates a new array every render.
   useEffect(() => {

@@ -61,7 +61,7 @@ export function PersistentTabs() {
     const targetY = scrollPositions.current[activePath] ?? 0;
     const raf = requestAnimationFrame(() => {
       window.scrollTo(0, targetY);
-      // Mapbox GL (and some other canvas-based widgets used across these
+      // Maps (and some other canvas-based widgets used across these
       // tabs) can end up with a stale canvas size if it was last measured
       // while its container was hidden (display:none reports a 0x0 box).
       // A resize event is the standard nudge for it - and any other

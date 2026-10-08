@@ -163,9 +163,6 @@ export default function Friends() {
     enabled: !!user,
   });
 
-  // Doesn't change per-user - keep it around indefinitely instead of
-  // re-fetching a fresh Mapbox token every time this page mounts.
-
   const { data: userRestaurants = [], isLoading: loading } = useQuery({
     queryKey: ['user-restaurants', selectedUser?.user_id],
     queryFn: () => fetchUserRestaurantsFor(selectedUser!.user_id),
@@ -180,7 +177,7 @@ export default function Friends() {
 
   // Stable array reference across re-renders (as long as the underlying data
   // hasn't changed) - the map component below re-inits its GPS lookup and
-  // rebuilds the whole Mapbox map whenever this reference changes, so an
+  // rebuilds its pins whenever this reference changes, so an
   // inline .filter() here was causing a full map rebuild on every render.
   const statusFilteredRestaurants = useMemo(
     () =>
