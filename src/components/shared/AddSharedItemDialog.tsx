@@ -27,6 +27,13 @@ import { isDuplicateSharedItem } from '@/lib/duplicateRestaurant';
 import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
 import { PlaceResultsDropdown } from '@/components/shared/PlaceResultsDropdown';
 import { blockedByContentFilter } from '@/lib/contentFilter';
+import {
+  locationColumns,
+  resolveApplePlaces,
+  withApplePlaceDetails,
+  type AppleFilled,
+  type PickedPlace,
+} from '@/lib/appleMaps';
 
 interface MyPlace {
   id: string;
@@ -35,6 +42,8 @@ interface MyPlace {
   latitude: number | null;
   longitude: number | null;
   price_level: number | null;
+  apple_place_id: string | null;
+  appleFilled?: AppleFilled;
 }
 
 interface MyListOption {
@@ -63,6 +72,9 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
   const [address, setAddress] = useState('');
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
+  // Set when the place came from Apple search or from one of the user's
+  // own Apple-backed places.
+  const [picked, setPicked] = useState<PickedPlace | null>(null);
   const [status, setStatus] = useState<'to_go' | 'went_to'>('to_go');
   const [priceLevel, setPriceLevel] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
@@ -83,6 +95,7 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
       setAddress(place.address);
       setLatitude(place.latitude);
       setLongitude(place.longitude);
+      setPicked({ applePlaceId: place.applePlaceId, appleAddress: place.address });
     },
   });
 
@@ -99,6 +112,7 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
     setAddress('');
     setLatitude(null);
     setLongitude(null);
+    setPicked(null);
     setStatus('to_go');
     setPriceLevel(null);
     setNotes('');
@@ -130,18 +144,18 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
       if (sourceListId === RESTAURANTS_SOURCE) {
         const { data } = await supabase
           .from('restaurants')
-          .select('id, name, address, latitude, longitude, price_level')
+          .select('id, name, address, latitude, longitude, price_level, apple_place_id')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false });
-        setMyPlaces(data || []);
+        setMyPlaces(await withApplePlaceDetails(data || []));
       } else {
         const { data } = await supabase
           .from('custom_list_items')
-          .select('id, name, address, latitude, longitude, price_level')
+          .select('id, name, address, latitude, longitude, price_level, apple_place_id')
           .eq('list_id', sourceListId)
           .eq('user_id', user.id)
           .order('created_at', { ascending: false });
-        setMyPlaces(data || []);
+        setMyPlaces(await withApplePlaceDetails(data || []));
       }
       setLoadingMine(false);
     };
@@ -154,6 +168,11 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
     setLatitude(p.latitude);
     setLongitude(p.longitude);
     setPriceLevel(p.price_level);
+    setPicked(
+      p.apple_place_id
+        ? { applePlaceId: p.apple_place_id, appleAddress: p.appleFilled?.address ? p.address : null }
+        : null,
+    );
   };
 
   const handleSubmit = async () => {
@@ -165,20 +184,25 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
     if (blockedByContentFilter(name, notes)) return;
     setLoading(true);
 
-    const duplicate = await isDuplicateSharedItem(listId, { name, latitude, longitude });
+    const duplicate = await isDuplicateSharedItem(listId, {
+      name,
+      latitude,
+      longitude,
+      applePlaceId: picked?.applePlaceId,
+    });
     if (duplicate) {
       toast.error("This is already on this list. Add it again if it's a different location.");
       setLoading(false);
       return;
     }
 
+    const location = locationColumns(picked, null, { address, latitude, longitude });
     const { error } = await supabase.from('shared_list_items').insert({
       list_id: listId,
       added_by: user.id,
       name: name.trim(),
-      address: address.trim() || null,
-      latitude,
-      longitude,
+      // Apple-backed places store only their Apple ID (see locationColumns).
+      ...location,
       status,
       price_level: priceLevel,
       notes: notes.trim() || null,
@@ -190,6 +214,7 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
       toast.error('Failed to add place');
       console.error(error);
     } else {
+      if (location.apple_place_id) void resolveApplePlaces([location.apple_place_id]);
       toast.success('Place added to shared list!');
       reset();
       onOpenChange(false);

@@ -9,7 +9,10 @@ export interface DuplicateCheckInput {
   name: string;
   latitude?: number | null;
   longitude?: number | null;
+  /** Legacy Mapbox ID (older saves only). */
   placeId?: string | null;
+  /** Apple place ID of a place picked from search. */
+  applePlaceId?: string | null;
 }
 
 // Shared by isDuplicateRestaurant and isDuplicateSharedItem: given the set
@@ -37,7 +40,7 @@ function matchesByNameAndLocation(
 /**
  * True if this user already has a restaurant that's clearly the same real
  * place - checked two ways:
- *  1. Same Mapbox place_id (both entries came from search) - exact, no
+ *  1. Same Apple place ID (or legacy Mapbox place_id) - exact, no
  *     ambiguity.
  *  2. Same name (case-insensitive) - see matchesByNameAndLocation above.
  */
@@ -45,6 +48,16 @@ export async function isDuplicateRestaurant(
   userId: string,
   input: DuplicateCheckInput,
 ): Promise<boolean> {
+  if (input.applePlaceId) {
+    const { data, error } = await supabase
+      .from('restaurants')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('apple_place_id', input.applePlaceId)
+      .limit(1);
+    if (!error && data && data.length > 0) return true;
+  }
+
   if (input.placeId) {
     const { data, error } = await supabase
       .from('restaurants')
@@ -78,6 +91,16 @@ export async function isDuplicateSharedItem(
   listId: string,
   input: DuplicateCheckInput,
 ): Promise<boolean> {
+  if (input.applePlaceId) {
+    const { data, error } = await supabase
+      .from('shared_list_items')
+      .select('id')
+      .eq('list_id', listId)
+      .eq('apple_place_id', input.applePlaceId)
+      .limit(1);
+    if (!error && data && data.length > 0) return true;
+  }
+
   const trimmedName = input.name.trim();
   if (!trimmedName) return false;
 
@@ -98,6 +121,16 @@ export async function isDuplicateCustomListItem(
   listId: string,
   input: DuplicateCheckInput,
 ): Promise<boolean> {
+  if (input.applePlaceId) {
+    const { data, error } = await supabase
+      .from('custom_list_items')
+      .select('id')
+      .eq('list_id', listId)
+      .eq('apple_place_id', input.applePlaceId)
+      .limit(1);
+    if (!error && data && data.length > 0) return true;
+  }
+
   const trimmedName = input.name.trim();
   if (!trimmedName) return false;
 

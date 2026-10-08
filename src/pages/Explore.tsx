@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { withApplePlaceDetails } from '@/lib/appleMaps';
 import {
   Loader2,
   Map as MapIcon,
@@ -43,16 +44,21 @@ type ExploreView = 'map' | 'list';
 type ExploreContentType = 'restaurants' | 'lists' | 'events';
 type EventsDateFilter = 'all' | 'today' | 'week' | 'month';
 
-async function fetchMapboxTokenValue(): Promise<string | null> {
-  const { data, error } = await supabase.functions.invoke('get-mapbox-token');
-  if (error) throw error;
-  return data?.token ?? null;
-}
 
 async function fetchExplorePlaces(mode: ExploreMode): Promise<ExplorePlace[]> {
   const { data, error } = await supabase.rpc('get_explore_places', { p_mode: mode });
   if (error) throw error;
-  return (data || []) as ExplorePlace[];
+  const places = (data || []) as ExplorePlace[];
+  // Apple-saved places whose short-lived details have expired come back
+  // without an address or pin; look those up again (batched, cached).
+  const filled = await withApplePlaceDetails(
+    places.map((p) => (p.latitude == null || !p.address ? p : { ...p, apple_place_id: null })),
+  );
+  return filled.map((p, i) => ({
+    ...p,
+    apple_place_id: places[i].apple_place_id ?? null,
+    name: p.name || places[i].name,
+  }));
 }
 
 async function fetchExploreLists(mode: ExploreMode): Promise<ExploreList[]> {
@@ -155,17 +161,6 @@ export default function Explore() {
     return () => clearTimeout(timeoutId);
   }, [eventsKeywordInput]);
 
-  // Doesn't change per-user - shared cache key with Friends.tsx/Profile.tsx.
-  // Gated on session (not just user) so it doesn't fire - and permanently
-  // fail/cache an error - before the auth token needed by the edge function
-  // is actually attached, same as the other pages that fetch this.
-  const { data: mapboxToken, isLoading: mapboxLoading } = useQuery({
-    queryKey: ['mapbox-token'],
-    queryFn: fetchMapboxTokenValue,
-    enabled: !!session,
-    staleTime: Infinity,
-    gcTime: Infinity,
-  });
 
   const { data: places = [], isLoading: placesLoading } = useQuery({
     queryKey: ['explore-places', mode],
@@ -404,10 +399,8 @@ export default function Explore() {
                   <Card className="overflow-hidden">
                     <CardContent className="p-0">
                       <div className="h-[60vh] sm:h-[65vh] relative">
-                        {mapboxToken ? (
-                          <>
+                        <>
                             <EventsMapComponent
-                              token={mapboxToken}
                               events={filteredEvents}
                               center={eventsLocation}
                               flyToMeRef={eventsFlyToMeRef}
@@ -425,12 +418,6 @@ export default function Explore() {
                               Near Me
                             </Button>
                           </>
-                        ) : (
-                          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                            <MapIcon className="h-12 w-12 mb-4 opacity-50" />
-                            <p>Map unavailable</p>
-                          </div>
-                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -444,7 +431,7 @@ export default function Explore() {
               </>
             )}
           </div>
-        ) : placesLoading || mapboxLoading ? (
+        ) : placesLoading ? (
           <CardGridSkeleton />
         ) : places.length === 0 ? (
           <div className="text-center py-24 bg-card rounded-xl">
@@ -460,10 +447,8 @@ export default function Explore() {
           <Card className="overflow-hidden">
             <CardContent className="p-0">
               <div className="h-[60vh] sm:h-[65vh] relative">
-                {mapboxToken ? (
-                  <>
+                <>
                     <ExploreMapComponent
-                      token={mapboxToken}
                       places={places}
                       onSelectPlace={setSelectedPlace}
                       flyToMeRef={flyToMeRef}
@@ -480,12 +465,6 @@ export default function Explore() {
                       Near Me
                     </Button>
                   </>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                    <MapIcon className="h-12 w-12 mb-4 opacity-50" />
-                    <p>Map unavailable</p>
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>

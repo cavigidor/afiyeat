@@ -29,6 +29,7 @@ import { useSignedImageUrls } from '@/hooks/useSignedImageUrl';
 import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
 import { isDuplicateCustomListItem } from '@/lib/duplicateRestaurant';
 import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
+import { locationColumns, resolveApplePlaces, type AppleFilled, type PickedPlace } from '@/lib/appleMaps';
 import { PlaceResultsDropdown } from '@/components/shared/PlaceResultsDropdown';
 import { TagMultiSelect } from '@/components/shared/TagMultiSelect';
 import type { CustomList } from './CreateListDialog';
@@ -45,6 +46,10 @@ export interface CustomListItem {
   address: string | null;
   latitude: number | null;
   longitude: number | null;
+  /** Apple place ID when the place was picked from search. */
+  apple_place_id?: string | null;
+  /** Set when the address/pin shown came from Apple (see withApplePlaceDetails). */
+  appleFilled?: AppleFilled;
   price_level: number | null;
   price_manual: number | null;
   rating: number | null;
@@ -89,6 +94,8 @@ export function AddCustomListItemDialog({
   const [address, setAddress] = useState('');
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
+  // Set when a place is picked from search in this session.
+  const [picked, setPicked] = useState<PickedPlace | null>(null);
   const [statusId, setStatusId] = useState<string | null>(null);
   const [typeIds, setTypeIds] = useState<string[]>([]);
 
@@ -121,11 +128,13 @@ export function AddCustomListItemDialog({
     resetSearch,
   } = usePlaceAutocomplete({
     enabled: open && list.show_location,
+    kind: 'any',
     onSelect: (place) => {
       setName(place.name);
       setAddress(place.address);
       setLatitude(place.latitude);
       setLongitude(place.longitude);
+      setPicked({ applePlaceId: place.applePlaceId, appleAddress: place.address });
     },
   });
 
@@ -161,6 +170,7 @@ export function AddCustomListItemDialog({
     setImages([]);
     setImagePreviews([]);
     setRemovedImageIds([]);
+    setPicked(null);
     resetSearch();
   }, [open, editItem]);
 
@@ -223,6 +233,7 @@ export function AddCustomListItemDialog({
           name,
           latitude: list.show_location ? latitude : null,
           longitude: list.show_location ? longitude : null,
+          applePlaceId: list.show_location ? picked?.applePlaceId : null,
         });
         if (duplicate) {
           toast.error("This is already on this list. Add it again if it's a different location.");
@@ -234,11 +245,15 @@ export function AddCustomListItemDialog({
       const parsedPriceManual = priceManual.trim() ? parseFloat(priceManual) : null;
       const parsedRatingManual = ratingManual.trim() ? parseFloat(ratingManual) : null;
 
+      // Only the Apple place ID is stored for a place picked from search;
+      // Apple's address and pin are shown from the short-lived cache.
+      const location = list.show_location
+        ? locationColumns(picked, editItem, { address, latitude, longitude })
+        : { apple_place_id: null, address: null, latitude: null, longitude: null };
+
       const payload = {
         name: name.trim(),
-        address: list.show_location ? address.trim() || null : null,
-        latitude: list.show_location ? latitude : null,
-        longitude: list.show_location ? longitude : null,
+        ...location,
         type_ids: typeIds,
         price_level: list.show_price && list.price_mode === 'dollar' ? priceLevel : null,
         price_manual:
@@ -267,6 +282,8 @@ export function AddCustomListItemDialog({
         if (error) throw error;
         itemId = data.id;
       }
+      // Warm Apple's details for the saved place so it shows on the map now.
+      if (location.apple_place_id) void resolveApplePlaces([location.apple_place_id]);
 
       if (removedImageIds.length > 0) {
         await supabase.from('custom_list_item_images').delete().in('id', removedImageIds);

@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { getCurrentPosition } from '@/lib/native';
+import { getCurrentPositionIfGranted } from '@/lib/native';
+import { searchApplePlaces } from '@/lib/appleMaps';
 
 export interface PlaceResult {
+  /** Apple place ID. */
   id: string;
   name: string;
   address: string;
   latitude: number | null;
   longitude: number | null;
   category: string | null;
-  mapboxId?: string;
 }
 
 export interface ResolvedPlace {
@@ -17,55 +17,58 @@ export interface ResolvedPlace {
   address: string;
   latitude: number | null;
   longitude: number | null;
+  /** Apple place ID - the only part of a search result that gets stored. */
+  applePlaceId: string | null;
+  /** Legacy Mapbox ID. Always null now; kept so older callers compile. */
   placeId: string | null;
   category: string | null;
 }
 
 interface UsePlaceAutocompleteOptions {
-  // Gates both the geolocation lookup and the search itself - pass false
+  // Gates both the location lookup and the search itself - pass false
   // for dialogs where the place search is conditionally shown (e.g. a
   // custom list with show_location off, or a dialog that isn't open yet).
   enabled?: boolean;
+  /** 'food' (default) limits results to restaurants, cafes, bars etc. */
+  kind?: 'food' | 'any';
   onSelect: (place: ResolvedPlace) => void;
 }
 
 // Shared search-and-select logic behind every "search for a place" field in
 // the app (restaurants, custom list items, shared list items, mentioned
-// places) - this used to be copy-pasted four times, which is how the same
-// bugs (no instant fill, dropdown not scrolling on mobile) kept needing to
-// be fixed four separate times. Pair with PlaceResultsDropdown, which
-// renders the results list this returns.
-export function usePlaceAutocomplete({ enabled = true, onSelect }: UsePlaceAutocompleteOptions) {
+// places). Pair with PlaceResultsDropdown, which renders the results.
+//
+// Search runs on Apple Maps through the apple-maps edge function. Results
+// already include coordinates, so selecting one fills the form instantly
+// with no second lookup.
+export function usePlaceAutocomplete({ enabled = true, kind = 'food', onSelect }: UsePlaceAutocompleteOptions) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<PlaceResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [sessionToken] = useState(() => crypto.randomUUID());
-  // Responses can arrive out of order. Each search and each selection gets
-  // a sequence number, and only the latest one is allowed to write state -
-  // so a slow lookup for an earlier query or an earlier pick can't
-  // overwrite what the user chose since.
+  // Responses can arrive out of order. Each search gets a sequence number,
+  // and only the latest one is allowed to write state, so a slow lookup for
+  // an earlier query can't overwrite what the user chose since.
   const searchSeq = useRef(0);
-  const selectSeq = useRef(0);
   // The text a selection writes into the field shouldn't trigger a fresh
   // search that reopens the dropdown the user just closed by choosing.
   const selectedQuery = useRef<string | null>(null);
 
   useEffect(() => {
     if (!enabled || userLocation) return;
-    // getCurrentPosition() (not raw navigator.geolocation) so this routes
-    // through the native Capacitor plugin on iOS/Android instead of relying
-    // on the web geolocation API inside the WebView, which doesn't reliably
-    // trigger the native permission prompt on its own.
-    getCurrentPosition()
-      .then((coords) => setUserLocation({ lat: coords.latitude, lng: coords.longitude }))
+    // Bias results toward where the user is, but only if they've already
+    // allowed location - opening a dialog never triggers a permission prompt.
+    getCurrentPositionIfGranted()
+      .then((coords) => {
+        if (coords) setUserLocation({ lat: coords.latitude, lng: coords.longitude });
+      })
       .catch(() => {});
   }, [enabled, userLocation]);
 
   useEffect(() => {
     const seq = ++searchSeq.current;
-    if (!enabled || searchQuery.length < 2) {
+    if (!enabled || searchQuery.trim().length < 2) {
       setSearchResults([]);
       setSearching(false);
       return;
@@ -78,12 +81,24 @@ export function usePlaceAutocomplete({ enabled = true, onSelect }: UsePlaceAutoc
     const timeoutId = setTimeout(async () => {
       setSearching(true);
       try {
-        const { data, error } = await supabase.functions.invoke('place-search', {
-          body: { query: searchQuery, latitude: userLocation?.lat, longitude: userLocation?.lng, sessionToken },
+        const places = await searchApplePlaces(searchQuery, {
+          latitude: userLocation?.lat,
+          longitude: userLocation?.lng,
+          kind,
         });
         if (seq !== searchSeq.current) return;
-        if (error) throw error;
-        setSearchResults(data.results || []);
+        setSearchResults(
+          places
+            .filter((p) => p.name)
+            .map((p) => ({
+              id: p.id,
+              name: p.name ?? '',
+              address: p.address ?? '',
+              latitude: p.latitude,
+              longitude: p.longitude,
+              category: p.category,
+            })),
+        );
         setShowResults(true);
       } catch (err) {
         if (seq === searchSeq.current) console.error('Search error:', err);
@@ -92,10 +107,9 @@ export function usePlaceAutocomplete({ enabled = true, onSelect }: UsePlaceAutoc
       }
     }, 300);
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, userLocation, enabled, sessionToken]);
+  }, [searchQuery, userLocation, enabled, kind]);
 
   const selectPlace = (place: PlaceResult) => {
-    const seq = ++selectSeq.current;
     // Invalidate any search still in flight, and don't start a new one for
     // the name we're about to write into the field.
     searchSeq.current++;
@@ -105,44 +119,18 @@ export function usePlaceAutocomplete({ enabled = true, onSelect }: UsePlaceAutoc
     setShowResults(false);
     setSearchResults([]);
 
-    // Fill instantly from the suggest-endpoint result already in hand -
-    // nothing here waits on a network round trip before name/address
-    // visibly update, which is what caused the "buffer" before fields
-    // would fill in. If the suggest result didn't come with coordinates,
-    // place-retrieve below silently upgrades them a moment later; it never
-    // gates the initial, visible fill.
     onSelect({
       name: place.name,
       address: place.address,
       latitude: place.latitude,
       longitude: place.longitude,
-      placeId: place.mapboxId || null,
+      applePlaceId: place.id,
+      placeId: null,
       category: place.category,
     });
-
-    if (place.mapboxId && (place.latitude === null || place.longitude === null)) {
-      supabase.functions
-        .invoke('place-retrieve', { body: { mapboxId: place.mapboxId, sessionToken } })
-        .then(({ data, error }) => {
-          // The user picked something else while this was loading.
-          if (seq !== selectSeq.current) return;
-          if (error) throw error;
-          const result = data.result;
-          onSelect({
-            name: result.name,
-            address: result.address || '',
-            latitude: result.latitude ?? null,
-            longitude: result.longitude ?? null,
-            placeId: result.id || place.mapboxId || null,
-            category: result.category ?? place.category,
-          });
-        })
-        .catch((err) => console.error('Retrieve error:', err));
-    }
   };
 
   const resetSearch = () => {
-    selectSeq.current++;
     searchSeq.current++;
     selectedQuery.current = null;
     setSearching(false);

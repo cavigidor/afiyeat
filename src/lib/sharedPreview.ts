@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { withApplePlaceDetails } from '@/lib/appleMaps';
 
 /**
  * Reads one shared restaurant, recipe or list for someone who followed a
@@ -30,6 +31,8 @@ export interface RestaurantPreview {
   latitude: number | null;
   longitude: number | null;
   place_id: string | null;
+  /** Apple place ID; address/pin are filled from Apple when shown. */
+  apple_place_id?: string | null;
   owner: SharedOwner;
 }
 
@@ -58,7 +61,7 @@ export interface ListPreview {
   icon: string | null;
   color: string | null;
   item_count: number;
-  items: { name: string; address: string | null }[];
+  items: { name: string; address: string | null; apple_place_id?: string | null }[];
   owner: SharedOwner;
 }
 
@@ -80,9 +83,20 @@ async function fetchPreview<T>(type: string, id: string): Promise<T | null> {
   return (data as T | null) ?? null;
 }
 
-export const fetchRestaurantPreview = (id: string) => fetchPreview<RestaurantPreview>('restaurant', id);
+export async function fetchRestaurantPreview(id: string): Promise<RestaurantPreview | null> {
+  const preview = await fetchPreview<RestaurantPreview>('restaurant', id);
+  if (!preview) return null;
+  const [filled] = await withApplePlaceDetails([preview]);
+  return filled;
+}
+
 export const fetchRecipePreview = (id: string) => fetchPreview<RecipePreview>('recipe', id);
-export const fetchListPreview = (id: string) => fetchPreview<ListPreview>('custom_list', id);
+
+export async function fetchListPreview(id: string): Promise<ListPreview | null> {
+  const preview = await fetchPreview<ListPreview>('custom_list', id);
+  if (!preview) return null;
+  return { ...preview, items: await withApplePlaceDetails(preview.items ?? []) };
+}
 
 export function ownerName(owner: SharedOwner | null | undefined): string {
   return owner?.display_name?.trim() || owner?.username || 'An Afiyeat member';

@@ -92,6 +92,28 @@ export default function DevAppleMaps() {
     }
   };
 
+  // Moves places saved before the switch onto Apple IDs, batch by batch.
+  // Places without a confident match are left as they are and listed.
+  const migrate = async (dryRun: boolean) => {
+    const unmatched: { table: string; id: string; name: string }[] = [];
+    let matched = 0;
+    try {
+      for (let round = 0; round < 40; round++) {
+        const { data, error } = await supabase.functions.invoke('apple-maps', {
+          body: { action: 'migrate-legacy', dryRun, batchSize: 25, skipIds: unmatched.map((u) => u.id) },
+        });
+        if (error) throw error;
+        matched += data.matched;
+        unmatched.push(...data.unmatched);
+        add(`${dryRun ? 'preview' : 'move'} round ${round + 1}: ${data.matched} matched, ${data.unmatched.length} no match, ${data.remaining} left to check`);
+        if (dryRun || data.remaining <= unmatched.length || (data.matched === 0 && data.unmatched.length === 0)) break;
+      }
+      add(`${dryRun ? 'PREVIEW' : 'MOVE'} DONE: ${matched} matched. No confident match (left unchanged): ${unmatched.map((u) => u.name).join(', ') || 'none'}`);
+    } catch (err) {
+      add(`migrate FAILED: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -102,6 +124,10 @@ export default function DevAppleMaps() {
           <Button size="sm" onClick={showMap}>2. Map</Button>
           <Input className="w-40" value={query} onChange={(e) => setQuery(e.target.value)} />
           <Button size="sm" onClick={runSearch}>3. Search</Button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" onClick={() => migrate(true)}>5. Preview moving saved places</Button>
+          <Button size="sm" variant="outline" onClick={() => migrate(false)}>6. Move saved places to Apple</Button>
         </div>
         <div ref={mapEl} className="h-64 w-full rounded-lg border bg-muted" />
         {results.length > 0 && (

@@ -34,6 +34,7 @@ import { ImageUploadSection } from './ImageUploadSection';
 import { PriceLevelPicker } from './PriceLevelPicker';
 import { TagMultiSelect } from '@/components/shared/TagMultiSelect';
 import { blockedByContentFilter } from '@/lib/contentFilter';
+import { placeColumnsForEdit, type AppleFilled } from '@/lib/appleMaps';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Restaurant name is required'),
@@ -61,6 +62,8 @@ interface Restaurant {
   notes?: string | null;
   folder_ids?: string[] | null;
   images?: { image_url: string; id: string }[];
+  apple_place_id?: string | null;
+  appleFilled?: AppleFilled;
 }
 
 interface EditRestaurantDialogProps {
@@ -205,9 +208,9 @@ export function EditRestaurantDialog({
         .from('restaurants')
         .update({
           name: submitValues.name,
-          address: submitValues.address || null,
-          latitude: submitValues.latitude ?? null,
-          longitude: submitValues.longitude ?? null,
+          // Apple's details shown in the form aren't written back unless the
+          // user changed them (see placeColumnsForEdit).
+          ...placeColumnsForEdit(restaurant, submitValues),
           notes: submitValues.notes || null,
           status: submitValues.status,
           folder_ids: submitValues.folder_ids,

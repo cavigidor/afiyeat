@@ -38,6 +38,7 @@ import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
 import { PlaceResultsDropdown } from '@/components/shared/PlaceResultsDropdown';
 import { TagMultiSelect } from '@/components/shared/TagMultiSelect';
 import { blockedByContentFilter } from '@/lib/contentFilter';
+import { placeColumnsForSave, resolveApplePlaces, type PickedPlace } from '@/lib/appleMaps';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Restaurant name is required'),
@@ -60,6 +61,8 @@ interface AddRestaurantDialogProps {
   onSuccess: () => void;
   onCreateType?: () => void;
 }
+
+const EMPTY_PICK = { applePlaceId: null, appleAddress: null, category: null };
 
 const FOOD_EMOJIS = ['🍕', '🍔', '🍣', '🌮', '🍜', '🥗', '🍰', '🍝', '🥘', '🍱'];
 const PRICE_LABELS = ['<$30', '<$50', '<$100', '$100+'];
@@ -143,10 +146,9 @@ export function AddRestaurantDialog({
   // with other users' entries for the same place on the Explore map. Not
   // shown in the form UI, so it's tracked separately rather than as a
   // react-hook-form field.
-  const [selectedPlaceMeta, setSelectedPlaceMeta] = useState<{
-    placeId: string | null;
-    category: string | null;
-  }>({ placeId: null, category: null });
+  const [selectedPlaceMeta, setSelectedPlaceMeta] = useState<PickedPlace & { category: string | null }>(
+    EMPTY_PICK,
+  );
 
   // Random emoji index for this session (rating slider only - price is now
   // a plain 4-box picker with no emoji thumb)
@@ -188,7 +190,11 @@ export function AddRestaurantDialog({
       form.setValue('address', place.address);
       form.setValue('latitude', place.latitude ?? undefined);
       form.setValue('longitude', place.longitude ?? undefined);
-      setSelectedPlaceMeta({ placeId: place.placeId, category: place.category });
+      setSelectedPlaceMeta({
+        applePlaceId: place.applePlaceId,
+        appleAddress: place.address,
+        category: place.category,
+      });
     },
   });
 
@@ -255,7 +261,7 @@ export function AddRestaurantDialog({
         name: values.name,
         latitude: values.latitude,
         longitude: values.longitude,
-        placeId: selectedPlaceMeta.placeId,
+        applePlaceId: selectedPlaceMeta.applePlaceId,
       });
       if (duplicate) {
         toast.error("You've already added this place to your list.");
@@ -275,13 +281,13 @@ export function AddRestaurantDialog({
         .insert({
           user_id: user.id,
           name: submitValues.name,
-          address: submitValues.address || null,
-          latitude: submitValues.latitude ?? null,
-          longitude: submitValues.longitude ?? null,
+          // Only the Apple place ID is stored for a place picked from search;
+          // its address and pin are shown from Apple's short-lived cache.
+          ...placeColumnsForSave(selectedPlaceMeta, submitValues),
+          place_id: null,
           notes: submitValues.notes || null,
           status: submitValues.status,
           folder_ids: submitValues.folder_ids,
-          place_id: selectedPlaceMeta.placeId,
           category: selectedPlaceMeta.category,
           rating: submitValues.rating,
           price_level: submitValues.price_level,
@@ -291,6 +297,10 @@ export function AddRestaurantDialog({
         .single();
 
       if (restaurantError) throw restaurantError;
+
+      // Fetch Apple's details into the short-lived cache now, so the new
+      // place appears on lists and maps straight away.
+      if (restaurant.apple_place_id) void resolveApplePlaces([restaurant.apple_place_id]);
 
       if (images.length > 0) {
         for (const image of images) {
@@ -322,7 +332,7 @@ export function AddRestaurantDialog({
       setImages([]);
       setImagePreviews([]);
       resetSearch();
-      setSelectedPlaceMeta({ placeId: null, category: null });
+      setSelectedPlaceMeta(EMPTY_PICK);
       onOpenChange(false);
       onSuccess();
     } catch (error: any) {
@@ -339,7 +349,7 @@ export function AddRestaurantDialog({
       setImages([]);
       setImagePreviews([]);
       resetSearch();
-      setSelectedPlaceMeta({ placeId: null, category: null });
+      setSelectedPlaceMeta(EMPTY_PICK);
     }
   }, [open, form]);
 

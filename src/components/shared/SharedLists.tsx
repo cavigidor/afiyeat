@@ -29,6 +29,7 @@ import { useViewMode } from '@/hooks/useViewMode';
 import type { RestaurantSortBy } from '@/hooks/useRestaurantListControls';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { withApplePlaceDetails } from '@/lib/appleMaps';
 import { Loader2, Plus, Users, Check, Clock, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreateSharedListDialog } from './CreateSharedListDialog';
@@ -133,14 +134,14 @@ export function SharedLists({ following, initialSelectedListId }: SharedListsPro
     setLoadingItems(true);
     const { data, error } = await supabase
       .from('shared_list_items')
-      .select('id, name, address, latitude, longitude, status, rating, price_level, notes, added_by')
+      .select('id, name, address, latitude, longitude, status, rating, price_level, notes, added_by, apple_place_id')
       .eq('list_id', selectedListId)
       .order('created_at', { ascending: false });
 
     if (error) {
       console.error('Error fetching items:', error);
     } else {
-      setItems(data || []);
+      setItems(await withApplePlaceDetails(data || []));
     }
     setLoadingItems(false);
   }, [selectedListId]);

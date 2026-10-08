@@ -175,9 +175,8 @@ All colors MUST be HSL.
        app-wide. touch-action isn't inherited, but WebKit resolves the used
        touch-action for a touch point as the intersection of the hit
        element's value and its ancestors', so this still applies to normal
-       page content. Mapbox sets touch-action: none directly on its own
-       canvas to run its own pinch/pan gestures, which is more specific and
-       wins there, so the map keeps its own pinch-to-zoom. */
+       page content. Maps opt back out below so they keep their own
+       pinch-to-zoom and pan. */
     touch-action: manipulation;
     /* Stops scroll "chaining" past the top/bottom of the page from
        scrolling a parent/ancestor scroller (there isn't one here, but this
@@ -348,4 +347,12 @@ All colors MUST be HSL.
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Apple Maps (MapKit JS) handles its own pinch, pan and double-tap gestures;
+   give them back to it inside the map, despite the app-wide
+   touch-action: manipulation above. */
+.mk-map-view,
+.mk-map-view * {
+  touch-action: none;
 }

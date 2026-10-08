@@ -14,6 +14,8 @@ export interface ExplorePlace {
   avg_rating: number | null;
   rating_count: number;
   contributor_count: number;
+  /** Set when the place came from Apple Maps (details may need resolving). */
+  apple_place_id?: string | null;
 }
 
 export function formatCategory(category: string | null): string | null {

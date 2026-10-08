@@ -19,6 +19,7 @@ import { isDuplicateRestaurant } from '@/lib/duplicateRestaurant';
 import { hapticSuccess } from '@/lib/haptics';
 import { SITE_URL } from '@/lib/site';
 import { fetchRestaurantPreview, isUuid, ownerName, type RestaurantPreview } from '@/lib/sharedPreview';
+import { withApplePlaceDetails } from '@/lib/appleMaps';
 
 interface RestaurantView extends RestaurantPreview {
   /** Only available to signed-in viewers - photos live in a private bucket. */
@@ -38,7 +39,7 @@ async function fetchRestaurant(id: string, signedIn: boolean): Promise<Restauran
     const { data } = await supabase
       .from('restaurants')
       .select(
-        'id, name, address, category, rating, price_level, status, latitude, longitude, place_id, user_id, images:restaurant_images(image_url)',
+        'id, name, address, category, rating, price_level, status, latitude, longitude, place_id, apple_place_id, user_id, images:restaurant_images(image_url)',
       )
       .eq('id', id)
       .maybeSingle();
@@ -49,18 +50,20 @@ async function fetchRestaurant(id: string, signedIn: boolean): Promise<Restauran
         .select('user_id, display_name, username, avatar_emoji, avatar_color')
         .eq('user_id', data.user_id)
         .maybeSingle();
+      const [located] = await withApplePlaceDetails([data]);
       return {
         type: 'restaurant',
         id: data.id,
         name: data.name,
-        address: data.address,
+        address: located.address,
         category: data.category,
         rating: data.rating,
         price_level: data.price_level,
         status: data.status,
-        latitude: data.latitude,
-        longitude: data.longitude,
+        latitude: located.latitude,
+        longitude: located.longitude,
         place_id: data.place_id,
+        apple_place_id: data.apple_place_id,
         owner: owner ?? {
           user_id: data.user_id,
           display_name: null,
@@ -113,7 +116,8 @@ export default function PublicRestaurant() {
         name: restaurant.name,
         latitude: restaurant.latitude ?? undefined,
         longitude: restaurant.longitude ?? undefined,
-        placeId: restaurant.place_id,
+        placeId: restaurant.apple_place_id ? null : restaurant.place_id,
+        applePlaceId: restaurant.apple_place_id,
       });
       if (duplicate) {
         toast.info('This place is already in your restaurants.');
@@ -122,10 +126,16 @@ export default function PublicRestaurant() {
       const { error } = await supabase.from('restaurants').insert({
         user_id: user.id,
         name: restaurant.name,
-        address: restaurant.address,
-        latitude: restaurant.latitude,
-        longitude: restaurant.longitude,
-        place_id: restaurant.place_id,
+        // An Apple-backed place is copied by its Apple ID only; its address
+        // and pin are shown from Apple's short-lived cache.
+        ...(restaurant.apple_place_id
+          ? { apple_place_id: restaurant.apple_place_id, address: null, latitude: null, longitude: null, place_id: null }
+          : {
+              address: restaurant.address,
+              latitude: restaurant.latitude,
+              longitude: restaurant.longitude,
+              place_id: restaurant.place_id,
+            }),
         category: restaurant.category,
         status: 'to_go',
       });

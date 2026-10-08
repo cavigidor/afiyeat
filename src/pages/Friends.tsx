@@ -13,14 +13,14 @@ import { RestaurantListRow } from '@/components/restaurants/RestaurantListRow';
 import { RestaurantDetailDialog, type DetailRestaurant } from '@/components/restaurants/RestaurantDetailDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { withApplePlaceDetails } from '@/lib/appleMaps';
 import { Search, UserPlus, UserMinus, Loader2, Users, Sparkles, Map, Check, Clock, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { hapticSuccess } from '@/lib/haptics';
 import { offerPushAfterFollow } from '@/lib/pushPrompt';
 import { useMapCenter } from '@/hooks/useMapCenter';
-import { getDirectionsPopupHtml } from '@/lib/directions';
-import { createPinElement } from '@/lib/mapPin';
+import { PlaceMap, type MapPoint } from '@/components/maps/PlaceMap';
 import { useViewMode } from '@/hooks/useViewMode';
 import type { RestaurantSortBy } from '@/hooks/useRestaurantListControls';
 import { ListViewToggle } from '@/components/shared/ListViewToggle';
@@ -100,11 +100,6 @@ async function fetchSuggestedFor(userId: string): Promise<SuggestedProfile[]> {
   return profilesWithCounts.slice(0, 5);
 }
 
-async function fetchMapboxTokenValue(): Promise<string | null> {
-  const { data, error } = await supabase.functions.invoke('get-mapbox-token');
-  if (error) throw error;
-  return data?.token ?? null;
-}
 
 async function fetchUserRestaurantsFor(profileUserId: string): Promise<any[]> {
   const { data, error } = await supabase
@@ -117,7 +112,7 @@ async function fetchUserRestaurantsFor(profileUserId: string): Promise<any[]> {
     .order('created_at', { ascending: false });
 
   if (error) throw error;
-  return data || [];
+  return withApplePlaceDetails(data || []);
 }
 
 async function fetchUserFoldersFor(
@@ -170,12 +165,6 @@ export default function Friends() {
 
   // Doesn't change per-user - keep it around indefinitely instead of
   // re-fetching a fresh Mapbox token every time this page mounts.
-  const { data: mapboxToken, isLoading: mapboxLoading } = useQuery({
-    queryKey: ['mapbox-token'],
-    queryFn: fetchMapboxTokenValue,
-    staleTime: Infinity,
-    gcTime: Infinity,
-  });
 
   const { data: userRestaurants = [], isLoading: loading } = useQuery({
     queryKey: ['user-restaurants', selectedUser?.user_id],
@@ -543,14 +532,8 @@ export default function Friends() {
                     <Card className="overflow-hidden">
                       <CardContent className="p-0">
                         <div className="h-[300px] lg:h-[400px] relative">
-                          {mapboxLoading ? (
-                            <div className="flex items-center justify-center h-full">
-                              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                            </div>
-                          ) : mapboxToken ? (
-                            <>
+                          <>
                               <FriendsMapComponent
-                                token={mapboxToken}
                                 restaurants={statusFilteredRestaurants}
                                 focusedRestaurantId={focusedRestaurantId}
                                 onFocusRestaurant={setFocusedRestaurantId}
@@ -560,12 +543,6 @@ export default function Friends() {
                               />
                               <NearMeButton onClick={() => mapFlyToMeRef.current?.()} />
                             </>
-                          ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                              <Map className="h-12 w-12 mb-4 opacity-50" />
-                              <p>Map unavailable</p>
-                            </div>
-                          )}
                         </div>
                       </CardContent>
                     </Card>
@@ -741,7 +718,6 @@ export default function Friends() {
 }
 
 interface FriendsMapComponentProps {
-  token: string;
   restaurants: any[];
   focusedRestaurantId: string | null;
   onFocusRestaurant: (id: string | null) => void;
@@ -750,150 +726,31 @@ interface FriendsMapComponentProps {
   onLocationDenied: () => void;
 }
 
-function FriendsMapComponent({ token, restaurants, focusedRestaurantId, onFocusRestaurant, flyToRef, flyToMeRef, onLocationDenied }: FriendsMapComponentProps) {
-  const { requestLocation } = useLocationPermission();
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const markersRef = useRef<globalThis.Map<string, any>>(new globalThis.Map());
+// Pins take the colour and emoji of the place's first type (folder).
+function FriendsMapComponent({ restaurants, focusedRestaurantId, onFocusRestaurant, flyToRef, flyToMeRef, onLocationDenied }: FriendsMapComponentProps) {
   const { center } = useMapCenter(restaurants);
-  // Capture only the center available at mount time; the map is created once
-  // and subsequently panned (see the effect below) rather than rebuilt every
-  // time `center` resolves to a new value (e.g. once GPS comes back).
-  const initialCenterRef = useRef(center);
-
-  useEffect(() => {
-    if (!mapContainer.current || !token) return;
-    let cancelled = false;
-
-    const loadMapbox = async () => {
-      const mapboxgl = (await import('mapbox-gl')).default;
-      await import('mapbox-gl/dist/mapbox-gl.css');
-      if (cancelled) return;
-
-      mapboxgl.accessToken = token;
-
-      mapRef.current = new mapboxgl.Map({
-        container: mapContainer.current!,
-        style: 'mapbox://styles/mapbox/streets-v12',
-        center: [initialCenterRef.current.lng, initialCenterRef.current.lat],
-        zoom: 11,
-      });
-
-      mapRef.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-
-      flyToRef.current = (lat: number, lng: number, restaurantId: string) => {
-        if (mapRef.current) {
-          mapRef.current.flyTo({
-            center: [lng, lat],
-            zoom: 16,
-            duration: 1500,
-            essential: true
-          });
-          const marker = markersRef.current.get(restaurantId);
-          if (marker) {
-            marker.togglePopup();
-          }
-        }
-      };
-
-      // "Near Me" - recenter on demand, distinct from the auto-centering
-      // that runs once when the map first loads.
-      flyToMeRef.current = () => {
-        requestLocation().then(({ coords, wasDenied }) => {
-          if (coords) {
-            mapRef.current?.flyTo({ center: [coords.longitude, coords.latitude], zoom: 14, essential: true });
-          } else if (wasDenied) {
-            onLocationDenied();
-          }
-        });
-      };
-    };
-
-    loadMapbox();
-
-    return () => {
-      cancelled = true;
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-      flyToRef.current = null;
-      flyToMeRef.current = null;
-    };
-    // Intentionally created once per token - see the pan effect below.
-  }, [token, flyToRef, flyToMeRef]);
-
-  // Pan the already-created map when the resolved center changes (e.g. GPS
-  // resolves shortly after mount) instead of tearing the whole map down.
-  useEffect(() => {
-    if (!mapRef.current) return;
-    mapRef.current.easeTo({ center: [center.lng, center.lat], duration: 600 });
-  }, [center]);
-
-  useEffect(() => {
-    if (!mapRef.current) return;
-
-    markersRef.current.forEach(marker => marker.remove());
-    markersRef.current.clear();
-
-    const restaurantsWithLocation = restaurants.filter(r => r.latitude && r.longitude);
-
-    if (restaurantsWithLocation.length === 0) return;
-
-    const loadMarkers = async () => {
-      const mapboxgl = (await import('mapbox-gl')).default;
-
-      restaurantsWithLocation.forEach(restaurant => {
-        const isFocused = focusedRestaurantId === restaurant.id;
-
-        const el = createPinElement({
-          color: restaurant.folders?.[0]?.color,
-          icon: restaurant.folders?.[0]?.icon,
-          focused: isFocused,
-        });
-
-        const safeName = restaurant.name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const safeAddress = restaurant.address?.replace(/</g, '&lt;').replace(/>/g, '&gt;') || '';
-
-        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
-          <div class="p-2">
-            <h3 class="font-semibold">${safeName}</h3>
-            ${safeAddress ? `<p class="text-sm text-gray-600">${safeAddress}</p>` : ''}
-            ${restaurant.rating ? `<p class="text-sm">Rating: ${restaurant.rating}/10</p>` : ''}
-            ${getDirectionsPopupHtml({ latitude: restaurant.latitude, longitude: restaurant.longitude, address: restaurant.address, name: restaurant.name })}
-          </div>
-        `);
-
-        const marker = new mapboxgl.Marker(el, { anchor: 'bottom' })
-          .setLngLat([restaurant.longitude!, restaurant.latitude!])
-          .setPopup(popup)
-          .addTo(mapRef.current);
-
-        el.addEventListener('click', () => {
-          onFocusRestaurant(restaurant.id);
-        });
-
-        markersRef.current.set(restaurant.id, marker);
-      });
-
-      if (restaurantsWithLocation.length > 0 && !focusedRestaurantId) {
-        const bounds = new mapboxgl.LngLatBounds();
-        restaurantsWithLocation.forEach(r => {
-          bounds.extend([r.longitude!, r.latitude!]);
-        });
-        mapRef.current.fitBounds(bounds, { padding: 50, maxZoom: 14 });
-      }
-    };
-
-    const checkMap = setInterval(() => {
-      if (mapRef.current?.loaded()) {
-        clearInterval(checkMap);
-        loadMarkers();
-      }
-    }, 100);
-
-    return () => clearInterval(checkMap);
-  }, [restaurants, focusedRestaurantId, onFocusRestaurant]);
-
-  return <div ref={mapContainer} className="w-full h-full" />;
+  const points = useMemo<MapPoint[]>(
+    () =>
+      restaurants.map((r) => ({
+        id: r.id,
+        name: r.name,
+        address: r.address,
+        latitude: r.latitude,
+        longitude: r.longitude,
+        color: r.folders?.[0]?.color,
+        icon: r.folders?.[0]?.icon,
+      })),
+    [restaurants],
+  );
+  return (
+    <PlaceMap
+      points={points}
+      center={center}
+      focusedId={focusedRestaurantId}
+      onSelect={onFocusRestaurant}
+      flyToRef={flyToRef}
+      flyToMeRef={flyToMeRef}
+      onLocationDenied={onLocationDenied}
+    />
+  );
 }

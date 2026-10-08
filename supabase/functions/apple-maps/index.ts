@@ -17,6 +17,7 @@ import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supa
 //   search        -> { results: PlaceResult[] } signed-in users only
 //   resolve       -> { places: Record<id, PlaceDetails>, missing: string[] }
 //   probe-lookup  -> { raw }  admin-only diagnostic, nothing cached
+//   migrate-legacy -> { matched, unmatched, remaining }  admin-only, one batch
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -332,10 +333,7 @@ async function resolve(admin: SupabaseClient, body: any) {
   return { places, missing: requested.filter((id) => !places[id]) };
 }
 
-// Admin-only diagnostic: raw Apple response for any IDs, not cached.
-// Used by the /dev/apple-maps check page to confirm what Apple returns.
-// deno-lint-ignore no-explicit-any
-async function probeLookup(admin: SupabaseClient, userId: string, body: any) {
+async function requireAdmin(admin: SupabaseClient, userId: string): Promise<void> {
   const { data: role } = await admin
     .from("user_roles")
     .select("role")
@@ -343,6 +341,129 @@ async function probeLookup(admin: SupabaseClient, userId: string, body: any) {
     .eq("role", "admin")
     .maybeSingle();
   if (!role) throw new HttpError(403, "Admins only.");
+}
+
+// ---------------------------------------------------------------------
+// One-off move of places saved before the switch (admin only)
+// ---------------------------------------------------------------------
+
+const MIGRATE_TABLES = ["restaurants", "custom_list_items", "shared_list_items"] as const;
+const MATCH_MAX_METERS = 200;
+
+function normaliseName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\b(the|restaurant|cafe|bar|nyc|ny)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function namesMatch(a: string, b: string): boolean {
+  const x = normaliseName(a);
+  const y = normaliseName(b);
+  if (!x || !y) return false;
+  if (x === y || x.includes(y) || y.includes(x)) return true;
+  // Share most of their words, e.g. "Joe's Pizza" vs "Joe's Pizza Broadway".
+  const wx = new Set(x.split(" "));
+  const wy = new Set(y.split(" "));
+  const common = [...wx].filter((w) => wy.has(w)).length;
+  return common / Math.min(wx.size, wy.size) >= 0.6;
+}
+
+function metersBetween(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const r = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * r * Math.asin(Math.sqrt(a));
+}
+
+// Finds each saved place that predates Apple (no apple_place_id, but a
+// Mapbox ID or Mapbox coordinates), looks it up on Apple by name near its
+// saved pin, and when there's a confident match (similar name, within
+// MATCH_MAX_METERS) stores the Apple ID and clears the Mapbox-derived
+// address, coordinates and ID. Places without a confident match are left
+// untouched and reported, so nothing is lost. Runs in small batches;
+// call repeatedly until `remaining` is 0. `dryRun` reports without writing.
+// deno-lint-ignore no-explicit-any
+async function migrateLegacy(admin: SupabaseClient, body: any) {
+  const batchSize = Math.min(Math.max(Number(body?.batchSize) || 25, 1), 50);
+  const dryRun = body?.dryRun === true;
+  const skip: string[] = Array.isArray(body?.skipIds) ? body.skipIds.filter((x: unknown) => typeof x === "string") : [];
+  const result = { matched: 0, unmatched: [] as { table: string; id: string; name: string }[], remaining: 0 };
+
+  for (const table of MIGRATE_TABLES) {
+    const hasPlaceId = table === "restaurants";
+    const legacy = admin
+      .from(table)
+      .select(hasPlaceId ? "id, name, latitude, longitude, place_id" : "id, name, latitude, longitude")
+      .is("apple_place_id", null)
+      .not("latitude", "is", null)
+      .not("longitude", "is", null);
+    const { data: rows, error } = await (skip.length ? legacy.not("id", "in", `(${skip.join(",")})`) : legacy)
+      .limit(batchSize);
+    if (error) throw new HttpError(500, `Couldn't read ${table}: ${error.message}`);
+
+    for (const row of rows ?? []) {
+      const params = new URLSearchParams({
+        q: row.name,
+        resultTypeFilter: "Poi",
+        lang: "en-US",
+        searchLocation: `${row.latitude},${row.longitude}`,
+      });
+      const data = await appleGet(admin, "/v1/search", params);
+      const candidates = (Array.isArray(data?.results) ? data.results : [])
+        .map(toDetails)
+        .filter((p: PlaceDetails | null): p is PlaceDetails => !!p && !!p.name && p.latitude != null && p.longitude != null)
+        .map((p: PlaceDetails) => ({ p, d: metersBetween(row.latitude, row.longitude, p.latitude!, p.longitude!) }))
+        .filter((c: { p: PlaceDetails; d: number }) => c.d <= MATCH_MAX_METERS && namesMatch(row.name, c.p.name!))
+        .sort((a: { d: number }, b: { d: number }) => a.d - b.d);
+
+      const best = candidates[0]?.p;
+      if (!best) {
+        result.unmatched.push({ table, id: row.id, name: row.name });
+        continue;
+      }
+      result.matched++;
+      if (dryRun) continue;
+
+      const update: Record<string, unknown> = {
+        apple_place_id: best.id,
+        address: null,
+        latitude: null,
+        longitude: null,
+      };
+      if (hasPlaceId) update.place_id = null;
+      const { error: updError } = await admin.from(table).update(update).eq("id", row.id);
+      if (updError) {
+        console.error(`migrate ${table} ${row.id} failed:`, updError.message);
+        result.matched--;
+        result.unmatched.push({ table, id: row.id, name: row.name });
+      }
+    }
+
+    const { count } = await admin
+      .from(table)
+      .select("id", { count: "exact", head: true })
+      .is("apple_place_id", null)
+      .not("latitude", "is", null)
+      .not("longitude", "is", null);
+    result.remaining += count ?? 0;
+  }
+
+  return result;
+}
+
+// Admin-only diagnostic: raw Apple response for any IDs, not cached.
+// Used by the /dev/apple-maps check page to confirm what Apple returns.
+// deno-lint-ignore no-explicit-any
+async function probeLookup(admin: SupabaseClient, userId: string, body: any) {
+  await requireAdmin(admin, userId);
   const ids = (Array.isArray(body?.ids) ? body.ids : [])
     .filter((id: unknown): id is string => typeof id === "string" && ID_PATTERN.test(id))
     .slice(0, RESOLVE_BATCH);
@@ -368,6 +489,10 @@ serve(async (req) => {
         return json(await resolve(admin, body));
       case "probe-lookup":
         return json(await probeLookup(admin, await requireUser(req), body));
+      case "migrate-legacy": {
+        await requireAdmin(admin, await requireUser(req));
+        return json(await migrateLegacy(admin, body));
+      }
       default:
         return json({ error: "Unknown action." }, 400);
     }

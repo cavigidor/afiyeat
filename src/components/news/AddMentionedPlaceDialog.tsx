@@ -23,6 +23,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { isDuplicateRestaurant } from '@/lib/duplicateRestaurant';
 import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
+import { placeColumnsForSave } from '@/lib/appleMaps';
 import { PlaceResultsDropdown } from '@/components/shared/PlaceResultsDropdown';
 
 interface SharedListOption {
@@ -77,7 +78,9 @@ export function AddMentionedPlaceDialog({ open, onOpenChange, placeName }: AddMe
   const [address, setAddress] = useState('');
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
+  // Apple place ID and the address Apple showed when it was picked.
   const [placeId, setPlaceId] = useState<string | null>(null);
+  const [appleAddress, setAppleAddress] = useState<string | null>(null);
   const [category, setCategory] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<'to_go' | 'went_to'>('to_go');
@@ -103,7 +106,8 @@ export function AddMentionedPlaceDialog({ open, onOpenChange, placeName }: AddMe
       setAddress(place.address);
       setLatitude(place.latitude);
       setLongitude(place.longitude);
-      setPlaceId(place.placeId);
+      setPlaceId(place.applePlaceId);
+      setAppleAddress(place.address);
       setCategory(place.category);
     },
   });
@@ -147,13 +151,17 @@ export function AddMentionedPlaceDialog({ open, onOpenChange, placeName }: AddMe
     }
 
     setLoading(true);
+    const location = placeColumnsForSave(
+      placeId ? { applePlaceId: placeId, appleAddress } : null,
+      { address, latitude, longitude },
+    );
     try {
       if (destination === 'mine') {
         const duplicate = await isDuplicateRestaurant(user.id, {
           name,
           latitude,
           longitude,
-          placeId,
+          applePlaceId: placeId,
         });
         if (duplicate) {
           toast.error("You've already added this place to your list.");
@@ -166,10 +174,7 @@ export function AddMentionedPlaceDialog({ open, onOpenChange, placeName }: AddMe
         const { error } = await supabase.from('restaurants').insert({
           user_id: user.id,
           name: name.trim(),
-          address: address.trim() || null,
-          latitude,
-          longitude,
-          place_id: placeId,
+          ...location,
           category,
           notes: notes.trim() || null,
           status,
@@ -182,9 +187,7 @@ export function AddMentionedPlaceDialog({ open, onOpenChange, placeName }: AddMe
           list_id: sharedListId,
           added_by: user.id,
           name: name.trim(),
-          address: address.trim() || null,
-          latitude,
-          longitude,
+          ...location,
           status,
           notes: notes.trim() || null,
           visited_at: status === 'went_to' ? new Date().toISOString() : null,

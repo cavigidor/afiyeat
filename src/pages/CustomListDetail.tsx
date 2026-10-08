@@ -31,10 +31,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { withApplePlaceDetails } from '@/lib/appleMaps';
 import { Loader2, Plus, Search, Pencil, Settings, ArrowLeft, Map, Share2, Link2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { useViewMode } from '@/hooks/useViewMode';
 import { useMapCenter } from '@/hooks/useMapCenter';
+import { PlaceMap, type MapPoint } from '@/components/maps/PlaceMap';
 import { useFollowing } from '@/hooks/useFollowing';
 import { ListViewToggle } from '@/components/shared/ListViewToggle';
 import { CreateListDialog, type CustomList } from '@/components/lists/CreateListDialog';
@@ -47,8 +49,6 @@ import { ConvertToSharedListDialog } from '@/components/lists/ConvertToSharedLis
 import type { ManagedListType } from '@/hooks/useListTypeManagement';
 import type { ManagedListStatus } from '@/hooks/useListStatusManagement';
 import { getPriceSortValue, getRatingSortValue } from '@/lib/customListValues';
-import { getDirectionsPopupHtml } from '@/lib/directions';
-import { createPinElement } from '@/lib/mapPin';
 import { shareListLink } from '@/lib/shareList';
 import { announceShareResult } from '@/lib/share';
 import { useMyShareIdentity } from '@/hooks/useMyShareIdentity';
@@ -59,11 +59,6 @@ import { NearMeButton } from '@/components/shared/NearMeButton';
 
 type SortBy = 'name' | 'price_asc' | 'price_desc' | 'rating_desc';
 
-async function fetchMapboxTokenValue(): Promise<string | null> {
-  const { data, error } = await supabase.functions.invoke('get-mapbox-token');
-  if (error) throw error;
-  return data?.token ?? null;
-}
 
 async function fetchList(listId: string, userId: string): Promise<CustomList | null> {
   const { data, error } = await supabase
@@ -85,7 +80,7 @@ async function fetchItems(listId: string): Promise<CustomListItem[]> {
     .eq('list_id', listId)
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return (data || []) as CustomListItem[];
+  return withApplePlaceDetails((data || []) as CustomListItem[]);
 }
 
 async function fetchTypes(listId: string): Promise<ManagedListType[]> {
@@ -179,13 +174,6 @@ export default function CustomListDetail() {
     }
   }, [sortedStatuses, activeStatusId]);
 
-  const { data: mapboxToken, isLoading: mapboxLoading } = useQuery({
-    queryKey: ['mapbox-token'],
-    queryFn: fetchMapboxTokenValue,
-    enabled: !!user && !!list?.show_location,
-    staleTime: Infinity,
-    gcTime: Infinity,
-  });
 
   const { data: following = [] } = useFollowing(user?.id);
 
@@ -483,14 +471,8 @@ export default function CustomListDetail() {
           <Card className="overflow-hidden" ref={mapRef}>
             <CardContent className="p-0">
               <div className="h-[250px] sm:h-[400px] relative">
-                {mapboxLoading ? (
-                  <div className="flex items-center justify-center h-full">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  </div>
-                ) : mapboxToken ? (
-                  <>
+                <>
                     <CustomListMapComponent
-                      token={mapboxToken}
                       items={currentItems}
                       types={types}
                       focusedItemId={focusedItemId}
@@ -501,12 +483,6 @@ export default function CustomListDetail() {
                     />
                     <NearMeButton onClick={() => mapFlyToMeRef.current?.()} />
                   </>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                    <Map className="h-12 w-12 mb-4 opacity-50" />
-                    <p>Map unavailable</p>
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>
@@ -559,7 +535,6 @@ export default function CustomListDetail() {
 }
 
 interface CustomListMapComponentProps {
-  token: string;
   items: CustomListItem[];
   types: ManagedListType[];
   focusedItemId: string | null;
@@ -569,135 +544,36 @@ interface CustomListMapComponentProps {
   onLocationDenied: () => void;
 }
 
-// Same pattern as MyList.tsx's MapComponent - pins are colored and
-// emoji-tagged by the item's first assigned type (see createPinElement) so
-// a list with several types is easy to scan at a glance. An item can carry
-// more than one type tag, but a pin can only show one, so the first (by
-// sort_order) wins for the pin's look.
-function CustomListMapComponent({ token, items, types, focusedItemId, onFocusItem, flyToRef, flyToMeRef, onLocationDenied }: CustomListMapComponentProps) {
-  const { requestLocation } = useLocationPermission();
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const markersRef = useRef<globalThis.Map<string, any>>(new globalThis.Map());
+// Pins are coloured and emoji-tagged by the item's first assigned type, so a
+// list with several types is easy to scan. An item can carry more than one
+// type, but a pin shows one: the first (by sort_order) wins.
+function CustomListMapComponent({ items, types, focusedItemId, onFocusItem, flyToRef, flyToMeRef, onLocationDenied }: CustomListMapComponentProps) {
   const { center } = useMapCenter(items);
-
-  useEffect(() => {
-    if (!mapContainer.current || !token) return;
-
-    const loadMapbox = async () => {
-      const mapboxgl = (await import('mapbox-gl')).default;
-      await import('mapbox-gl/dist/mapbox-gl.css');
-
-      mapboxgl.accessToken = token;
-
-      if (mapRef.current) return;
-
-      mapRef.current = new mapboxgl.Map({
-        container: mapContainer.current!,
-        style: 'mapbox://styles/mapbox/streets-v12',
-        center: [center.lng, center.lat],
-        zoom: 11,
-      });
-
-      mapRef.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-
-      flyToRef.current = (lat: number, lng: number, itemId: string) => {
-        if (mapRef.current) {
-          mapRef.current.flyTo({ center: [lng, lat], zoom: 16, duration: 1500, essential: true });
-          const marker = markersRef.current.get(itemId);
-          if (marker) marker.togglePopup();
-        }
-      };
-
-      // "Near Me" - recenter on demand, distinct from the auto-centering
-      // that runs once when the map first loads.
-      flyToMeRef.current = () => {
-        requestLocation().then(({ coords, wasDenied }) => {
-          if (coords) {
-            mapRef.current?.flyTo({ center: [coords.longitude, coords.latitude], zoom: 14, essential: true });
-          } else if (wasDenied) {
-            onLocationDenied();
-          }
-        });
-      };
-    };
-
-    loadMapbox();
-
-    return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-      flyToRef.current = null;
-      flyToMeRef.current = null;
-    };
-  }, [token, flyToRef, flyToMeRef]);
-
-  useEffect(() => {
-    if (!mapRef.current) return;
-    mapRef.current.easeTo({ center: [center.lng, center.lat], duration: 600 });
-  }, [center]);
-
-  useEffect(() => {
-    if (!mapRef.current) return;
-
-    markersRef.current.forEach((marker) => marker.remove());
-    markersRef.current.clear();
-
-    const itemsWithLocation = items.filter((i) => i.latitude && i.longitude);
-    if (itemsWithLocation.length === 0) return;
-
-    const loadMarkers = async () => {
-      const mapboxgl = (await import('mapbox-gl')).default;
-
-      itemsWithLocation.forEach((item) => {
-        const isFocused = focusedItemId === item.id;
+  const points = useMemo<MapPoint[]>(
+    () =>
+      items.map((item) => {
         const firstType = types.find((t) => (item.type_ids || []).includes(t.id));
-
-        const el = createPinElement({
+        return {
+          id: item.id,
+          name: item.name,
+          address: item.address,
+          latitude: item.latitude,
+          longitude: item.longitude,
           color: firstType?.color,
           icon: firstType?.icon,
-          focused: isFocused,
-        });
-
-        const safeName = item.name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const safeAddress = item.address?.replace(/</g, '&lt;').replace(/>/g, '&gt;') || '';
-
-        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
-          <div class="p-2">
-            <h3 class="font-semibold">${safeName}</h3>
-            ${safeAddress ? `<p class="text-sm text-gray-600">${safeAddress}</p>` : ''}
-            ${getDirectionsPopupHtml({ latitude: item.latitude, longitude: item.longitude, address: item.address, name: item.name })}
-          </div>
-        `);
-
-        const marker = new mapboxgl.Marker(el, { anchor: 'bottom' })
-          .setLngLat([item.longitude!, item.latitude!])
-          .setPopup(popup)
-          .addTo(mapRef.current);
-
-        el.addEventListener('click', () => onFocusItem(item.id));
-
-        markersRef.current.set(item.id, marker);
-      });
-
-      if (itemsWithLocation.length > 0 && !focusedItemId) {
-        const bounds = new mapboxgl.LngLatBounds();
-        itemsWithLocation.forEach((i) => bounds.extend([i.longitude!, i.latitude!]));
-        mapRef.current.fitBounds(bounds, { padding: 50, maxZoom: 14 });
-      }
-    };
-
-    const checkMap = setInterval(() => {
-      if (mapRef.current?.loaded()) {
-        clearInterval(checkMap);
-        loadMarkers();
-      }
-    }, 100);
-
-    return () => clearInterval(checkMap);
-  }, [items, types, focusedItemId, onFocusItem]);
-
-  return <div ref={mapContainer} className="w-full h-full" />;
+        };
+      }),
+    [items, types],
+  );
+  return (
+    <PlaceMap
+      points={points}
+      center={center}
+      focusedId={focusedItemId}
+      onSelect={onFocusItem}
+      flyToRef={flyToRef}
+      flyToMeRef={flyToMeRef}
+      onLocationDenied={onLocationDenied}
+    />
+  );
 }

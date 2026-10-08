@@ -81,6 +81,32 @@ export async function resolveApplePlaces(ids: readonly (string | null | undefine
     else needed.push(id);
   }
 
+  // Fast path: details another visitor already fetched are in the shared
+  // short-lived cache, readable directly (expired rows are hidden by RLS).
+  if (needed.length > 0) {
+    const { data: cached } = await supabase
+      .from('place_cache')
+      .select('apple_place_id, name, address, latitude, longitude, category, country_code')
+      .in('apple_place_id', needed);
+    const until = Date.now() + MEMORY_TTL_MS;
+    for (const row of cached ?? []) {
+      const place: ApplePlace = {
+        id: row.apple_place_id,
+        name: row.name,
+        address: row.address,
+        latitude: row.latitude,
+        longitude: row.longitude,
+        category: row.category,
+        countryCode: row.country_code,
+      };
+      memory.set(place.id, { place, until });
+      out[place.id] = place;
+    }
+    for (let i = needed.length - 1; i >= 0; i--) {
+      if (out[needed[i]]) needed.splice(i, 1);
+    }
+  }
+
   // Join requests already in flight for the same IDs instead of repeating them.
   const waits: Promise<void>[] = [];
   const toRequest: string[] = [];
@@ -118,6 +144,139 @@ export async function resolveApplePlaces(ids: readonly (string | null | undefine
     if (hit) out[id] = hit.place;
   }
   return out;
+}
+
+/** The location fields of any saved item (restaurant, list item, shared item). */
+export interface PlaceFields {
+  apple_place_id?: string | null;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
+/**
+ * Fills in address and coordinates for items saved from Apple Maps, which
+ * store only the Apple place ID. Anything the user entered themselves
+ * (a typed address, a pin they placed) wins over Apple's details. The
+ * item's own name - the user's label for the place - is never replaced.
+ */
+/** Which displayed fields came from Apple rather than from the saved row. */
+export interface AppleFilled {
+  address: boolean;
+  pin: boolean;
+}
+
+export async function withApplePlaceDetails<T extends PlaceFields>(
+  rows: T[],
+): Promise<(T & { appleFilled?: AppleFilled })[]> {
+  const ids = rows.map((r) => r.apple_place_id).filter((id): id is string => !!id);
+  if (ids.length === 0) return rows;
+  const places = await resolveApplePlaces(ids);
+  return rows.map((row) => {
+    const place = row.apple_place_id ? places[row.apple_place_id] : undefined;
+    if (!place) return row;
+    const hasOwnPin = row.latitude != null && row.longitude != null;
+    const fillAddress = !row.address && !!place.address;
+    const fillPin = !hasOwnPin && place.latitude != null && place.longitude != null;
+    return {
+      ...row,
+      address: fillAddress ? place.address : row.address,
+      latitude: fillPin ? place.latitude : row.latitude,
+      longitude: fillPin ? place.longitude : row.longitude,
+      appleFilled: { address: fillAddress, pin: fillPin },
+    };
+  });
+}
+
+/**
+ * Location columns to write back when editing an item that was shown with
+ * Apple's details filled in. Apple-supplied values the user left alone are
+ * not written to the row (they'd become permanent copies); anything the
+ * user changed is theirs and is saved.
+ */
+export function placeColumnsForEdit(
+  row: PlaceFields & { appleFilled?: AppleFilled },
+  form: { address?: string | null; latitude?: number | null; longitude?: number | null },
+): { address: string | null; latitude: number | null; longitude: number | null } {
+  const typed = form.address?.trim() || null;
+  const latitude = form.latitude ?? null;
+  const longitude = form.longitude ?? null;
+  if (!row.apple_place_id || !row.appleFilled) return { address: typed, latitude, longitude };
+
+  const addressUnchanged = typed === (row.address?.trim() || null);
+  const pinUnchanged = latitude === (row.latitude ?? null) && longitude === (row.longitude ?? null);
+  const dropPin = row.appleFilled.pin && pinUnchanged;
+  return {
+    address: row.appleFilled.address && addressUnchanged ? null : typed,
+    latitude: dropPin ? null : latitude,
+    longitude: dropPin ? null : longitude,
+  };
+}
+
+/** Location columns shared by restaurants, list items and shared items. */
+export interface LocationColumns {
+  apple_place_id: string | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+}
+
+/** What a place picked from search contributes to a save. */
+export interface PickedPlace {
+  applePlaceId: string | null;
+  /** The address Apple showed when it was picked (not stored). */
+  appleAddress: string | null;
+}
+
+/**
+ * The location columns to store for a new or edited item.
+ *
+ * For a place picked from Apple Maps, only the Apple place ID is kept -
+ * Apple's address and coordinates are shown from the short-lived cache
+ * instead (see withApplePlaceDetails). If the user typed over the address,
+ * what they typed is theirs and is kept. Manually entered places store
+ * whatever the user entered.
+ */
+export function placeColumnsForSave(
+  picked: PickedPlace | null,
+  form: { address?: string | null; latitude?: number | null; longitude?: number | null },
+): LocationColumns {
+  const typedAddress = form.address?.trim() || null;
+  if (picked?.applePlaceId) {
+    const editedAddress =
+      typedAddress && typedAddress !== (picked.appleAddress ?? '').trim() ? typedAddress : null;
+    return {
+      apple_place_id: picked.applePlaceId,
+      address: editedAddress,
+      latitude: null,
+      longitude: null,
+    };
+  }
+  return {
+    apple_place_id: null,
+    address: typedAddress,
+    latitude: form.latitude ?? null,
+    longitude: form.longitude ?? null,
+  };
+}
+
+/**
+ * Location columns for any add/edit form:
+ *  - a place picked from search in this session -> Apple ID only
+ *  - editing an existing item, nothing new picked -> keep its Apple ID and
+ *    write back only what the user changed (placeColumnsForEdit)
+ *  - otherwise -> whatever the user typed
+ */
+export function locationColumns(
+  picked: PickedPlace | null,
+  editRow: (PlaceFields & { appleFilled?: AppleFilled }) | null | undefined,
+  form: { address?: string | null; latitude?: number | null; longitude?: number | null },
+): LocationColumns {
+  if (picked?.applePlaceId) return placeColumnsForSave(picked, form);
+  if (editRow) {
+    return { apple_place_id: editRow.apple_place_id ?? null, ...placeColumnsForEdit(editRow, form) };
+  }
+  return placeColumnsForSave(null, form);
 }
 
 // ---------------------------------------------------------------------

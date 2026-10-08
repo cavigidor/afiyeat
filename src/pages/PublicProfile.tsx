@@ -18,6 +18,7 @@ import { useRestaurantListControls } from '@/hooks/useRestaurantListControls';
 import { useViewMode } from '@/hooks/useViewMode';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { withApplePlaceDetails } from '@/lib/appleMaps';
 import { Loader2, UserPlus, UserMinus, Lock, ArrowLeft, Check, Clock, ListChecks } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
@@ -72,7 +73,7 @@ async function fetchPublicRestaurants(userId: string): Promise<any[]> {
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return data || [];
+  return withApplePlaceDetails(data || []);
 }
 
 async function fetchPublicFolders(userId: string): Promise<{ id: string; name: string; color: string; icon: string | null }[]> {

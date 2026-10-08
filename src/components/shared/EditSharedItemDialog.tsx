@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { EmojiSlider, PRICE_LABELS } from './EmojiSlider';
 import { PriceLevelPicker } from '@/components/restaurants/PriceLevelPicker';
 import { blockedByContentFilter } from '@/lib/contentFilter';
+import { placeColumnsForEdit, type AppleFilled } from '@/lib/appleMaps';
 
 export interface SharedItem {
   id: string;
@@ -34,6 +35,8 @@ export interface SharedItem {
   price_level: number | null;
   notes: string | null;
   added_by?: string;
+  apple_place_id?: string | null;
+  appleFilled?: AppleFilled;
 }
 
 interface EditSharedItemDialogProps {
@@ -82,7 +85,12 @@ export function EditSharedItemDialog({ open, onOpenChange, item, onSuccess }: Ed
       .from('shared_list_items')
       .update({
         name: name.trim(),
-        address: address.trim() || null,
+        // An Apple-supplied address the user didn't change isn't saved.
+        address: placeColumnsForEdit(item, {
+          address,
+          latitude: item.latitude ?? null,
+          longitude: item.longitude ?? null,
+        }).address,
         status,
         rating: isToGo ? null : rating,
         price_level: priceLevel,

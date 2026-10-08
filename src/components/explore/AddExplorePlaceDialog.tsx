@@ -58,13 +58,17 @@ export function AddExplorePlaceDialog({ open, onOpenChange, place }: AddExploreP
   const handleAdd = async () => {
     if (!user || !place) return;
     setSaving(true);
+    const savedLocation = place.apple_place_id
+      ? { apple_place_id: place.apple_place_id, address: null, latitude: null, longitude: null }
+      : { apple_place_id: null, address: place.address, latitude: place.latitude, longitude: place.longitude };
     try {
       if (destination === RESTAURANTS_DESTINATION) {
         const duplicate = await isDuplicateRestaurant(user.id, {
           name: place.name,
           latitude: place.latitude,
           longitude: place.longitude,
-          placeId: place.place_id,
+          placeId: place.apple_place_id ? null : place.place_id,
+          applePlaceId: place.apple_place_id,
         });
         if (duplicate) {
           toast.error("You've already added this place to My Restaurants.");
@@ -73,10 +77,10 @@ export function AddExplorePlaceDialog({ open, onOpenChange, place }: AddExploreP
         const { error } = await supabase.from('restaurants').insert({
           user_id: user.id,
           name: place.name,
-          address: place.address,
-          latitude: place.latitude,
-          longitude: place.longitude,
-          place_id: place.place_id,
+          // Apple places are saved by ID only; their details come from the
+          // short-lived cache when shown.
+          ...savedLocation,
+          place_id: place.apple_place_id ? null : place.place_id,
           category: place.category,
           status: 'to_go',
         });
@@ -87,6 +91,7 @@ export function AddExplorePlaceDialog({ open, onOpenChange, place }: AddExploreP
           name: place.name,
           latitude: place.latitude,
           longitude: place.longitude,
+          applePlaceId: place.apple_place_id,
         });
         if (duplicate) {
           toast.error('This is already on that list.');
@@ -107,9 +112,7 @@ export function AddExplorePlaceDialog({ open, onOpenChange, place }: AddExploreP
           list_id: destination,
           user_id: user.id,
           name: place.name,
-          address: place.address,
-          latitude: place.latitude,
-          longitude: place.longitude,
+          ...savedLocation,
           status_id: firstStatus?.id ?? null,
         });
         if (error) throw error;
