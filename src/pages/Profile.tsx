@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -40,7 +40,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Pencil, Save, LogOut, Lock, Check, X, UserPlus, Trash2, Stamp } from 'lucide-react';
+import { Loader2, Pencil, Save, LogOut, Lock, Check, X, UserPlus, Trash2, Stamp, LifeBuoy, ChevronRight } from 'lucide-react';
 import { buildLabel } from '@/lib/buildInfo';
 import { BlockedAccountsCard } from '@/components/moderation/BlockedAccountsCard';
 import { PassportBadge } from '@/components/passport/PassportBadge';
@@ -580,6 +580,21 @@ export default function Profile() {
         </Card>
 
         <BlockedAccountsCard />
+
+        {/* Visible contact route - Apple asks apps with user content to
+            publish one, and it's where people look first. */}
+        <Card className="mb-6">
+          <CardContent className="p-0">
+            <Link to="/support" className="active-press flex items-center gap-3 p-4">
+              <LifeBuoy className="h-5 w-5 text-primary shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">Help &amp; Support</p>
+                <p className="text-sm text-muted-foreground">Contact us, report a problem, privacy and terms</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </Link>
+          </CardContent>
+        </Card>
 
         <Card className="mb-6 border-destructive/50">
           <CardHeader>

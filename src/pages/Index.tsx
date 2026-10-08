@@ -256,6 +256,10 @@ export default function Index() {
             <Link to="/privacy" className="hover:text-foreground transition-colors">
               Privacy Policy
             </Link>
+            <span aria-hidden>·</span>
+            <Link to="/support" className="hover:text-foreground transition-colors">
+              Support
+            </Link>
           </div>
         </div>
       </footer>

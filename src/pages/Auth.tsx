@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Form,
@@ -46,6 +47,11 @@ const signUpSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string(),
+  // App Store guideline 1.2: users of an app with user-generated content
+  // must agree to terms that rule out objectionable content and abuse.
+  acceptTerms: z.boolean().refine((v) => v, {
+    message: 'Please agree to the Terms and Privacy Policy to continue',
+  }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ['confirmPassword'],
@@ -92,6 +98,7 @@ export default function Auth() {
       email: '',
       password: '',
       confirmPassword: '',
+      acceptTerms: false,
     },
   });
 
@@ -569,6 +576,31 @@ export default function Auth() {
                         <FormControl>
                           <Input type="password" placeholder="••••••••" {...field} />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={signUpForm.control}
+                    name="acceptTerms"
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex items-start gap-2.5">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={(checked) => field.onChange(checked === true)}
+                              className="mt-0.5"
+                            />
+                          </FormControl>
+                          <span className="text-sm text-muted-foreground leading-snug">
+                            I agree to the{' '}
+                            <Link to="/terms" className="text-primary hover:underline">Terms of Service</Link>{' '}
+                            and{' '}
+                            <Link to="/privacy" className="text-primary hover:underline">Privacy Policy</Link>,
+                            including that there's no tolerance for objectionable content or abusive behaviour.
+                          </span>
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}

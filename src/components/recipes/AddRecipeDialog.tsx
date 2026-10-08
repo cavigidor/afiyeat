@@ -83,6 +83,9 @@ export function AddRecipeDialog({ open, onOpenChange, onSuccess, initialData }: 
 
   useEffect(() => {
     if (open && initialData) {
+      // Scanned recipes often come from cookbooks or other people's cards,
+      // so they start private; the user can choose to share them.
+      setIsPublic(false);
       if (initialData.title) setTitle(initialData.title);
       if (initialData.description) setDescription(initialData.description);
       if (initialData.prep_time_minutes != null) setPrepTime(String(initialData.prep_time_minutes));
