@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_deletion_cleanup: {
+        Row: {
+          attempts: number
+          created_at: string
+          deleted_user_id: string
+          detail: string | null
+          id: string
+          resolved_at: string | null
+          step: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          deleted_user_id: string
+          detail?: string | null
+          id?: string
+          resolved_at?: string | null
+          step: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          deleted_user_id?: string
+          detail?: string | null
+          id?: string
+          resolved_at?: string | null
+          step?: string
+        }
+        Relationships: []
+      }
+      ai_scan_usage: {
+        Row: {
+          day: string
+          scans: number
+          user_id: string
+        }
+        Insert: {
+          day: string
+          scans?: number
+          user_id: string
+        }
+        Update: {
+          day?: string
+          scans?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       blocked_users: {
         Row: {
           blocked_id: string
@@ -1067,6 +1115,11 @@ export type Database = {
       }
     }
     Functions: {
+      ai_scan_try_consume: {
+        Args: { p_daily_limit: number; p_user_id: string }
+        Returns: boolean
+      }
+      auth_user_id_by_email: { Args: { p_email: string }; Returns: string }
       can_view_profile: { Args: { profile_user_id: string }; Returns: boolean }
       claim_device_token: {
         Args: { p_platform: string; p_token: string }
@@ -1127,6 +1180,19 @@ export type Database = {
           username: string
         }[]
       }
+      get_referral_history: {
+        Args: never
+        Returns: {
+          avatar_color: string
+          avatar_emoji: string
+          display_name: string
+          qualified_at: string
+          signup_at: string
+          status: string
+          user_id: string
+          username: string
+        }[]
+      }
       get_shared_preview: {
         Args: { p_id: string; p_type: string }
         Returns: Json
@@ -1146,6 +1212,33 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      otp_check_code: {
+        Args: {
+          p_code: string
+          p_consume: boolean
+          p_email: string
+          p_lockout_minutes: number
+          p_max_attempts: number
+        }
+        Returns: {
+          remaining_attempts: number
+          retry_after_minutes: number
+          status: string
+        }[]
+      }
+      otp_issue_code: {
+        Args: {
+          p_code: string
+          p_email: string
+          p_max_requests: number
+          p_ttl_minutes: number
+          p_window_minutes: number
+        }
+        Returns: {
+          allowed: boolean
+          retry_after_minutes: number
+        }[]
       }
       seed_default_folders: { Args: { p_user_id: string }; Returns: undefined }
       send_daily_prompt: { Args: never; Returns: undefined }
