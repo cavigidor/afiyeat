@@ -1281,6 +1281,7 @@ export type Database = {
         Args: { p_mode?: string }
         Returns: {
           address: string
+          apple_place_id: string
           avg_rating: number
           category: string
           contributor_count: number
