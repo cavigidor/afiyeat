@@ -56,7 +56,7 @@ export default function DevAppleMaps() {
           showsCompass: mk.FeatureVisibility?.Hidden,
         });
       }
-      add('map OK (if you can see streets below, MapKit JS works on this origin)');
+      add('map loaded - streets in the box = working; a blank grid or an Unauthorized line = not authorised on this origin');
     } catch (err) {
       add(`map FAILED: ${err instanceof Error ? err.message : String(err)}`);
     }

@@ -34,7 +34,8 @@ const RESOLVE_BATCH = 20;
 const MAX_RESOLVE_IDS = 200;
 // Origins MapKit JS maps may load on: the website, Lovable previews, and
 // the iOS app's WebView (capacitor://localhost).
-const MAPKIT_ORIGINS = "afiyeat.com,*.afiyeat.com,localhost,*.lovable.app,*.lovableproject.com";
+const MAPKIT_ORIGINS =
+  "afiyeat.com,*.afiyeat.com,localhost,capacitor://localhost,*.lovable.app,*.lovableproject.com";
 const MAPKIT_TOKEN_TTL_SECONDS = 60 * 60;
 
 // Food-related Apple POI categories, for the restaurant search.
