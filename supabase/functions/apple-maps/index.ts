@@ -390,6 +390,14 @@ function metersBetween(lat1: number, lng1: number, lat2: number, lng2: number): 
 // address, coordinates and ID. Places without a confident match are left
 // untouched and reported, so nothing is lost. Runs in small batches;
 // call repeatedly until `remaining` is 0. `dryRun` reports without writing.
+interface LegacyRow {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  place_id?: string | null;
+}
+
 // deno-lint-ignore no-explicit-any
 async function migrateLegacy(admin: SupabaseClient, body: any) {
   const batchSize = Math.min(Math.max(Number(body?.batchSize) || 25, 1), 50);
@@ -405,8 +413,9 @@ async function migrateLegacy(admin: SupabaseClient, body: any) {
       .is("apple_place_id", null)
       .not("latitude", "is", null)
       .not("longitude", "is", null);
-    const { data: rows, error } = await (skip.length ? legacy.not("id", "in", `(${skip.join(",")})`) : legacy)
-      .limit(batchSize);
+    const { data: rows, error } = (await (
+      skip.length ? legacy.not("id", "in", `(${skip.join(",")})`) : legacy
+    ).limit(batchSize)) as unknown as { data: LegacyRow[] | null; error: { message: string } | null };
     if (error) throw new HttpError(500, `Couldn't read ${table}: ${error.message}`);
 
     for (const row of rows ?? []) {
@@ -439,7 +448,9 @@ async function migrateLegacy(admin: SupabaseClient, body: any) {
         longitude: null,
       };
       if (hasPlaceId) update.place_id = null;
-      const { error: updError } = await admin.from(table).update(update).eq("id", row.id);
+      const { error: updError } = (await admin.from(table).update(update).eq("id", row.id)) as unknown as {
+        error: { message: string } | null;
+      };
       if (updError) {
         console.error(`migrate ${table} ${row.id} failed:`, updError.message);
         result.matched--;
