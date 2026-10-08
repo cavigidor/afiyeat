@@ -193,6 +193,7 @@ export type Database = {
       }
       content_reports: {
         Row: {
+          alerted_at: string | null
           content_id: string | null
           content_type: string | null
           created_at: string
@@ -206,6 +207,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          alerted_at?: string | null
           content_id?: string | null
           content_type?: string | null
           created_at?: string
@@ -219,6 +221,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          alerted_at?: string | null
           content_id?: string | null
           content_type?: string | null
           created_at?: string
@@ -633,6 +636,84 @@ export type Database = {
         Update: {
           last_sent_date?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      moderation_actions: {
+        Row: {
+          action: string
+          content_id: string | null
+          content_type: string | null
+          created_at: string
+          id: string
+          moderator_id: string | null
+          note: string | null
+          report_id: string | null
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          content_id?: string | null
+          content_type?: string | null
+          created_at?: string
+          id?: string
+          moderator_id?: string | null
+          note?: string | null
+          report_id?: string | null
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          content_id?: string | null
+          content_type?: string | null
+          created_at?: string
+          id?: string
+          moderator_id?: string | null
+          note?: string | null
+          report_id?: string | null
+          target_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "moderation_actions_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "content_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moderation_actions_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "moderation_queue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      moderation_hidden: {
+        Row: {
+          content_id: string
+          content_type: string
+          created_at: string
+          hidden_by: string | null
+          owner_id: string | null
+          reason: string
+        }
+        Insert: {
+          content_id: string
+          content_type: string
+          created_at?: string
+          hidden_by?: string | null
+          owner_id?: string | null
+          reason: string
+        }
+        Update: {
+          content_id?: string
+          content_type?: string
+          created_at?: string
+          hidden_by?: string | null
+          owner_id?: string | null
+          reason?: string
         }
         Relationships: []
       }
@@ -1328,9 +1409,26 @@ export type Database = {
       has_activated: { Args: { p_user_id: string }; Returns: boolean }
       has_role: { Args: { check_role: string }; Returns: boolean }
       is_blocked_pair: { Args: { a: string; b: string }; Returns: boolean }
+      is_moderation_hidden: {
+        Args: { p_id: string; p_owner: string; p_type: string }
+        Returns: boolean
+      }
+      is_moderator: { Args: never; Returns: boolean }
       is_shared_list_member: {
         Args: { _list_id: string; _user_id: string }
         Returns: boolean
+      }
+      moderation_content_owner: {
+        Args: { p_id: string; p_type: string }
+        Returns: string
+      }
+      moderation_decide: {
+        Args: { p_action: string; p_note?: string; p_report_id: string }
+        Returns: Json
+      }
+      moderation_list_reports: {
+        Args: { p_limit?: number; p_status?: string }
+        Returns: Json
       }
       notify_user: {
         Args: {

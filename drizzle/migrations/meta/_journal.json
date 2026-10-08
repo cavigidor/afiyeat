@@ -36,6 +36,13 @@
       "when": 1791426663655,
       "tag": "0004_apple_explore_and_share_previews",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791429030848,
+      "tag": "0005_moderation_enforcement",
+      "breakpoints": true
     }
   ]
 }
