@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.apple-maps]
 verify_jwt = true
+
+[functions.report-alert]
+verify_jwt = true

@@ -30,6 +30,7 @@ import NotFound from "./pages/NotFound";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import Support from "./pages/Support";
+import Moderation from "./pages/Moderation";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -101,6 +102,7 @@ function AnimatedRoutes() {
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/support" element={<Support />} />
+        <Route path="/moderation" element={<Moderation />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>

@@ -9,7 +9,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Users, LogOut, User, ListChecks, ChefHat, Compass, Stamp } from 'lucide-react';
+import { Users, LogOut, User, ListChecks, ChefHat, Compass, Stamp, ShieldAlert } from 'lucide-react';
+import { fetchIsModerator } from '@/lib/moderation';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import logo from '@/assets/logo.png';
@@ -39,6 +40,15 @@ export function Navbar() {
     queryFn: () => fetchOwnAvatar(user!.id),
     enabled: !!user,
     staleTime: 5 * 60 * 1000,
+  });
+
+  // Only moderators see the queue link; everyone else gets false and the
+  // item never renders. The server checks the role again on every action.
+  const { data: isModerator } = useQuery({
+    queryKey: ['is-moderator', user?.id],
+    queryFn: fetchIsModerator,
+    enabled: !!user,
+    staleTime: 10 * 60 * 1000,
   });
 
   const handleSignOut = async () => {
@@ -126,6 +136,12 @@ export function Navbar() {
                   <Stamp className="mr-2 h-4 w-4" />
                   <span>Invite friends</span>
                 </DropdownMenuItem>
+                {isModerator && (
+                  <DropdownMenuItem onClick={() => navigate('/moderation')}>
+                    <ShieldAlert className="mr-2 h-4 w-4" />
+                    <span>Moderation</span>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />

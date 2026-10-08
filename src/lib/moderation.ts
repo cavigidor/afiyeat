@@ -64,14 +64,18 @@ export async function submitReport(input: SubmitReportInput): Promise<SubmitRepo
     return { ok: false, reason: 'self', message: 'You can\'t report yourself.' };
   }
 
-  const { error } = await supabase.from('content_reports').insert({
-    reporter_id: reporterId,
-    reported_user_id: input.reportedUserId,
-    reason: input.reason,
-    description: input.description?.trim() || null,
-    content_type: input.contentType ?? 'user',
-    content_id: input.contentId ?? null,
-  });
+  const { data: created, error } = await supabase
+    .from('content_reports')
+    .insert({
+      reporter_id: reporterId,
+      reported_user_id: input.reportedUserId,
+      reason: input.reason,
+      description: input.description?.trim() || null,
+      content_type: input.contentType ?? 'user',
+      content_id: input.contentId ?? null,
+    })
+    .select('id')
+    .single();
 
   if (error) {
     // 23505 = unique_violation, which here can only be the partial index
@@ -89,6 +93,14 @@ export async function submitReport(input: SubmitReportInput): Promise<SubmitRepo
     }
     console.error('submitReport failed:', error);
     return { ok: false, reason: 'error', message: 'Couldn\'t send that report. Please try again.' };
+  }
+
+  // Email the moderator straight away. Fire-and-forget: the report is
+  // already saved, and it also shows in the moderation queue regardless.
+  if (created?.id) {
+    void supabase.functions
+      .invoke('report-alert', { body: { reportId: created.id } })
+      .catch((err) => console.error('report-alert failed:', err));
   }
 
   return { ok: true };
@@ -183,4 +195,61 @@ export async function fetchBlockedUsers() {
     blockedAt: b.created_at,
     profile: byId.get(b.blocked_id) ?? null,
   }));
+}
+
+// ---------------------------------------------------------------------
+// Moderator tools (see migration 20261010120000_moderation_enforcement)
+// ---------------------------------------------------------------------
+
+// The moderation functions are called by name rather than through the
+// generated types, which Lovable regenerates after each migration.
+const moderationRpc = supabase.rpc.bind(supabase) as unknown as (
+  fn: string,
+  args?: Record<string, unknown>,
+) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>;
+
+export async function fetchIsModerator(): Promise<boolean> {
+  const { data, error } = await moderationRpc('is_moderator');
+  if (error) return false;
+  return data === true;
+}
+
+export type ModerationAction = 'dismiss' | 'hide' | 'unhide' | 'restrict' | 'unrestrict';
+export type ModerationFilter = 'open' | 'closed';
+
+export interface ModerationReport {
+  id: string;
+  created_at: string;
+  status: 'pending' | 'reviewing' | 'actioned' | 'dismissed';
+  reason: ReportReason;
+  description: string | null;
+  content_type: ReportableContentType | null;
+  content_id: string | null;
+  moderator_notes: string | null;
+  reviewed_at: string | null;
+  reporter_id: string;
+  reporter_username: string | null;
+  reported_user_id: string;
+  reported_username: string | null;
+  reported_display_name: string | null;
+  total_reports_against_user: number;
+  content_hidden: boolean;
+  hidden_reason: 'auto_reports' | 'moderator' | null;
+  user_restricted: boolean;
+  content_preview: { title: string | null; text: string | null } | null;
+}
+
+export async function fetchModerationReports(filter: ModerationFilter): Promise<ModerationReport[]> {
+  const { data, error } = await moderationRpc('moderation_list_reports', { p_status: filter, p_limit: 200 });
+  if (error) throw new Error(error.message);
+  return Array.isArray(data) ? (data as ModerationReport[]) : [];
+}
+
+export async function decideReport(reportId: string, action: ModerationAction, note?: string): Promise<void> {
+  const { error } = await moderationRpc('moderation_decide', {
+    p_report_id: reportId,
+    p_action: action,
+    p_note: note?.trim() || null,
+  });
+  if (error) throw new Error(error.message);
 }
