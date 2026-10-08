@@ -62,6 +62,21 @@ export type Database = {
         }
         Relationships: []
       }
+      apple_maps_daily_calls: {
+        Row: {
+          calls: number
+          day: string
+        }
+        Insert: {
+          calls?: number
+          day: string
+        }
+        Update: {
+          calls?: number
+          day?: string
+        }
+        Relationships: []
+      }
       apple_maps_usage: {
         Row: {
           count: number
@@ -743,6 +758,42 @@ export type Database = {
           },
         ]
       }
+      place_cache: {
+        Row: {
+          address: string | null
+          apple_place_id: string
+          category: string | null
+          country_code: string | null
+          expires_at: string
+          fetched_at: string
+          latitude: number | null
+          longitude: number | null
+          name: string | null
+        }
+        Insert: {
+          address?: string | null
+          apple_place_id: string
+          category?: string | null
+          country_code?: string | null
+          expires_at: string
+          fetched_at?: string
+          latitude?: number | null
+          longitude?: number | null
+          name?: string | null
+        }
+        Update: {
+          address?: string | null
+          apple_place_id?: string
+          category?: string | null
+          country_code?: string | null
+          expires_at?: string
+          fetched_at?: string
+          latitude?: number | null
+          longitude?: number | null
+          name?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_color: string
@@ -1185,13 +1236,15 @@ export type Database = {
         Args: { p_daily_limit: number; p_user_id: string }
         Returns: boolean
       }
-      apple_maps_try_consume: {
-        Args: { p_limit: number; p_user_id: string }
+      apple_maps_try_spend: {
+        Args: { p_calls: number; p_cap: number }
         Returns: boolean
       }
       apple_place_is_referenced: {
         Args: { p_ids: string[] }
-        Returns: string[]
+        Returns: {
+          apple_place_id: string
+        }[]
       }
       auth_user_id_by_email: { Args: { p_email: string }; Returns: string }
       can_view_profile: { Args: { profile_user_id: string }; Returns: boolean }
@@ -1314,6 +1367,7 @@ export type Database = {
           retry_after_minutes: number
         }[]
       }
+      purge_expired_place_cache: { Args: never; Returns: undefined }
       seed_default_folders: { Args: { p_user_id: string }; Returns: undefined }
       send_daily_prompt: { Args: never; Returns: undefined }
       send_good_morning_treat: { Args: never; Returns: undefined }
