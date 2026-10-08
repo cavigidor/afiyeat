@@ -66,10 +66,10 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT DISTINCT id FROM unnest(p_ids) AS id
-  WHERE EXISTS (SELECT 1 FROM public.restaurants r WHERE r.apple_place_id = id)
-     OR EXISTS (SELECT 1 FROM public.custom_list_items c WHERE c.apple_place_id = id)
-     OR EXISTS (SELECT 1 FROM public.shared_list_items s WHERE s.apple_place_id = id);
+  SELECT DISTINCT ref.ref_id FROM unnest(p_ids) AS ref(ref_id)
+  WHERE EXISTS (SELECT 1 FROM public.restaurants r WHERE r.apple_place_id = ref.ref_id)
+     OR EXISTS (SELECT 1 FROM public.custom_list_items c WHERE c.apple_place_id = ref.ref_id)
+     OR EXISTS (SELECT 1 FROM public.shared_list_items s WHERE s.apple_place_id = ref.ref_id);
 $$;
 
 REVOKE ALL ON FUNCTION public.apple_place_is_referenced(TEXT[]) FROM public, anon, authenticated;
