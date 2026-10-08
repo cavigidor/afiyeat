@@ -15,6 +15,13 @@
       "when": 1791341570724,
       "tag": "0001_referral_hardening_and_history",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791423753545,
+      "tag": "0002_apple_places_integration",
+      "breakpoints": true
     }
   ]
 }
