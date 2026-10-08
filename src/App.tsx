@@ -29,6 +29,7 @@ import { ReferralCapture } from "@/components/sharing/ReferralCapture";
 import NotFound from "./pages/NotFound";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
+import DevAppleMaps from "./pages/DevAppleMaps";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -99,6 +100,8 @@ function AnimatedRoutes() {
         <Route path="/recipe/:id" element={<PublicRecipe />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
+        {/* Temporary Apple Maps check page - not linked; remove after the switch. */}
+        <Route path="/dev/apple-maps" element={<DevAppleMaps />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>
