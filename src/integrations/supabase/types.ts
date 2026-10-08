@@ -62,6 +62,63 @@ export type Database = {
         }
         Relationships: []
       }
+      apple_maps_usage: {
+        Row: {
+          count: number
+          day: string
+          user_id: string
+        }
+        Insert: {
+          count?: number
+          day: string
+          user_id: string
+        }
+        Update: {
+          count?: number
+          day?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      apple_place_cache: {
+        Row: {
+          apple_place_id: string
+          categories: string[] | null
+          fetched_at: string
+          formatted_address: string | null
+          latitude: number | null
+          longitude: number | null
+          name: string | null
+          phone: string | null
+          raw: Json | null
+          website: string | null
+        }
+        Insert: {
+          apple_place_id: string
+          categories?: string[] | null
+          fetched_at?: string
+          formatted_address?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          name?: string | null
+          phone?: string | null
+          raw?: Json | null
+          website?: string | null
+        }
+        Update: {
+          apple_place_id?: string
+          categories?: string[] | null
+          fetched_at?: string
+          formatted_address?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          name?: string | null
+          phone?: string | null
+          raw?: Json | null
+          website?: string | null
+        }
+        Relationships: []
+      }
       blocked_users: {
         Row: {
           blocked_id: string
@@ -196,6 +253,7 @@ export type Database = {
       custom_list_items: {
         Row: {
           address: string | null
+          apple_place_id: string | null
           completed_at: string | null
           created_at: string
           id: string
@@ -217,6 +275,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          apple_place_id?: string | null
           completed_at?: string | null
           created_at?: string
           id?: string
@@ -238,6 +297,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          apple_place_id?: string | null
           completed_at?: string | null
           created_at?: string
           id?: string
@@ -877,6 +937,7 @@ export type Database = {
       restaurants: {
         Row: {
           address: string | null
+          apple_place_id: string | null
           category: string | null
           created_at: string
           folder_id: string | null
@@ -896,6 +957,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          apple_place_id?: string | null
           category?: string | null
           created_at?: string
           folder_id?: string | null
@@ -915,6 +977,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          apple_place_id?: string | null
           category?: string | null
           created_at?: string
           folder_id?: string | null
@@ -988,6 +1051,7 @@ export type Database = {
         Row: {
           added_by: string
           address: string | null
+          apple_place_id: string | null
           created_at: string
           id: string
           latitude: number | null
@@ -1004,6 +1068,7 @@ export type Database = {
         Insert: {
           added_by: string
           address?: string | null
+          apple_place_id?: string | null
           created_at?: string
           id?: string
           latitude?: number | null
@@ -1020,6 +1085,7 @@ export type Database = {
         Update: {
           added_by?: string
           address?: string | null
+          apple_place_id?: string | null
           created_at?: string
           id?: string
           latitude?: number | null
@@ -1118,6 +1184,14 @@ export type Database = {
       ai_scan_try_consume: {
         Args: { p_daily_limit: number; p_user_id: string }
         Returns: boolean
+      }
+      apple_maps_try_consume: {
+        Args: { p_limit: number; p_user_id: string }
+        Returns: boolean
+      }
+      apple_place_is_referenced: {
+        Args: { p_ids: string[] }
+        Returns: string[]
       }
       auth_user_id_by_email: { Args: { p_email: string }; Returns: string }
       can_view_profile: { Args: { profile_user_id: string }; Returns: boolean }
