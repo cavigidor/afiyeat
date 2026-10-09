@@ -151,6 +151,10 @@ afiyeat-app/
 | Moderation | Cem moderates and checks daily. Email alert per report, plus auto-hide after 3 reports from distinct users until reviewed. |
 | Push | Off for launch; finish after launch. |
 
+### Status (October 9, 2026)
+
+Phases 1–4 are built, applied and tested on device. Phase 5 is in progress: release docs are written (`docs/RELEASE_CHECKLIST.md`, `APP_STORE_METADATA.md`, `APP_REVIEW_NOTES.md`, `APP_PRIVACY_LABELS.md`, `USER_TEST_CHECKLIST.md`). What remains is demo accounts, screenshots, the TestFlight test and submission.
+
 ### Before launch, in order
 
 **Phase 1: security and privacy fixes**

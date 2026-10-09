@@ -1,101 +1,84 @@
-# Afiyeat — user test checklist
+# Afiyeat: final test before submitting
 
-Work through this on a real iPhone, as a user would. Tick each box or note what you actually saw.
+Run this on the **TestFlight build** (see RELEASE_CHECKLIST.md §D), as a user would. Tick each box, or note what you actually saw.
 
-**You'll need**
-- **Account A**: your normal account.
-- **Account B**: a brand-new email address, for the referral and blocking tests. Use a different new address each time you rerun the referral tests, because reusing one is now deliberately refused.
-- A private browser window (Safari: tabs → Private), to see what a friend without an account sees.
-
-**Before you start**
-- [ ] Profile → bottom shows a build stamp matching the latest commit (`git rev-parse --short HEAD`).
-- [ ] All Lovable migrations are applied, including `20260930120000_referral_hardening_and_history`.
+**You'll need:**
+- **Account A:** your normal account (admin).
+- **Account B:** a brand-new email, for sign-up, referral and safety tests. Use a fresh address each time you rerun the referral tests.
+- **A private Safari window,** to see what someone without the app or an account sees.
 
 ---
 
-## 1. First launch
-Delete the app first, then install fresh from Xcode.
+## 1. First launch and sign-up
+- [ ] Delete the app, then install from TestFlight. The icon name reads **Afiyeat**.
+- [ ] The splash goes straight to sign-in, with no flash of the website and **no permission pop-ups**.
+- [ ] Sign Up as B: **Continue does nothing until the Terms/Privacy box is ticked**. The links open the right pages.
+- [ ] The email code arrives and works. Entering the same code again fails.
+- [ ] Forgot password: a code arrives, the new password works, and the old one doesn't.
 
-- [ ] The name under the icon reads **Afiyeat** (capital A).
-- [ ] The splash screen goes straight to sign-in, with no flash of the marketing website.
-- [ ] **No** location or notification pop-up appears on launch.
-- [ ] After signing in you land on Foodie, again with no pop-ups.
+## 2. Accounts on one phone
+- [ ] Signed in as A, open My Restaurants. Log out and sign in as B: **none of A's places, lists or photos show**, even briefly.
 
-## 2. Permissions only when needed
-- [ ] News: no location pop-up. Tap the arrow button next to the city picker → location is asked for → the city changes.
-- [ ] Tap "Don't Allow" on location → the app still works, and maps centre on your saved places.
-- [ ] Opening a map or tapping Near Me asks for location if you haven't answered yet.
-- [ ] Adding a photo asks for camera/photos at that moment, and the wording makes sense.
+## 3. Places (as A)
+- [ ] My Restaurants: the round **+ Add place** button sits above the tab bar and doesn't cover the last card.
+- [ ] Search a restaurant: Apple results appear. Pick one and save. **The address shows on the card and there's a pin on the map.**
+- [ ] On the Been There tab, Add place starts as **Been There**. With a type filter selected, that type is pre-ticked.
+- [ ] Edit a place and save without changes: the address is still there afterwards.
+- [ ] Add a place by typing a name only (no search): it saves.
+- [ ] Adding the same place twice says it's already on your list.
+- [ ] Delete a place.
 
-## 3. Look and feel (recent fixes)
-- [ ] The header is slimmer and the logo is crisp.
-- [ ] My Restaurants in grid view: the **"…" button is visible on every card** → Mark visited / Edit / Delete all work.
-- [ ] Add Restaurant and recipe pop-ups fit on screen, and don't jump around when the keyboard opens.
-- [ ] Long-pressing a button or card shows no copy/share bubble, but text fields still let you paste.
-- [ ] Switching between bottom tabs keeps your scroll position.
-- [ ] The avatar menu shows Profile / **Invite friends** / Log out.
+## 4. Maps
+- [ ] Pins show your types' colours and emoji. Tap a pin: a bubble with **Apple Maps / Google Maps** links. The links open directions.
+- [ ] Tap a place in the list: the map flies to it and opens its bubble.
+- [ ] **Near Me** asks for location the first time. Allow it: the map centres on you.
+- [ ] Settings → Afiyeat → Location → Never, then reopen: maps still work, and Near Me explains how to turn location back on.
+- [ ] Pinch and pan on the map work smoothly.
 
-## 4. Lists
-- [ ] New List → tap **Books** → the switches below change, the chip is highlighted, and a line says "Set up for books…".
-- [ ] Create it → statuses are Want to Read / Reading / Read, and the card shows 📚.
-- [ ] Try each preset (Movies, Shows, Concerts, Wines, Beers, Coffee Shops). Do the fields fit how you'd use that list?
-- [ ] Pick a preset, then rename the list → the settings stay.
-- [ ] Add Restaurant → **Types are tappable chips, and you can select more than one**.
+## 5. Lists
+- [ ] New List → **Coffee Shops** preset → add a place by search (address and pin show) → it appears on that list's map.
+- [ ] New List → **Books** preset → add a book (no location) → statuses are Want to Read / Reading / Read.
+- [ ] Shared list with B: add a place, and B sees it. B adds a comment, and A sees it.
 
-## 5. Content filter
-- [ ] A restaurant note containing a slur is refused with a message, and nothing is saved.
-- [ ] Normal food writing still saves, e.g. "damn good ramen" or "retard the dough overnight".
-- [ ] The filter also applies to recipe text, list names, comments, and your profile name and bio.
+## 6. Recipes
+- [ ] Foodie → Add Recipe by typing: it saves.
+- [ ] **Scan Recipe** the first time shows **"Scan with AI"** with Continue / Type it in instead.
+  - [ ] "Type it in instead" opens an empty recipe.
+  - [ ] Continue → pick a recipe photo → the form fills in, and **Public is off** by default.
+- [ ] The second scan skips the permission screen.
 
-## 6. Report and block (A and B)
-- [ ] As A, open B's profile → "…" → Report → pick a reason → "Report sent".
-- [ ] "Something else" won't send until you write something.
-- [ ] Reporting the same thing again → "You've already reported this".
-- [ ] Report from a recipe and from a list too (the "…" menu is there now).
-- [ ] Block B → the confirmation is clear → you're taken off their profile.
-- [ ] B's restaurants, lists and recipes no longer show up for A, **and** A's no longer show for B.
-- [ ] Any follow between A and B is removed in both directions.
-- [ ] Profile → Blocked accounts lists B → Unblock works.
-- [ ] Your report appears in the moderation queue (ask Lovable to show `moderation_queue`).
+## 7. Friends and Explore
+- [ ] Follow B from B's profile; B's places show on the Friends tab map.
+- [ ] Make B private. As A (if you don't follow B), B's Explore comments show as **Anonymous** with no notes, and B's lists aren't listed.
+- [ ] Explore → places map and list load. Tapping a place shows details and "Add to a List".
+- [ ] Explore → Events: map pins. Moving the map shows **Search this area**.
 
-## 7. Sharing
-- [ ] A restaurant's detail → Share → the share sheet opens, and the message reads naturally.
-- [ ] Open that link in a **private window** → you see the place plus a "Join Afiyeat" card, not a login screen.
-- [ ] Share a list → the private window shows its places (up to 12) plus Join.
-- [ ] A public recipe → Share → the private window shows the whole recipe. Private recipes have no Share button.
-- [ ] With your profile set to private, sharing warns that only followers can open it, and the private window says "isn't available".
-- [ ] Signed in as B, open A's restaurant link → "Save to my places" adds it to To Go. Doing it twice → "already in your restaurants".
+## 8. Sharing, links and Passport
+- [ ] Share a place to yourself in Messages and tap it: **the app opens on that place**. If Safari opens, long-press → Open in Afiyeat.
+- [ ] Open the same link in a private Safari window: you see the place with its address and a Join card, not a login wall.
+- [ ] As A, copy your Passport invite link. Sign up a new B through it: B gets "A invited you". After B saves 3 places, A's Passport shows the stamp.
 
-## 8. Referral and Passport (A and a brand-new B)
-- [ ] A: Passport shows an invite link with a 7-character code. Copy and Invite friends both work.
-- [ ] Private window: open a **restaurant** link shared by A → Join → sign up as B.
-- [ ] B lands back on **that restaurant**, not the home screen.
-- [ ] B sees **"A invited you to Afiyeat"** → Follow works (it becomes a request if A is private). "Not now" closes it.
-- [ ] A's Passport shows B under "Friends you've invited" as "Joined — getting started".
-- [ ] B saves 3 restaurants → A's Passport shows "stamp earned" and 1 friend joined.
-- [ ] A's profile shows a **Table for Two** badge, and B can see it there too.
-- [ ] **Loophole check:** delete account B, then sign up again through A's link with the same email (or `name+test@`) → no welcome and no new referral.
-- [ ] An existing account opening A's link gets nothing credited.
-- [ ] A opening their own link gets nothing credited.
+## 9. Safety and moderation
+- [ ] A content filter: a note containing a slur is refused; "damn good ramen" saves.
+- [ ] As B, report one of A's places ("…" → Report): **an email arrives at support@afiyeat.com within a minute**.
+- [ ] As A: avatar menu → **Moderation** shows the report with a preview of the place.
+- [ ] **Hide content:** B (and a private window) can no longer see that place; A still can. **Show again:** it's back.
+- [ ] Reporting the same thing twice says "already reported".
+- [ ] B blocks A: neither sees the other's places, lists or recipes; follows between them are removed; **Unblock** in Profile works.
 
-## 9. Notifications
-- [ ] Following someone shows **no** notification prompt. That's expected: it's switched off until a real notification is confirmed to arrive.
+## 10. Account and help
+- [ ] Profile → **Help & Support** opens. "Email support" opens Mail with the build in the message, and "Copy address" works.
+- [ ] Privacy Policy and Terms open from Support and from sign-up.
+- [ ] Delete account B (Profile → Danger Zone): you're signed out, can't sign back in, and B's places no longer show for A.
 
-## 10. Account
-- [ ] Log out and Delete account are clearly different, and Delete asks for confirmation.
-- [ ] After deleting a test account: you can't sign in with it, and its places no longer show for others.
-
-## 11. Website (afiyeat.com, after Lovable publishes)
-- [ ] The new landing page looks right on phone and desktop, with no header overlap.
-- [ ] "Join" goes to sign-up and "Sign in" to sign-in. Footer links switch pages without a full reload.
-- [ ] Visiting afiyeat.com while signed in takes you straight into the app.
+## 11. Website (afiyeat.com, on a computer)
+- [ ] The landing page, /privacy, /terms and /support look right.
+- [ ] Signing in works, and the maps show Apple Maps.
 
 ---
 
-## Known gaps — not bugs
-These are expected right now. Don't log them as failures:
-- Shared links open in Safari rather than the app (Universal Links aren't set up yet).
-- Every shared link previews as the generic Afiyeat card in iMessage.
-- Push notifications are off until the APNs keys and internal secret are confirmed.
-- Goodreads and Letterboxd import aren't built yet.
-- There's no activity inbox: follow requests only show on Profile.
+## Expected in 1.0 (not bugs)
+- No notification permission prompt; notifications are off for launch.
+- No News tab; it's hidden for launch.
+- iPhone only: on iPad the app runs in iPhone mode.
+- 8 old places without an Apple match keep their original details until re-added through search.
