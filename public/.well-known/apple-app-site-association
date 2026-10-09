@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["A7V4PN4DWK.com.afiyeat.app"],
+        "components": [
+          { "/": "/r/*", "comment": "A shared restaurant" },
+          { "/": "/recipe/*", "comment": "A shared recipe" },
+          { "/": "/u/*", "comment": "A profile or one of its lists" },
+          { "/": "/invite/*", "comment": "An invite link" }
+        ]
+      }
+    ]
+  }
+}

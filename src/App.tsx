@@ -26,6 +26,7 @@ import Invite from "./pages/Invite";
 import PublicRestaurant from "./pages/PublicRestaurant";
 import PublicRecipe from "./pages/PublicRecipe";
 import { ReferralCapture } from "@/components/sharing/ReferralCapture";
+import { NativeLinkRouter } from "@/components/shared/NativeLinkRouter";
 import NotFound from "./pages/NotFound";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
@@ -183,6 +184,8 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <ReferralCapture />
+          {/* Opens tapped afiyeat.com links on the right screen (iOS). */}
+          <NativeLinkRouter />
           {/* Drops cached data and remounts everything below when the
               signed-in account changes - see AccountBoundary.tsx. */}
           <AccountBoundary>

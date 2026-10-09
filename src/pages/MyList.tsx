@@ -253,7 +253,7 @@ export default function MyList() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <main className="container py-4 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-4 sm:space-y-6">
+      <main className="container pt-4 sm:pt-8 pb-24 md:pb-8 px-4 sm:px-6 lg:px-8 space-y-4 sm:space-y-6">
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-2xl sm:text-3xl font-bold">My Restaurants</h1>
           <div className="flex items-center gap-2">
@@ -273,9 +273,12 @@ export default function MyList() {
               <FileDown className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Export PDF</span>
             </Button>
-            <Button onClick={() => setAddDialogOpen(true)} size="sm" className="sm:size-default">
-              <Plus className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Add Place</span>
+            {/* On phones the floating button below does this job, within
+                thumb reach; here it's labelled so it can't be mistaken for
+                the icon-only buttons next to it. */}
+            <Button onClick={() => setAddDialogOpen(true)} size="sm" className="hidden md:inline-flex sm:size-default">
+              <Plus className="h-4 w-4 mr-2" />
+              Add place
             </Button>
           </div>
         </div>
@@ -378,6 +381,10 @@ export default function MyList() {
                       <div className="text-center py-8 text-muted-foreground">
                         <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
                         <p>No restaurants on your to-go list yet</p>
+                        <Button className="mt-4" onClick={() => setAddDialogOpen(true)}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add a place to try
+                        </Button>
                       </div>
                     ) : viewMode === 'list' ? (
                       <div className="space-y-2">
@@ -426,6 +433,10 @@ export default function MyList() {
                       <div className="text-center py-8 text-muted-foreground">
                         <Check className="h-8 w-8 mx-auto mb-2 opacity-50" />
                         <p>You haven't been to any restaurants yet</p>
+                        <Button className="mt-4" onClick={() => setAddDialogOpen(true)}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add a place you've been
+                        </Button>
                       </div>
                     ) : viewMode === 'list' ? (
                       <div className="space-y-2">
@@ -493,7 +504,20 @@ export default function MyList() {
         onFoldersChange={invalidateFolders}
       />
 
+      {/* Phones: one obvious, thumb-reachable way to add a place, sitting
+          just above the tab bar. */}
+      <Button
+        onClick={() => setAddDialogOpen(true)}
+        className="md:hidden fixed right-4 z-40 h-12 rounded-full px-5 shadow-lg active-press bottom-[calc(56px+env(safe-area-inset-bottom,0px)+16px)]"
+        aria-label="Add place"
+      >
+        <Plus className="h-5 w-5 mr-1.5" />
+        Add place
+      </Button>
+
       <AddRestaurantDialog
+        defaultStatus={activeTab}
+        defaultFolderIds={selectedFolder ? [selectedFolder] : []}
         open={addDialogOpen}
         onOpenChange={setAddDialogOpen}
         folders={folders}

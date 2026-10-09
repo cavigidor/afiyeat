@@ -60,6 +60,10 @@ interface AddRestaurantDialogProps {
   folders: { id: string; name: string; color: string; icon?: string | null }[];
   onSuccess: () => void;
   onCreateType?: () => void;
+  /** Status to start with - the tab the user is looking at. */
+  defaultStatus?: 'to_go' | 'went_to';
+  /** Types to start with - the type filter the user has selected. */
+  defaultFolderIds?: string[];
 }
 
 const EMPTY_PICK = { applePlaceId: null, appleAddress: null, category: null };
@@ -137,6 +141,8 @@ export function AddRestaurantDialog({
   folders,
   onSuccess,
   onCreateType,
+  defaultStatus = 'to_go',
+  defaultFolderIds,
 }: AddRestaurantDialogProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -342,6 +348,16 @@ export function AddRestaurantDialog({
     }
   };
 
+  // Start from what the user is looking at: adding from Been There makes a
+  // Been There place, and a selected type filter is pre-ticked.
+  useEffect(() => {
+    if (!open) return;
+    form.setValue('status', defaultStatus);
+    form.setValue('folder_ids', defaultFolderIds ?? []);
+    // Only when the dialog opens - not while the user is editing it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   // Reset form when dialog closes
   useEffect(() => {
     if (!open) {
@@ -437,7 +453,7 @@ export function AddRestaurantDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Status</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select status" />
