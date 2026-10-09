@@ -10,11 +10,12 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
-import { Loader2 } from 'lucide-react';
+
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { blockedByContentFilter } from '@/lib/contentFilter';
+import { Spinner } from '@/components/ui/spinner';
 
 interface Profile {
   id: string;
@@ -133,7 +134,7 @@ export function CreateSharedListDialog({
           </div>
 
           <Button className="w-full" onClick={handleSubmit} disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {loading && <Spinner className="mr-2 h-4 w-4 animate-spin" />}
             Create List
           </Button>
         </div>

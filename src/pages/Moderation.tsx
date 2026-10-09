@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { EyeOff, Eye, Loader2, ShieldAlert, ShieldCheck, UserX, UserCheck, X } from 'lucide-react';
+import { EyeOff, Eye, ShieldAlert, ShieldCheck, UserX, UserCheck, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Navbar } from '@/components/layout/Navbar';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +29,7 @@ import {
   type ModerationFilter,
   type ModerationReport,
 } from '@/lib/moderation';
+import { Spinner } from '@/components/ui/spinner';
 
 const ACTION_COPY: Record<ModerationAction, { title: string; body: string; confirm: string }> = {
   dismiss: {
@@ -113,7 +114,7 @@ export default function Moderation() {
   if (authLoading || (user && roleLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Spinner className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -166,7 +167,7 @@ export default function Moderation() {
 
         {isLoading ? (
           <div className="flex justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <Spinner className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : reports.length === 0 ? (
           <Card>
@@ -293,7 +294,7 @@ export default function Moderation() {
                 void run();
               }}
             >
-              {working && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {working && <Spinner className="h-4 w-4 mr-2 animate-spin" />}
               {pending ? ACTION_COPY[pending.action].confirm : ''}
             </AlertDialogAction>
           </AlertDialogFooter>

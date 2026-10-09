@@ -19,9 +19,10 @@ import { useViewMode } from '@/hooks/useViewMode';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { withApplePlaceDetails } from '@/lib/appleMaps';
-import { Loader2, UserPlus, UserMinus, Lock, ArrowLeft, Check, Clock, ListChecks } from 'lucide-react';
+import { UserPlus, UserMinus, Lock, ArrowLeft, Check, Clock, ListChecks } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
+import { Spinner } from '@/components/ui/spinner';
 
 interface PublicListSummary {
   id: string;
@@ -217,7 +218,7 @@ export default function PublicProfile() {
   if (authLoading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Spinner className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -318,7 +319,7 @@ export default function PublicProfile() {
             {contentTab === 'restaurants' ? (
               restaurantsLoading ? (
                 <div className="flex items-center justify-center py-16">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <Spinner className="h-8 w-8 animate-spin text-primary" />
                 </div>
               ) : restaurants.length === 0 ? (
                 <div className="text-center py-16 bg-card rounded-xl">
@@ -380,7 +381,7 @@ export default function PublicProfile() {
               )
             ) : listsLoading ? (
               <div className="flex items-center justify-center py-16">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <Spinner className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : publicLists.length === 0 ? (
               <div className="text-center py-16 bg-card rounded-xl">

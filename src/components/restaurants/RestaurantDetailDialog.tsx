@@ -2,23 +2,13 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  MapPin,
-  Star,
-  DollarSign,
-  Check,
-  Clock,
-  Edit,
-  Trash2,
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-} from 'lucide-react';
+import { MapPin, Star, DollarSign, Check, Clock, Edit, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSignedImageUrls } from '@/hooks/useSignedImageUrl';
 import { getFolderIcon } from '@/lib/folderIcons';
 import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
 import { ShareButton } from '@/components/sharing/ShareButton';
 import { SITE_URL } from '@/lib/site';
+import { Spinner } from '@/components/ui/spinner';
 
 export interface DetailRestaurant {
   id: string;
@@ -87,7 +77,7 @@ export function RestaurantDetailDialog({
         <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
           {imagesLoading ? (
             <div className="w-full h-full flex items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground/40" />
+              <Spinner className="h-8 w-8 animate-spin text-muted-foreground/40" />
             </div>
           ) : currentImage ? (
             <>

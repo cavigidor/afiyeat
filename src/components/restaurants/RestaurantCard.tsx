@@ -2,7 +2,7 @@ import { memo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MapPin, Star, DollarSign, MoreHorizontal, Check, Clock, Loader2, X } from 'lucide-react';
+import { MapPin, Star, DollarSign, MoreHorizontal, Check, Clock, X } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +12,7 @@ import {
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import { getFolderIcon } from '@/lib/folderIcons';
 import { AddedByBadge, type AddedByInfo } from '@/components/shared/AddedByBadge';
+import { Spinner } from '@/components/ui/spinner';
 
 interface RestaurantCardProps {
   restaurant: {
@@ -47,7 +48,7 @@ function RestaurantCardImpl({ restaurant, onEdit, onDelete, onMarkVisited, quick
       <div className="relative aspect-video bg-muted overflow-hidden">
         {imageLoading ? (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-accent/10">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground/50" />
+            <Spinner className="h-8 w-8 animate-spin text-muted-foreground/50" />
           </div>
         ) : !showFallback ? (
           <img

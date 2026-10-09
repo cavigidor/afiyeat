@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
+
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -35,6 +35,7 @@ import { PriceLevelPicker } from './PriceLevelPicker';
 import { TagMultiSelect } from '@/components/shared/TagMultiSelect';
 import { blockedByContentFilter } from '@/lib/contentFilter';
 import { placeColumnsForEdit, type AppleFilled } from '@/lib/appleMaps';
+import { Spinner } from '@/components/ui/spinner';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Restaurant name is required'),
@@ -372,7 +373,7 @@ export function EditRestaurantDialog({
             )}
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {loading && <Spinner className="mr-2 h-4 w-4 animate-spin" />}
               Save Changes
             </Button>
           </form>

@@ -1,11 +1,12 @@
 import { useState, useRef } from 'react';
-import { ImagePlus, Loader2, Trash2, X } from 'lucide-react';
+import { ImagePlus, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { validateImageFile, compressImage, MAX_IMAGES_PER_RESTAURANT } from '@/lib/imageValidation';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
+import { Spinner } from '@/components/ui/spinner';
 
 interface ExistingImage {
   id: string;
@@ -25,7 +26,7 @@ function ImageThumbnail({ image, onDelete }: { image: ExistingImage; onDelete: (
     <div className="relative group aspect-square rounded-lg overflow-hidden bg-muted">
       {loading ? (
         <div className="w-full h-full flex items-center justify-center">
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          <Spinner className="h-4 w-4 animate-spin text-muted-foreground" />
         </div>
       ) : (
         <img src={signedUrl || ''} alt="" className="w-full h-full object-cover" />
@@ -36,7 +37,7 @@ function ImageThumbnail({ image, onDelete }: { image: ExistingImage; onDelete: (
         disabled={deleting}
         className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 reveal-on-hover"
       >
-        {deleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+        {deleting ? <Spinner className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
       </button>
     </div>
   );
@@ -146,7 +147,7 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
             className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center hover:border-primary/50 transition-colors"
           >
             {uploading ? (
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <Spinner className="h-5 w-5 animate-spin text-muted-foreground" />
             ) : (
               <ImagePlus className="h-5 w-5 text-muted-foreground" />
             )}

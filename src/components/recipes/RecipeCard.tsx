@@ -1,11 +1,12 @@
 import { memo } from 'react';
-import { Clock, Users, Thermometer, Trash2, Loader2, ChefHat } from 'lucide-react';
+import { Clock, Users, Thermometer, Trash2, ChefHat } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import type { Recipe } from '@/pages/Recipes';
+import { Spinner } from '@/components/ui/spinner';
 
 interface RecipeCardProps {
   recipe: Recipe;
@@ -40,7 +41,7 @@ function RecipeCardImpl({ recipe, isOwner, onDelete, onClick }: RecipeCardProps)
       <div className="relative aspect-video bg-muted">
         {imageLoading ? (
           <div className="w-full h-full flex items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground/30" />
+            <Spinner className="h-8 w-8 animate-spin text-muted-foreground/30" />
           </div>
         ) : imageUrl ? (
           <img

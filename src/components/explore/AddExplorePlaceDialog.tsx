@@ -7,12 +7,13 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, UtensilsCrossed, Check } from 'lucide-react';
+import { UtensilsCrossed, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { isDuplicateRestaurant, isDuplicateCustomListItem } from '@/lib/duplicateRestaurant';
 import type { ExplorePlace } from './ExplorePlaceCard';
+import { Spinner } from '@/components/ui/spinner';
 
 const RESTAURANTS_DESTINATION = 'restaurants';
 
@@ -140,7 +141,7 @@ export function AddExplorePlaceDialog({ open, onOpenChange, place }: AddExploreP
 
         {loadingLists ? (
           <div className="flex justify-center py-6">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <Spinner className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
           <div className="space-y-1 max-h-[300px] overflow-y-auto overscroll-contain">
@@ -173,7 +174,7 @@ export function AddExplorePlaceDialog({ open, onOpenChange, place }: AddExploreP
         )}
 
         <Button className="w-full" onClick={handleAdd} disabled={saving || !place}>
-          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {saving && <Spinner className="mr-2 h-4 w-4 animate-spin" />}
           Add Place
         </Button>
       </DialogContent>

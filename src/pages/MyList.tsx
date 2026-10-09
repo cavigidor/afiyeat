@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { withApplePlaceDetails } from '@/lib/appleMaps';
-import { Loader2, Map, Plus, Check, Clock, Search, FileDown, Pencil } from 'lucide-react';
+import { Map, Plus, Check, Clock, Search, FileDown, Pencil } from 'lucide-react';
 import { exportListAsPdf } from '@/lib/exportPdf';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
@@ -30,6 +30,7 @@ import { toast } from 'sonner';
 import { useLocationPermission } from '@/hooks/useLocationPermission';
 import { LocationDeniedDialog } from '@/components/shared/LocationDeniedDialog';
 import { NearMeButton } from '@/components/shared/NearMeButton';
+import { Spinner } from '@/components/ui/spinner';
 
 interface Restaurant {
   id: string;
@@ -244,7 +245,7 @@ export default function MyList() {
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Spinner className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }

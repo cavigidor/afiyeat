@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ImagePlus, Loader2, X, MapPin, Search, Camera } from 'lucide-react';
+import { ImagePlus, X, MapPin, Search, Camera } from 'lucide-react';
 import { isNative, capturePhoto } from '@/lib/native';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -39,6 +39,7 @@ import { PlaceResultsDropdown } from '@/components/shared/PlaceResultsDropdown';
 import { TagMultiSelect } from '@/components/shared/TagMultiSelect';
 import { blockedByContentFilter } from '@/lib/contentFilter';
 import { placeColumnsForSave, resolveApplePlaces, type PickedPlace } from '@/lib/appleMaps';
+import { Spinner } from '@/components/ui/spinner';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Restaurant name is required'),
@@ -187,6 +188,8 @@ export function AddRestaurantDialog({
     searching,
     showResults,
     setShowResults,
+    noResults,
+    dropdownVisible,
     selectPlace,
     resetSearch,
   } = usePlaceAutocomplete({
@@ -401,14 +404,16 @@ export function AddRestaurantDialog({
                   className="pl-10"
                 />
                 {searching && (
-                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                  <Spinner className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
                 )}
               </div>
 
               {/* Search Results Dropdown */}
-              {showResults && searchResults.length > 0 && (
+              {dropdownVisible && (
                 <PlaceResultsDropdown
                   results={searchResults}
+                  searching={searching}
+                  noResults={noResults}
                   onSelect={selectPlace}
                   onClose={() => setShowResults(false)}
                   className="absolute z-50 w-full max-w-[468px] bg-popover border rounded-md shadow-lg mt-1 max-h-[200px] overflow-y-auto overscroll-contain"
@@ -604,7 +609,7 @@ export function AddRestaurantDialog({
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {loading && <Spinner className="mr-2 h-4 w-4 animate-spin" />}
               Add Place
             </Button>
           </form>

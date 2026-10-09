@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Plus, Search, ChefHat, ScanLine } from 'lucide-react';
+import { Plus, Search, ChefHat, ScanLine } from 'lucide-react';
 import { CardGridSkeleton } from '@/components/shared/CardGridSkeleton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { Spinner } from '@/components/ui/spinner';
 
 export interface Recipe {
   id: string;
@@ -213,7 +214,7 @@ export default function Recipes() {
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Spinner className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -235,7 +236,7 @@ export default function Recipes() {
             </div>
             <Button variant="outline" onClick={startScan} disabled={scanning}>
               {scanning ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Spinner className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <ScanLine className="h-4 w-4 mr-2" />
               )}

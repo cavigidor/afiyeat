@@ -32,7 +32,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { withApplePlaceDetails } from '@/lib/appleMaps';
-import { Loader2, Plus, Search, Pencil, Settings, ArrowLeft, Map, Share2, Link2, Users } from 'lucide-react';
+import { Plus, Search, Pencil, Settings, ArrowLeft, Map, Share2, Link2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { useViewMode } from '@/hooks/useViewMode';
 import { useMapCenter } from '@/hooks/useMapCenter';
@@ -56,6 +56,7 @@ import { hapticWarning } from '@/lib/haptics';
 import { useLocationPermission } from '@/hooks/useLocationPermission';
 import { LocationDeniedDialog } from '@/components/shared/LocationDeniedDialog';
 import { NearMeButton } from '@/components/shared/NearMeButton';
+import { Spinner } from '@/components/ui/spinner';
 
 type SortBy = 'name' | 'price_asc' | 'price_desc' | 'rating_desc';
 
@@ -259,7 +260,7 @@ export default function CustomListDetail() {
   if (authLoading || loadingList) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Spinner className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -410,7 +411,7 @@ export default function CustomListDetail() {
               <TabsContent value={activeStatusId ?? ''}>
                 {loadingItems ? (
                   <div className="flex justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <Spinner className="h-6 w-6 animate-spin text-primary" />
                   </div>
                 ) : currentItems.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">

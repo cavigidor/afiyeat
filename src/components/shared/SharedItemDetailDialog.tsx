@@ -4,24 +4,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
-import {
-  MapPin,
-  Star,
-  DollarSign,
-  Check,
-  Clock,
-  Edit,
-  Trash2,
-  Loader2,
-  Send,
-  MessageCircle,
-} from 'lucide-react';
+import { MapPin, Star, DollarSign, Check, Clock, Edit, Trash2, Send, MessageCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
 import { AddedByBadge, type AddedByInfo } from '@/components/shared/AddedByBadge';
 import type { SharedItem } from './EditSharedItemDialog';
 import { blockedByContentFilter } from '@/lib/contentFilter';
+import { Spinner } from '@/components/ui/spinner';
 
 interface MiniProfile {
   display_name: string | null;
@@ -224,7 +214,7 @@ export function SharedItemDetailDialog({
 
             {loadingComments ? (
               <div className="flex justify-center py-4">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <Spinner className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : comments.length === 0 ? (
               <p className="text-sm text-muted-foreground">No comments yet - say something!</p>
@@ -271,7 +261,7 @@ export function SharedItemDetailDialog({
                 disabled={posting || !newComment.trim()}
                 onClick={handlePostComment}
               >
-                {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {posting ? <Spinner className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
             </div>
           </div>

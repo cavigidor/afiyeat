@@ -16,13 +16,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { EmojiSlider, PRICE_LABELS } from './EmojiSlider';
 import { PriceLevelPicker } from '@/components/restaurants/PriceLevelPicker';
 import { blockedByContentFilter } from '@/lib/contentFilter';
 import { placeColumnsForEdit, type AppleFilled } from '@/lib/appleMaps';
+import { Spinner } from '@/components/ui/spinner';
 
 export interface SharedItem {
   id: string;
@@ -176,7 +177,7 @@ export function EditSharedItemDialog({ open, onOpenChange, item, onSuccess }: Ed
           </div>
 
           <Button className="w-full" onClick={handleSubmit} disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {loading && <Spinner className="mr-2 h-4 w-4 animate-spin" />}
             Save Changes
           </Button>
         </div>

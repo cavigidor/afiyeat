@@ -19,12 +19,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Plus, X, ImagePlus } from 'lucide-react';
+import { Plus, X, ImagePlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { validateImageFile } from '@/lib/imageValidation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Recipe } from '@/pages/Recipes';
 import { blockedByContentFilter } from '@/lib/contentFilter';
+import { Spinner } from '@/components/ui/spinner';
 
 interface EditRecipeDialogProps {
   recipe: Recipe;
@@ -201,7 +202,7 @@ export function EditRecipeDialog({
                 ) : (
                   <label className="flex flex-col items-center justify-center w-32 h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
                     {imageLoading ? (
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      <Spinner className="h-6 w-6 animate-spin text-muted-foreground" />
                     ) : (
                       <>
                         <ImagePlus className="h-6 w-6 text-muted-foreground mb-1" />
@@ -428,7 +429,7 @@ export function EditRecipeDialog({
                 Cancel
               </Button>
               <Button type="submit" disabled={loading || !title.trim()}>
-                {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {loading && <Spinner className="h-4 w-4 mr-2 animate-spin" />}
                 Save Changes
               </Button>
             </div>

@@ -16,7 +16,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { withApplePlaceDetails } from '@/lib/appleMaps';
-import { Loader2, Search, ArrowLeft, Map, Lock } from 'lucide-react';
+import { Search, ArrowLeft, Map, Lock } from 'lucide-react';
 import { useViewMode } from '@/hooks/useViewMode';
 import { useMapCenter } from '@/hooks/useMapCenter';
 import { PlaceMap, type MapPoint } from '@/components/maps/PlaceMap';
@@ -31,6 +31,7 @@ import type { ManagedListStatus } from '@/hooks/useListStatusManagement';
 import { getPriceSortValue, getRatingSortValue } from '@/lib/customListValues';
 import { UserSafetyMenu } from '@/components/moderation/UserSafetyMenu';
 import { SharedListPreview } from '@/components/sharing/SharedListPreview';
+import { Spinner } from '@/components/ui/spinner';
 
 type SortBy = 'name' | 'price_asc' | 'price_desc' | 'rating_desc';
 
@@ -229,7 +230,7 @@ export default function PublicListDetail() {
   if (authLoading || loadingProfile || (canView && loadingList)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Spinner className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -384,7 +385,7 @@ export default function PublicListDetail() {
               <TabsContent value={activeStatusId ?? ''}>
                 {loadingItems ? (
                   <div className="flex justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <Spinner className="h-6 w-6 animate-spin text-primary" />
                   </div>
                 ) : currentItems.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">

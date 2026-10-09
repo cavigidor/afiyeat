@@ -8,15 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Clock,
-  Users,
-  Thermometer,
-  Trash2,
-  ChefHat,
-  Edit,
-  Loader2,
-} from 'lucide-react';
+import { Clock, Users, Thermometer, Trash2, ChefHat, Edit } from 'lucide-react';
 import type { Recipe } from '@/pages/Recipes';
 import { useState } from 'react';
 import { EditRecipeDialog } from './EditRecipeDialog';
@@ -24,6 +16,7 @@ import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import { UserSafetyMenu } from '@/components/moderation/UserSafetyMenu';
 import { ShareButton } from '@/components/sharing/ShareButton';
 import { SITE_URL } from '@/lib/site';
+import { Spinner } from '@/components/ui/spinner';
 
 interface RecipeDetailDialogProps {
   recipe: Recipe | null;
@@ -131,7 +124,7 @@ export function RecipeDetailDialog({
               <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
                 {imageLoading ? (
                   <div className="w-full h-full flex items-center justify-center">
-                    <Loader2 className="h-12 w-12 animate-spin text-muted-foreground/30" />
+                    <Spinner className="h-12 w-12 animate-spin text-muted-foreground/30" />
                   </div>
                 ) : imageUrl ? (
                   <img

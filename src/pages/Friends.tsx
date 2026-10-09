@@ -14,7 +14,7 @@ import { RestaurantDetailDialog, type DetailRestaurant } from '@/components/rest
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { withApplePlaceDetails } from '@/lib/appleMaps';
-import { Search, UserPlus, UserMinus, Loader2, Users, Sparkles, Map, Check, Clock, X } from 'lucide-react';
+import { Search, UserPlus, UserMinus, Users, Sparkles, Map, Check, Clock, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { hapticSuccess } from '@/lib/haptics';
@@ -35,6 +35,7 @@ import { SharedLists } from '@/components/shared/SharedLists';
 import { useLocationPermission } from '@/hooks/useLocationPermission';
 import { LocationDeniedDialog } from '@/components/shared/LocationDeniedDialog';
 import { NearMeButton } from '@/components/shared/NearMeButton';
+import { Spinner } from '@/components/ui/spinner';
 
 interface Profile {
   id: string;
@@ -277,7 +278,7 @@ export default function Friends() {
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Spinner className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -314,7 +315,7 @@ export default function Friends() {
                   />
                   <Button onClick={handleSearch} disabled={searchLoading}>
                     {searchLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Spinner className="h-4 w-4 animate-spin" />
                     ) : (
                       <Search className="h-4 w-4" />
                     )}
@@ -375,7 +376,7 @@ export default function Friends() {
               <CardContent>
                 {suggestedLoading ? (
                   <div className="flex justify-center py-4">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    <Spinner className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
                 ) : suggested.length === 0 ? (
                   <p className="text-center text-muted-foreground py-4">

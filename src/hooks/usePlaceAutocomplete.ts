@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { getCurrentPositionIfGranted } from '@/lib/native';
-import { searchApplePlaces } from '@/lib/appleMaps';
+import { searchApplePlaces, warmUpPlaceSearch } from '@/lib/appleMaps';
 
 export interface PlaceResult {
   /** Apple place ID. */
@@ -23,6 +23,13 @@ export interface ResolvedPlace {
   placeId: string | null;
   category: string | null;
 }
+
+// Results already fetched this session, so typing back to an earlier query
+// (or reopening the dialog) shows them instantly. In memory only.
+const resultCache = new Map<string, PlaceResult[]>();
+const cacheKey = (q: string, kind: string, loc: { lat: number; lng: number } | null) =>
+  `${kind}|${q.trim().toLowerCase()}|${loc ? `${loc.lat.toFixed(2)},${loc.lng.toFixed(2)}` : ''}`;
+const SEARCH_DELAY_MS = 200;
 
 interface UsePlaceAutocompleteOptions {
   // Gates both the location lookup and the search itself - pass false
@@ -47,6 +54,9 @@ export function usePlaceAutocomplete({ enabled = true, kind = 'food', onSelect }
   const [searching, setSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  // The query the current results answer, so the dropdown can tell
+  // "still looking" from "looked and found nothing".
+  const [answeredQuery, setAnsweredQuery] = useState<string | null>(null);
   // Responses can arrive out of order. Each search gets a sequence number,
   // and only the latest one is allowed to write state, so a slow lookup for
   // an earlier query can't overwrite what the user chose since.
@@ -54,6 +64,10 @@ export function usePlaceAutocomplete({ enabled = true, kind = 'food', onSelect }
   // The text a selection writes into the field shouldn't trigger a fresh
   // search that reopens the dropdown the user just closed by choosing.
   const selectedQuery = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (enabled) warmUpPlaceSearch();
+  }, [enabled]);
 
   useEffect(() => {
     if (!enabled || userLocation) return;
@@ -78,8 +92,21 @@ export function usePlaceAutocomplete({ enabled = true, kind = 'food', onSelect }
     }
     selectedQuery.current = null;
 
+    const key = cacheKey(searchQuery, kind, userLocation);
+    const cached = resultCache.get(key);
+    if (cached) {
+      setSearchResults(cached);
+      setAnsweredQuery(searchQuery);
+      setSearching(false);
+      setShowResults(true);
+      return;
+    }
+
+    // Show "searching" straight away, not after the typing pause, so the
+    // field never looks unresponsive.
+    setSearching(true);
+    setShowResults(true);
     const timeoutId = setTimeout(async () => {
-      setSearching(true);
       try {
         const places = await searchApplePlaces(searchQuery, {
           latitude: userLocation?.lat,
@@ -87,25 +114,26 @@ export function usePlaceAutocomplete({ enabled = true, kind = 'food', onSelect }
           kind,
         });
         if (seq !== searchSeq.current) return;
-        setSearchResults(
-          places
-            .filter((p) => p.name)
-            .map((p) => ({
-              id: p.id,
-              name: p.name ?? '',
-              address: p.address ?? '',
-              latitude: p.latitude,
-              longitude: p.longitude,
-              category: p.category,
-            })),
-        );
+        const results = places
+          .filter((p) => p.name)
+          .map((p) => ({
+            id: p.id,
+            name: p.name ?? '',
+            address: p.address ?? '',
+            latitude: p.latitude,
+            longitude: p.longitude,
+            category: p.category,
+          }));
+        resultCache.set(key, results);
+        setSearchResults(results);
+        setAnsweredQuery(searchQuery);
         setShowResults(true);
       } catch (err) {
         if (seq === searchSeq.current) console.error('Search error:', err);
       } finally {
         if (seq === searchSeq.current) setSearching(false);
       }
-    }, 300);
+    }, SEARCH_DELAY_MS);
     return () => clearTimeout(timeoutId);
   }, [searchQuery, userLocation, enabled, kind]);
 
@@ -136,8 +164,17 @@ export function usePlaceAutocomplete({ enabled = true, kind = 'food', onSelect }
     setSearching(false);
     setSearchQuery('');
     setSearchResults([]);
+    setAnsweredQuery(null);
     setShowResults(false);
   };
+
+  const trimmed = searchQuery.trim();
+  // Looked, and Apple had nothing for this text.
+  const noResults =
+    !searching && trimmed.length >= 2 && answeredQuery === searchQuery && searchResults.length === 0;
+  // Whether the dropdown has anything to show: results, a loading state,
+  // or the "nothing found" hint.
+  const dropdownVisible = showResults && trimmed.length >= 2 && (searching || searchResults.length > 0 || noResults);
 
   return {
     searchQuery,
@@ -146,6 +183,8 @@ export function usePlaceAutocomplete({ enabled = true, kind = 'food', onSelect }
     searching,
     showResults,
     setShowResults,
+    noResults,
+    dropdownVisible,
     userLocation,
     selectPlace,
     resetSearch,

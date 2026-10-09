@@ -11,11 +11,12 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Newspaper, Sparkles, ExternalLink, Calendar, Plus, LocateFixed, Loader2 } from 'lucide-react';
+import { Newspaper, Sparkles, ExternalLink, Calendar, Plus, LocateFixed } from 'lucide-react';
 import { toast } from 'sonner';
 import { CardGridSkeleton } from '@/components/shared/CardGridSkeleton';
 import { AddMentionedPlaceDialog } from '@/components/news/AddMentionedPlaceDialog';
 import { getCurrentPosition, getCurrentPositionIfGranted, type Coords } from '@/lib/native';
+import { Spinner } from '@/components/ui/spinner';
 
 interface MentionedRestaurant {
   name: string;
@@ -171,7 +172,7 @@ export default function News() {
                 disabled={locating}
               >
                 {locating ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner className="h-4 w-4 animate-spin" />
                 ) : (
                   <LocateFixed className="h-4 w-4" />
                 )}

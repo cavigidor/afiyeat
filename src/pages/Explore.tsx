@@ -18,17 +18,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { withApplePlaceDetails } from '@/lib/appleMaps';
-import {
-  Loader2,
-  Map as MapIcon,
-  List as ListIcon,
-  Compass,
-  LocateFixed,
-  Users2,
-  CalendarDays,
-  MapPinOff,
-  Search,
-} from 'lucide-react';
+import { Map as MapIcon, List as ListIcon, Compass, LocateFixed, Users2, CalendarDays, MapPinOff, Search } from 'lucide-react';
 import { ExploreMapComponent } from '@/components/explore/ExploreMapComponent';
 import { ExplorePlaceCard, type ExplorePlace } from '@/components/explore/ExplorePlaceCard';
 import { PlaceDetailSheet } from '@/components/explore/PlaceDetailSheet';
@@ -38,6 +28,7 @@ import { EventsMapComponent } from '@/components/explore/EventsMapComponent';
 import { LocationDeniedDialog } from '@/components/shared/LocationDeniedDialog';
 import { useLocationPermission } from '@/hooks/useLocationPermission';
 import { AddExplorePlaceDialog } from '@/components/explore/AddExplorePlaceDialog';
+import { Spinner } from '@/components/ui/spinner';
 
 type ExploreMode = 'friends' | 'all';
 type ExploreView = 'map' | 'list';
@@ -215,7 +206,7 @@ export default function Explore() {
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Spinner className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }

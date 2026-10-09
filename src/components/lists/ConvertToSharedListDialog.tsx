@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
-import { Loader2 } from 'lucide-react';
+
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -19,6 +19,7 @@ import type { CustomList } from './CreateListDialog';
 import type { CustomListItem } from './AddCustomListItemDialog';
 import type { ManagedListStatus } from '@/hooks/useListStatusManagement';
 import { getPriceSortValue, getRatingSortValue } from '@/lib/customListValues';
+import { Spinner } from '@/components/ui/spinner';
 
 interface ConvertToSharedListDialogProps {
   open: boolean;
@@ -177,7 +178,7 @@ export function ConvertToSharedListDialog({
           </div>
 
           <Button className="w-full" onClick={handleSubmit} disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {loading && <Spinner className="mr-2 h-4 w-4 animate-spin" />}
             Create Shared List
           </Button>
         </div>

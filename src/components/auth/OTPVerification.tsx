@@ -5,7 +5,8 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from '@/components/ui/input-otp';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 
 interface OTPVerificationProps {
   email: string;
@@ -71,7 +72,7 @@ export function OTPVerification({
           className="w-full"
           disabled={loading || code.length !== 6}
         >
-          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {loading && <Spinner className="mr-2 h-4 w-4 animate-spin" />}
           Verify Email
         </Button>
       </form>

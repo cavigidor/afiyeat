@@ -23,12 +23,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Plus, ListChecks, Settings, Trash2, UtensilsCrossed, ListPlus, Users, AlertTriangle } from 'lucide-react';
+import { Plus, ListChecks, Settings, Trash2, UtensilsCrossed, ListPlus, Users, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreateListDialog, type CustomList } from '@/components/lists/CreateListDialog';
 import { CreateSharedListDialog } from '@/components/shared/CreateSharedListDialog';
 import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { useFollowing } from '@/hooks/useFollowing';
+import { Spinner } from '@/components/ui/spinner';
 
 async function fetchMyLists(userId: string): Promise<CustomList[]> {
   const { data, error } = await supabase
@@ -195,7 +196,7 @@ export default function MyLists() {
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Spinner className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -428,7 +429,7 @@ export default function MyLists() {
               disabled={deletingRestaurants}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deletingRestaurants && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {deletingRestaurants && <Spinner className="mr-2 h-4 w-4 animate-spin" />}
               Delete Everything
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Flag } from 'lucide-react';
+import { Flag } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   REPORT_REASONS,
@@ -16,6 +16,7 @@ import {
   type ReportReason,
   type ReportableContentType,
 } from '@/lib/moderation';
+import { Spinner } from '@/components/ui/spinner';
 
 interface ReportDialogProps {
   open: boolean;
@@ -146,7 +147,7 @@ export function ReportDialog({
             // free-text field before a moderator can act on it.
             disabled={!reason || submitting || (reason === 'other' && !description.trim())}
           >
-            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {submitting && <Spinner className="mr-2 h-4 w-4 animate-spin" />}
             Send report
           </Button>
         </div>

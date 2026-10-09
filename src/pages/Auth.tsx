@@ -18,7 +18,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+
 import { OTPVerification } from '@/components/auth/OTPVerification';
 import { PasswordRequirements, getPasswordStrength } from '@/components/auth/PasswordRequirements';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,6 +26,7 @@ import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError';
 import logo from '@/assets/logo.png';
 import { Seo } from '@/components/Seo';
 import { postAuthDestination } from '@/lib/passport';
+import { Spinner } from '@/components/ui/spinner';
 
 const signInSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -397,7 +398,7 @@ export default function Auth() {
                       />
                     </div>
                     <Button onClick={handleSendResetCode} className="w-full" disabled={forgotLoading}>
-                      {forgotLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {forgotLoading && <Spinner className="mr-2 h-4 w-4 animate-spin" />}
                       Send Code
                     </Button>
                     <Button variant="ghost" className="w-full" onClick={resetForgotFlow}>
@@ -454,7 +455,7 @@ export default function Auth() {
                         )}
                       />
                       <Button type="submit" className="w-full" disabled={forgotLoading}>
-                        {forgotLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {forgotLoading && <Spinner className="mr-2 h-4 w-4 animate-spin" />}
                         Reset Password
                       </Button>
                       <div className="flex flex-col gap-2 text-center text-sm">
@@ -516,7 +517,7 @@ export default function Auth() {
                     </Button>
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {loading && <Spinner className="mr-2 h-4 w-4 animate-spin" />}
                     Sign In
                   </Button>
                 </form>
@@ -606,7 +607,7 @@ export default function Auth() {
                     )}
                   />
                   <Button type="submit" className="w-full" disabled={loading}>
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {loading && <Spinner className="mr-2 h-4 w-4 animate-spin" />}
                     Continue
                   </Button>
                 </form>

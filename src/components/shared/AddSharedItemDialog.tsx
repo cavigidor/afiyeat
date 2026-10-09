@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, MapPin, Search, Plus } from 'lucide-react';
+import { MapPin, Search, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -34,6 +34,7 @@ import {
   type AppleFilled,
   type PickedPlace,
 } from '@/lib/appleMaps';
+import { Spinner } from '@/components/ui/spinner';
 
 interface MyPlace {
   id: string;
@@ -86,6 +87,8 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
     searching,
     showResults,
     setShowResults,
+    noResults,
+    dropdownVisible,
     selectPlace,
     resetSearch,
   } = usePlaceAutocomplete({
@@ -273,12 +276,14 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
                 className="pl-10"
               />
               {searching && (
-                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                <Spinner className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
               )}
             </div>
-            {showResults && searchResults.length > 0 && (
+            {dropdownVisible && (
               <PlaceResultsDropdown
                 results={searchResults}
+                searching={searching}
+                noResults={noResults}
                 onSelect={selectPlace}
                 onClose={() => setShowResults(false)}
                 className="bg-popover border rounded-md shadow-lg max-h-[180px] overflow-y-auto overscroll-contain"
@@ -314,7 +319,7 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
             <div className="max-h-[200px] overflow-y-auto overscroll-contain rounded-md border">
               {loadingMine ? (
                 <div className="flex justify-center py-6">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  <Spinner className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
               ) : filteredMine.length === 0 ? (
                 <p className="text-sm text-muted-foreground p-3">
@@ -388,7 +393,7 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
           </div>
 
           <Button className="w-full" onClick={handleSubmit} disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {loading && <Spinner className="mr-2 h-4 w-4 animate-spin" />}
             Add Place
           </Button>
         </div>

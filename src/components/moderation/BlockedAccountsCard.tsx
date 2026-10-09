@@ -2,9 +2,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
-import { Ban, Loader2 } from 'lucide-react';
+import { Ban } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchBlockedUsers, unblockUser } from '@/lib/moderation';
+import { Spinner } from '@/components/ui/spinner';
 
 /**
  * The blocked-accounts list, shown on Profile.
@@ -49,7 +50,7 @@ export function BlockedAccountsCard() {
       <CardContent>
         {isLoading ? (
           <div className="flex justify-center py-6">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            <Spinner className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : (
           <div className="space-y-2">

@@ -9,12 +9,13 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
-import { Loader2, UserPlus, Check } from 'lucide-react';
+import { UserPlus, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { hapticSuccess } from '@/lib/haptics';
 import type { ReferrerInfo } from '@/lib/passport';
+import { Spinner } from '@/components/ui/spinner';
 
 /**
  * Shown once, right after a new account is credited to the person whose
@@ -88,7 +89,7 @@ export function InvitedByDialog({
             <>
               <Button onClick={handleFollow} disabled={state === 'working'}>
                 {state === 'working' ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Spinner className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
                   <UserPlus className="h-4 w-4 mr-2" />
                 )}

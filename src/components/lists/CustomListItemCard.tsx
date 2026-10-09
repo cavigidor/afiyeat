@@ -2,7 +2,7 @@ import { memo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MapPin, Star, DollarSign, MoreHorizontal, Tag, Loader2, X, ArrowRightLeft } from 'lucide-react';
+import { MapPin, Star, DollarSign, MoreHorizontal, Tag, X, ArrowRightLeft } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +18,7 @@ import type { CustomList } from './CreateListDialog';
 import type { CustomListItem } from './AddCustomListItemDialog';
 import type { ManagedListStatus } from '@/hooks/useListStatusManagement';
 import type { ManagedListType } from '@/hooks/useListTypeManagement';
+import { Spinner } from '@/components/ui/spinner';
 
 function formatPrice(item: CustomListItem, list: CustomList): string | null {
   if (!list.show_price) return null;
@@ -58,7 +59,7 @@ function CustomListItemCardImpl({ item, list, statuses, types = [], onEdit, onDe
         <div className="relative aspect-video bg-muted overflow-hidden">
           {imageLoading ? (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-accent/10">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground/50" />
+              <Spinner className="h-8 w-8 animate-spin text-muted-foreground/50" />
             </div>
           ) : !showFallback ? (
             <img

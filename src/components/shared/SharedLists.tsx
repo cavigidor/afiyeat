@@ -30,11 +30,12 @@ import type { RestaurantSortBy } from '@/hooks/useRestaurantListControls';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { withApplePlaceDetails } from '@/lib/appleMaps';
-import { Loader2, Plus, Users, Check, Clock, Trash2 } from 'lucide-react';
+import { Plus, Users, Check, Clock, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreateSharedListDialog } from './CreateSharedListDialog';
 import { AddSharedItemDialog } from './AddSharedItemDialog';
 import { EditSharedItemDialog, SharedItem } from './EditSharedItemDialog';
+import { Spinner } from '@/components/ui/spinner';
 
 interface Profile {
   id: string;
@@ -248,7 +249,7 @@ export function SharedLists({ following, initialSelectedListId }: SharedListsPro
           <CardContent>
             {loadingLists ? (
               <div className="flex justify-center py-6">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <Spinner className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : lists.length === 0 ? (
               <p className="text-center text-muted-foreground py-4 text-sm">
@@ -351,7 +352,7 @@ export function SharedLists({ following, initialSelectedListId }: SharedListsPro
               <TabsContent value={activeTab}>
                 {loadingItems ? (
                   <div className="flex justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <Spinner className="h-6 w-6 animate-spin text-primary" />
                   </div>
                 ) : currentList.length === 0 ? (
                   <div className="text-center py-12 bg-card rounded-xl text-muted-foreground">

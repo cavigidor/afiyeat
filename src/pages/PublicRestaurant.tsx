@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { MapPin, Star, DollarSign, Check, Clock, Plus, Loader2, UtensilsCrossed } from 'lucide-react';
+import { MapPin, Star, DollarSign, Check, Clock, Plus, UtensilsCrossed } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,6 +20,7 @@ import { hapticSuccess } from '@/lib/haptics';
 import { SITE_URL } from '@/lib/site';
 import { fetchRestaurantPreview, isUuid, ownerName, type RestaurantPreview } from '@/lib/sharedPreview';
 import { withApplePlaceDetails } from '@/lib/appleMaps';
+import { Spinner } from '@/components/ui/spinner';
 
 interface RestaurantView extends RestaurantPreview {
   /** Only available to signed-in viewers - photos live in a private bucket. */
@@ -272,7 +273,7 @@ export default function PublicRestaurant() {
                 {user && !isOwner && (
                   <Button className="w-full" onClick={handleSave} disabled={saving}>
                     {saving ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Spinner className="h-4 w-4 mr-2 animate-spin" />
                     ) : (
                       <Plus className="h-4 w-4 mr-2" />
                     )}

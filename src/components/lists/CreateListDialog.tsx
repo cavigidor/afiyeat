@@ -16,11 +16,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, MapPin, DollarSign, Star, StickyNote, ImageIcon } from 'lucide-react';
+import { MapPin, DollarSign, Star, StickyNote, ImageIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { blockedByContentFilter } from '@/lib/contentFilter';
+import { Spinner } from '@/components/ui/spinner';
 
 export type PriceMode = 'manual' | 'dollar';
 export type RatingMode = 'scale_10' | 'stars_5' | 'manual';
@@ -402,7 +403,7 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
           )}
 
           <Button className="w-full" onClick={handleSubmit} disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {loading && <Spinner className="mr-2 h-4 w-4 animate-spin" />}
             {isEditing ? 'Save Changes' : 'Create List'}
           </Button>
         </div>

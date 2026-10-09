@@ -5,10 +5,11 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, MapPin, Star, DollarSign, Plus } from 'lucide-react';
+import { MapPin, Star, DollarSign, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCategory, toNumber, type ExplorePlace } from './ExplorePlaceCard';
 import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
+import { Spinner } from '@/components/ui/spinner';
 
 interface PlaceComment {
   // Null for anonymous rows: the RPC withholds a private contributor's
@@ -129,7 +130,7 @@ export function PlaceDetailSheet({ place, mode, onOpenChange, onAddToList }: Pla
 
               {isLoading ? (
                 <div className="flex justify-center py-6">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <Spinner className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
               ) : comments.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4">

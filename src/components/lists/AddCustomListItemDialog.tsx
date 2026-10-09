@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Search, ImagePlus, X, Camera } from 'lucide-react';
+import { Search, ImagePlus, X, Camera } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -36,6 +36,7 @@ import type { CustomList } from './CreateListDialog';
 import type { ManagedListType } from '@/hooks/useListTypeManagement';
 import type { ManagedListStatus } from '@/hooks/useListStatusManagement';
 import { blockedByContentFilter } from '@/lib/contentFilter';
+import { Spinner } from '@/components/ui/spinner';
 
 const PRICE_LABELS = ['<$30', '<$50', '<$100', '$100+'];
 
@@ -124,6 +125,8 @@ export function AddCustomListItemDialog({
     searching,
     showResults,
     setShowResults,
+    noResults,
+    dropdownVisible,
     selectPlace,
     resetSearch,
   } = usePlaceAutocomplete({
@@ -340,12 +343,14 @@ export function AddCustomListItemDialog({
                   className="pl-10"
                 />
                 {searching && (
-                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                  <Spinner className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
                 )}
               </div>
-              {showResults && searchResults.length > 0 && (
+              {dropdownVisible && (
                 <PlaceResultsDropdown
                   results={searchResults}
+                  searching={searching}
+                  noResults={noResults}
                   onSelect={selectPlace}
                   onClose={() => setShowResults(false)}
                   className="absolute z-50 w-full bg-popover border rounded-md shadow-lg mt-1 max-h-[200px] overflow-y-auto overscroll-contain"
@@ -525,7 +530,7 @@ export function AddCustomListItemDialog({
           )}
 
           <Button className="w-full" onClick={handleSubmit} disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {loading && <Spinner className="mr-2 h-4 w-4 animate-spin" />}
             {isEditing ? 'Save Changes' : 'Add Item'}
           </Button>
         </div>

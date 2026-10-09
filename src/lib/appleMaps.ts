@@ -49,6 +49,21 @@ export async function searchApplePlaces(
   return Array.isArray(result.results) ? result.results : [];
 }
 
+let warmedUp = false;
+
+/**
+ * Wakes the search function before the user types, so the first real
+ * search doesn't also pay for a cold start. Sends an empty query, which
+ * the function answers without calling Apple (no quota used).
+ */
+export function warmUpPlaceSearch(): void {
+  if (warmedUp) return;
+  warmedUp = true;
+  void supabase.functions.invoke('apple-maps', { body: { action: 'search', query: '' } }).catch(() => {
+    warmedUp = false;
+  });
+}
+
 // ---------------------------------------------------------------------
 // Details (resolve)
 // ---------------------------------------------------------------------

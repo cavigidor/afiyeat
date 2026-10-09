@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } from 'react';
-import { Loader2, Map as MapIcon } from 'lucide-react';
+import { Map as MapIcon } from 'lucide-react';
 import { loadMapKit, type MapKit } from '@/lib/appleMaps';
 import { createPinElement } from '@/lib/mapPin';
 import { getDirectionsPopupHtml } from '@/lib/directions';
 import { useLocationPermission } from '@/hooks/useLocationPermission';
+import { Spinner } from '@/components/ui/spinner';
 
 /** One pin on the map. */
 export interface MapPoint {
@@ -334,7 +335,7 @@ export function PlaceMap({
       {status === 'ready' && children}
       {status === 'loading' && (
         <div className="absolute inset-0 flex items-center justify-center bg-muted/40">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <Spinner className="h-8 w-8 animate-spin text-primary" />
         </div>
       )}
       {status === 'failed' && (

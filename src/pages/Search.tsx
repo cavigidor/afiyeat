@@ -8,10 +8,11 @@ import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Search as SearchIcon, Loader2, Lock, Clock, UserPlus, UserCheck, Users } from 'lucide-react';
+import { Search as SearchIcon, Lock, Clock, UserPlus, UserCheck, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { hapticSuccess } from '@/lib/haptics';
 import { offerPushAfterFollow } from '@/lib/pushPrompt';
+import { Spinner } from '@/components/ui/spinner';
 
 interface Profile {
   id: string;
@@ -178,7 +179,7 @@ export default function Search() {
     if (isProcessing) {
       return (
         <Button disabled size="sm">
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Spinner className="h-4 w-4 animate-spin" />
         </Button>
       );
     }
@@ -222,7 +223,7 @@ export default function Search() {
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Spinner className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -246,7 +247,7 @@ export default function Search() {
             />
           </div>
           <Button onClick={handleSearch} disabled={loading}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search'}
+            {loading ? <Spinner className="h-4 w-4 animate-spin" /> : 'Search'}
           </Button>
         </div>
 

@@ -40,12 +40,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Pencil, Save, LogOut, Lock, Check, X, UserPlus, Trash2, Stamp, LifeBuoy, ChevronRight } from 'lucide-react';
+import { Pencil, Save, LogOut, Lock, Check, X, UserPlus, Trash2, Stamp, LifeBuoy, ChevronRight } from 'lucide-react';
 import { buildLabel } from '@/lib/buildInfo';
 import { BlockedAccountsCard } from '@/components/moderation/BlockedAccountsCard';
 import { PassportBadge } from '@/components/passport/PassportBadge';
 import { toast } from 'sonner';
 import { blockedByContentFilter } from '@/lib/contentFilter';
+import { Spinner } from '@/components/ui/spinner';
 
 const profileSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters').max(20),
@@ -393,7 +394,7 @@ export default function Profile() {
   if (authLoading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Spinner className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -540,7 +541,7 @@ export default function Profile() {
                 <div className="flex gap-3">
                   <Button type="submit" disabled={saving}>
                     {saving ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Spinner className="h-4 w-4 mr-2 animate-spin" />
                     ) : (
                       <Save className="h-4 w-4 mr-2" />
                     )}
@@ -660,7 +661,7 @@ export default function Profile() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deletingAccount ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Spinner className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <Trash2 className="h-4 w-4 mr-2" />
               )}
@@ -679,7 +680,7 @@ export default function Profile() {
           <div className="max-h-[400px] overflow-y-auto">
             {followersLoading ? (
               <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <Spinner className="h-6 w-6 animate-spin text-primary" />
               </div>
             ) : followers.length === 0 ? (
               <p className="text-center py-8 text-muted-foreground">No followers yet</p>
@@ -718,7 +719,7 @@ export default function Profile() {
           <div className="max-h-[400px] overflow-y-auto">
             {followingLoading ? (
               <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <Spinner className="h-6 w-6 animate-spin text-primary" />
               </div>
             ) : following.length === 0 ? (
               <p className="text-center py-8 text-muted-foreground">Not following anyone yet</p>

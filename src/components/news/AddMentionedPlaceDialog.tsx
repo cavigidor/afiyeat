@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, MapPin, Search, List, Users } from 'lucide-react';
+import { MapPin, Search, List, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -25,6 +25,7 @@ import { isDuplicateRestaurant } from '@/lib/duplicateRestaurant';
 import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
 import { placeColumnsForSave } from '@/lib/appleMaps';
 import { PlaceResultsDropdown } from '@/components/shared/PlaceResultsDropdown';
+import { Spinner } from '@/components/ui/spinner';
 
 interface SharedListOption {
   id: string;
@@ -97,6 +98,8 @@ export function AddMentionedPlaceDialog({ open, onOpenChange, placeName }: AddMe
     searching,
     showResults,
     setShowResults,
+    noResults,
+    dropdownVisible,
     selectPlace,
     resetSearch,
   } = usePlaceAutocomplete({
@@ -227,12 +230,14 @@ export function AddMentionedPlaceDialog({ open, onOpenChange, placeName }: AddMe
                 className="pl-10"
               />
               {searching && (
-                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                <Spinner className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
               )}
             </div>
-            {showResults && searchResults.length > 0 && (
+            {dropdownVisible && (
               <PlaceResultsDropdown
                 results={searchResults}
+                searching={searching}
+                noResults={noResults}
                 onSelect={selectPlace}
                 onClose={() => setShowResults(false)}
                 className="bg-popover border rounded-md shadow-lg max-h-[180px] overflow-y-auto overscroll-contain"
@@ -264,7 +269,7 @@ export function AddMentionedPlaceDialog({ open, onOpenChange, placeName }: AddMe
               <Label>Which shared list?</Label>
               {sharedListsLoading ? (
                 <div className="flex justify-center py-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  <Spinner className="h-4 w-4 animate-spin text-muted-foreground" />
                 </div>
               ) : sharedLists.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
@@ -315,7 +320,7 @@ export function AddMentionedPlaceDialog({ open, onOpenChange, placeName }: AddMe
             onClick={handleSubmit}
             disabled={loading || (destination === 'shared' && sharedLists.length === 0)}
           >
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {loading && <Spinner className="mr-2 h-4 w-4 animate-spin" />}
             {destination === 'mine' ? 'Add to My List' : 'Add to Shared List'}
           </Button>
         </div>

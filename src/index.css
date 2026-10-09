@@ -356,3 +356,40 @@ All colors MUST be HSL.
 .mk-map-view * {
   touch-action: none;
 }
+
+/* iOS-style activity indicator (src/components/ui/spinner.tsx): eight
+   rounded spokes around the centre, each fading out in turn so the
+   brightness appears to travel round, as UIActivityIndicatorView does. */
+.ios-spinner-spoke {
+  position: absolute;
+  left: 46%;
+  top: 0;
+  width: 8%;
+  height: 28%;
+  border-radius: 9999px;
+  background: currentColor;
+  transform-origin: 50% 178%;
+  animation: ios-spinner-fade 1s linear infinite;
+}
+
+@keyframes ios-spinner-fade {
+  from { opacity: 0.95; }
+  to { opacity: 0.15; }
+}
+
+/* A loading indicator is information, not decoration: iOS keeps its own
+   spinner going under Reduce Motion, and so does this one (the global
+   reduced-motion rule above would otherwise freeze it almost invisible).
+   It fades in place rather than moving, so it's gentle either way. */
+@media (prefers-reduced-motion: reduce) {
+  .ios-spinner .ios-spinner-spoke {
+    animation-duration: 1s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
+/* Indeterminate progress bar for place search (PlaceResultsDropdown). */
+@keyframes search-progress {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(300%); }
+}
