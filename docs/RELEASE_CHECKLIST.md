@@ -18,7 +18,6 @@ Work top to bottom. Companion docs:
 - [ ] An email sent to support@afiyeat.com arrives in your Gmail.
 - [ ] Your account has the `admin` role, so the Moderation menu shows.
 - [ ] Both demo accounts are set up (`APP_REVIEW_NOTES.md` §1).
-- [ ] Delete the stray `ios/App/App/config 2.xml` and `config 3.xml` (Finder duplicates).
 
 ## B. Build for the App Store (Xcode)
 
