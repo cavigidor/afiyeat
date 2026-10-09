@@ -14,7 +14,8 @@ import { RestaurantDetailDialog, type DetailRestaurant } from '@/components/rest
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { withApplePlaceDetails } from '@/lib/appleMaps';
-import { Search, UserPlus, UserMinus, Users, Sparkles, Map, Check, Clock, X } from 'lucide-react';
+import type { SavedRestaurant } from '@/lib/restaurantTypes';
+import { Search, UserPlus, UserMinus, Users, Sparkles, Check, Clock, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { hapticSuccess } from '@/lib/haptics';
@@ -32,7 +33,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { SharedLists } from '@/components/shared/SharedLists';
-import { useLocationPermission } from '@/hooks/useLocationPermission';
 import { LocationDeniedDialog } from '@/components/shared/LocationDeniedDialog';
 import { NearMeButton } from '@/components/shared/NearMeButton';
 import { Spinner } from '@/components/ui/spinner';
@@ -48,12 +48,6 @@ interface Profile {
 
 interface SuggestedProfile extends Profile {
   follower_count: number;
-}
-
-interface Follow {
-  id: string;
-  following_id: string;
-  profiles: Profile;
 }
 
 async function fetchFollowingFor(userId: string): Promise<Profile[]> {
@@ -102,7 +96,7 @@ async function fetchSuggestedFor(userId: string): Promise<SuggestedProfile[]> {
 }
 
 
-async function fetchUserRestaurantsFor(profileUserId: string): Promise<any[]> {
+async function fetchUserRestaurantsFor(profileUserId: string): Promise<SavedRestaurant[]> {
   const { data, error } = await supabase
     .from('restaurants')
     .select(`
@@ -197,7 +191,7 @@ export default function Friends() {
   const invalidateFollowing = () =>
     queryClient.invalidateQueries({ queryKey: ['following', user?.id] });
 
-  const handleRestaurantClick = (restaurant: any) => {
+  const handleRestaurantClick = (restaurant: SavedRestaurant) => {
     if (restaurant.latitude != null && restaurant.longitude != null) {
       setFocusedRestaurantId(restaurant.id);
       setTimeout(() => {
@@ -716,7 +710,7 @@ export default function Friends() {
 }
 
 interface FriendsMapComponentProps {
-  restaurants: any[];
+  restaurants: SavedRestaurant[];
   focusedRestaurantId: string | null;
   onFocusRestaurant: (id: string | null) => void;
   flyToRef: React.MutableRefObject<((lat: number, lng: number, restaurantId: string) => void) | null>;

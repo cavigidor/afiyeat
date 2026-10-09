@@ -128,7 +128,7 @@ function dotElement(dot: NonNullable<MapPoint['dot']>): HTMLElement {
 
 /**
  * The app's map, drawn by Apple Maps (MapKit JS) on the website and in the
- * iOS app. Replaces the Mapbox maps each page used to build for itself.
+ * iOS app. Every map in the app goes through this one component.
  */
 export function PlaceMap({
   points,
@@ -281,11 +281,7 @@ export function PlaceMap({
       const focused = point.id === focusedId;
       const factory = () => {
         if (point.dot) return dotElement(point.dot);
-        const el = createPinElement({ color: point.color, icon: point.icon, focused });
-        // createPinElement positions itself absolutely for Mapbox; MapKit
-        // lays the element out itself.
-        el.style.position = 'relative';
-        return el;
+        return createPinElement({ color: point.color, icon: point.icon, focused });
       };
       const size = focused ? 44 : 32;
       // Teardrop pins sit on their tip; round markers sit on their centre.

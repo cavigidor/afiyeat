@@ -108,9 +108,9 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify(result.ok ? { valid: true } : { valid: false, error: result.message }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in verify-otp function:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Something went wrong" }), {
       status: 500,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });

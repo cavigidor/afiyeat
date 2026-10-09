@@ -32,7 +32,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { withApplePlaceDetails } from '@/lib/appleMaps';
-import { Plus, Search, Pencil, Settings, ArrowLeft, Map, Share2, Link2, Users } from 'lucide-react';
+import { Plus, Search, Pencil, Settings, ArrowLeft, Share2, Link2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { useViewMode } from '@/hooks/useViewMode';
 import { useMapCenter } from '@/hooks/useMapCenter';
@@ -53,7 +53,6 @@ import { shareListLink } from '@/lib/shareList';
 import { announceShareResult } from '@/lib/share';
 import { useMyShareIdentity } from '@/hooks/useMyShareIdentity';
 import { hapticWarning } from '@/lib/haptics';
-import { useLocationPermission } from '@/hooks/useLocationPermission';
 import { LocationDeniedDialog } from '@/components/shared/LocationDeniedDialog';
 import { NearMeButton } from '@/components/shared/NearMeButton';
 import { Spinner } from '@/components/ui/spinner';

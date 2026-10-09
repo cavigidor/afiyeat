@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { errorMessage } from '@/lib/utils';
 
 export interface ManagedListStatus {
   id: string;
@@ -52,8 +53,8 @@ export function useListStatusManagement(
       setNewStatusName('');
       setIsAdding(false);
       onStatusesChange();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to add status');
+    } catch (error) {
+      toast.error(errorMessage(error, 'Failed to add status'));
     }
   };
 
@@ -83,8 +84,8 @@ export function useListStatusManagement(
       setEditingStatusId(null);
       setEditName('');
       onStatusesChange();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to update status');
+    } catch (error) {
+      toast.error(errorMessage(error, 'Failed to update status'));
     }
   };
 
@@ -112,8 +113,8 @@ export function useListStatusManagement(
       if (error) throw error;
       toast.success('Status deleted');
       onStatusesChange();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to delete status');
+    } catch (error) {
+      toast.error(errorMessage(error, 'Failed to delete status'));
     }
   };
 
@@ -134,8 +135,8 @@ export function useListStatusManagement(
       ]);
       if (e1 || e2) throw e1 || e2;
       onStatusesChange();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to reorder statuses');
+    } catch (error) {
+      toast.error(errorMessage(error, 'Failed to reorder statuses'));
     }
   };
 

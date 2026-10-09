@@ -187,10 +187,32 @@ interface PlaceDetails {
   countryCode: string | null;
 }
 
-// deno-lint-ignore no-explicit-any
-function toDetails(p: any): PlaceDetails | null {
+interface ApplePlaceJson {
+  id?: unknown;
+  name?: unknown;
+  formattedAddressLines?: unknown;
+  coordinate?: { latitude?: unknown; longitude?: unknown };
+  poiCategory?: unknown;
+  countryCode?: unknown;
+  alternateIds?: unknown;
+}
+
+/** The body the app sends; every field is checked before use. */
+interface RequestBody {
+  action?: unknown;
+  query?: unknown;
+  latitude?: unknown;
+  longitude?: unknown;
+  kind?: unknown;
+  ids?: unknown;
+}
+
+function toDetails(raw: unknown): PlaceDetails | null {
+  const p = raw as ApplePlaceJson | null;
   if (!p || typeof p.id !== "string") return null;
-  const lines: string[] = Array.isArray(p.formattedAddressLines) ? p.formattedAddressLines : [];
+  const lines = Array.isArray(p.formattedAddressLines)
+    ? p.formattedAddressLines.filter((l): l is string => typeof l === "string")
+    : [];
   return {
     id: p.id,
     name: typeof p.name === "string" ? p.name : null,
@@ -233,8 +255,7 @@ async function mapkitToken() {
   return { token, expiresAt: exp * 1000 };
 }
 
-// deno-lint-ignore no-explicit-any
-async function search(admin: SupabaseClient, body: any) {
+async function search(admin: SupabaseClient, body: RequestBody) {
   const query = typeof body?.query === "string" ? body.query.trim() : "";
   if (query.length < 2 || query.length > 120) return { results: [] };
 
@@ -255,8 +276,7 @@ async function search(admin: SupabaseClient, body: any) {
   return { results };
 }
 
-// deno-lint-ignore no-explicit-any
-async function resolve(admin: SupabaseClient, body: any) {
+async function resolve(admin: SupabaseClient, body: RequestBody) {
   const requested: string[] = Array.from(
     new Set(
       (Array.isArray(body?.ids) ? body.ids : [])
@@ -307,7 +327,8 @@ async function resolve(admin: SupabaseClient, body: any) {
       if (!details) continue;
       // A place can come back under a newer ID; map it to whichever
       // requested ID it answers so the caller finds it.
-      const alternates: string[] = Array.isArray(raw.alternateIds) ? raw.alternateIds : [];
+      const altIds = (raw as ApplePlaceJson).alternateIds;
+      const alternates = Array.isArray(altIds) ? altIds.filter((x): x is string => typeof x === "string") : [];
       const answers = batch.find((id) => id === details.id || alternates.includes(id)) ?? details.id;
       places[answers] = { ...details, id: answers };
       rows.push({
@@ -335,7 +356,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const body = await req.json().catch(() => ({}));
+    const body = ((await req.json().catch(() => null)) ?? {}) as RequestBody;
     const action = typeof body?.action === "string" ? body.action : "";
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 

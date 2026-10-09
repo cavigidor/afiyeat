@@ -101,7 +101,6 @@ export function AddMentionedPlaceDialog({ open, onOpenChange, placeName }: AddMe
     noResults,
     dropdownVisible,
     selectPlace,
-    resetSearch,
   } = usePlaceAutocomplete({
     enabled: open,
     onSelect: (place) => {

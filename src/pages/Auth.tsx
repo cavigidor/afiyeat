@@ -27,6 +27,7 @@ import logo from '@/assets/logo.png';
 import { Seo } from '@/components/Seo';
 import { postAuthDestination } from '@/lib/passport';
 import { Spinner } from '@/components/ui/spinner';
+import { errorMessage } from '@/lib/utils';
 
 const signInSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -133,8 +134,8 @@ export default function Auth() {
       await sendOTP(forgotEmail);
       toast.success('Verification code sent! Check your email.');
       setForgotStep('code');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to send verification code');
+    } catch (error) {
+      toast.error(errorMessage(error, 'Failed to send verification code'));
     } finally {
       setForgotLoading(false);
     }
@@ -145,8 +146,8 @@ export default function Auth() {
     try {
       await sendOTP(forgotEmail);
       toast.success('New verification code sent');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to resend code');
+    } catch (error) {
+      toast.error(errorMessage(error, 'Failed to resend code'));
     } finally {
       setForgotResending(false);
     }
@@ -192,8 +193,8 @@ export default function Auth() {
         toast.success('Password reset! Welcome back.');
         navigate(postAuthDestination());
       }
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to reset password');
+    } catch (error) {
+      toast.error(errorMessage(error, 'Failed to reset password'));
     } finally {
       setForgotLoading(false);
     }
@@ -258,8 +259,8 @@ export default function Auth() {
       // Show OTP verification screen
       setShowOTPVerification(true);
       toast.success('Verification code sent to your email');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to send verification code');
+    } catch (error) {
+      toast.error(errorMessage(error, 'Failed to send verification code'));
     } finally {
       setLoading(false);
     }
@@ -307,8 +308,8 @@ export default function Auth() {
           navigate(postAuthDestination());
         }
       }
-    } catch (error: any) {
-      toast.error(error.message || 'Account creation failed');
+    } catch (error) {
+      toast.error(errorMessage(error, 'Account creation failed'));
     } finally {
       setLoading(false);
     }
@@ -320,8 +321,8 @@ export default function Auth() {
     try {
       await sendOTP(pendingSignUp.email);
       toast.success('New verification code sent');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to resend code');
+    } catch (error) {
+      toast.error(errorMessage(error, 'Failed to resend code'));
     }
   };
 

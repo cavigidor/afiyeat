@@ -1,73 +1,38 @@
-# Welcome to your Lovable project
+# Afiyeat
 
-## Project info
+Save the restaurants you want to try and the ones you've loved, see them on your own map, keep lists and recipes, and share them with friends.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+- **Website:** https://afiyeat.com, built and published from [Lovable](https://lovable.dev).
+- **iPhone app:** the same React app wrapped with Capacitor 8 (`ios/`).
+- **Backend:** Supabase via Lovable Cloud: Postgres with row-level security, Auth, Storage and Edge Functions (`supabase/`).
 
-## How can I edit this code?
+## Where to look
 
-There are several ways of editing your application.
+| Need | Go to |
+|---|---|
+| How the code is organised, the rules, the roadmap | [`docs/PROJECT_MAP.md`](docs/PROJECT_MAP.md) |
+| Shipping a release to the App Store | [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) |
+| Testing on a phone before release | [`docs/USER_TEST_CHECKLIST.md`](docs/USER_TEST_CHECKLIST.md) |
+| App Store text, review notes, privacy answers | `docs/APP_STORE_METADATA.md`, `docs/APP_REVIEW_NOTES.md`, `docs/APP_PRIVACY_LABELS.md` |
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Working on it
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+npm install
+npm run dev          # website at http://localhost:8080
+npm run typecheck    # the real type check (the root tsconfig checks nothing)
+npm run build        # production build into dist/
 ```
 
-**Edit a file directly in GitHub**
+**iPhone app:**
+```sh
+npm run build && npx cap sync ios
+npx cap open ios     # then Run in Xcode
+```
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+**Database changes** are new files in `supabase/migrations/`, applied by pasting the SQL into Lovable exactly as written. Never edit `src/integrations/supabase/types.ts` by hand; Lovable regenerates it.
 
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+**Pushing:**
+```sh
+git pull --no-rebase --no-edit && git push
+```

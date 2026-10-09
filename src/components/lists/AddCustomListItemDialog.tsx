@@ -123,7 +123,6 @@ export function AddCustomListItemDialog({
     setSearchQuery,
     searchResults,
     searching,
-    showResults,
     setShowResults,
     noResults,
     dropdownVisible,

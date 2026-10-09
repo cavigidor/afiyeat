@@ -7,10 +7,10 @@ import { Plus, Search, ChefHat, ScanLine } from 'lucide-react';
 import { CardGridSkeleton } from '@/components/shared/CardGridSkeleton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RecipeCard } from '@/components/recipes/RecipeCard';
 import { RecipeListRow } from '@/components/recipes/RecipeListRow';
-import { AddRecipeDialog } from '@/components/recipes/AddRecipeDialog';
+import { AddRecipeDialog, type InitialRecipeData } from '@/components/recipes/AddRecipeDialog';
 import { ScanConsentDialog, hasScanConsent } from '@/components/recipes/ScanConsentDialog';
 import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError';
 import { RecipeDetailDialog } from '@/components/recipes/RecipeDetailDialog';
@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Spinner } from '@/components/ui/spinner';
+import { errorMessage } from '@/lib/utils';
 
 export interface Recipe {
   id: string;
@@ -96,7 +97,7 @@ export default function Recipes() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [scanInitialData, setScanInitialData] = useState<any>(null);
+  const [scanInitialData, setScanInitialData] = useState<InitialRecipeData | null>(null);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'newest' | 'title' | 'prep_time'>('newest');
   const [viewMode, setViewMode] = useViewMode('recipes');
@@ -148,9 +149,9 @@ export default function Recipes() {
       setScanInitialData(data?.recipe || {});
       setAddDialogOpen(true);
       toast.success('Recipe extracted! Review and fill in any missing details.');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Scan recipe failed:', err);
-      toast.error(err?.message || 'Failed to extract recipe');
+      toast.error(errorMessage(err) || 'Failed to extract recipe');
     } finally {
       setScanning(false);
     }

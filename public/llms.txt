@@ -10,3 +10,4 @@
 
 - [Terms of Service](/terms): Terms governing use of Afiyeat.
 - [Privacy Policy](/privacy): How Afiyeat collects, uses, and protects your data.
+- [Help & Support](/support): How to contact Afiyeat and manage your account.

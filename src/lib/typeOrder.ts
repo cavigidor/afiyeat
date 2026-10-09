@@ -33,7 +33,3 @@ export function compareTypeNames(a?: string | null, b?: string | null): number {
   if (ia !== ib) return ia - ib;
   return (a ?? '').localeCompare(b ?? '');
 }
-
-export function sortByTypeOrder<T>(items: T[], getName: (item: T) => string | null | undefined): T[] {
-  return [...items].sort((a, b) => compareTypeNames(getName(a), getName(b)));
-}

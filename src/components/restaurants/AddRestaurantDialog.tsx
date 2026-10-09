@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ImagePlus, X, MapPin, Search, Camera } from 'lucide-react';
+import { ImagePlus, X, Search, Camera } from 'lucide-react';
 import { isNative, capturePhoto } from '@/lib/native';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -40,6 +40,7 @@ import { TagMultiSelect } from '@/components/shared/TagMultiSelect';
 import { blockedByContentFilter } from '@/lib/contentFilter';
 import { placeColumnsForSave, resolveApplePlaces, type PickedPlace } from '@/lib/appleMaps';
 import { Spinner } from '@/components/ui/spinner';
+import { errorMessage } from '@/lib/utils';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Restaurant name is required'),
@@ -186,7 +187,6 @@ export function AddRestaurantDialog({
     setSearchQuery,
     searchResults,
     searching,
-    showResults,
     setShowResults,
     noResults,
     dropdownVisible,
@@ -344,8 +344,8 @@ export function AddRestaurantDialog({
       setSelectedPlaceMeta(EMPTY_PICK);
       onOpenChange(false);
       onSuccess();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to add restaurant');
+    } catch (error) {
+      toast.error(errorMessage(error, 'Failed to add restaurant'));
     } finally {
       setLoading(false);
     }

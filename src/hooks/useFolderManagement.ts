@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { errorMessage } from '@/lib/utils';
 
 export interface ManagedFolder {
   id: string;
@@ -69,8 +70,8 @@ export function useFolderManagement(folders: ManagedFolder[], onFoldersChange: (
       setSelectedIcon('');
       setIsAdding(false);
       onFoldersChange();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to create type');
+    } catch (error) {
+      toast.error(errorMessage(error, 'Failed to create type'));
     }
   };
 
@@ -104,8 +105,8 @@ export function useFolderManagement(folders: ManagedFolder[], onFoldersChange: (
       setEditName('');
       setEditIcon('');
       onFoldersChange();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to update type');
+    } catch (error) {
+      toast.error(errorMessage(error, 'Failed to update type'));
     }
   };
 
@@ -115,8 +116,8 @@ export function useFolderManagement(folders: ManagedFolder[], onFoldersChange: (
       if (error) throw error;
       toast.success('Type deleted');
       onFoldersChange();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to delete type');
+    } catch (error) {
+      toast.error(errorMessage(error, 'Failed to delete type'));
     }
   };
 
@@ -140,8 +141,8 @@ export function useFolderManagement(folders: ManagedFolder[], onFoldersChange: (
       ]);
       if (e1 || e2) throw e1 || e2;
       onFoldersChange();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to reorder types');
+    } catch (error) {
+      toast.error(errorMessage(error, 'Failed to reorder types'));
     }
   };
 

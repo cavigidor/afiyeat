@@ -33,8 +33,8 @@ export function getGoogleMapsUrl(t: DirectionsTarget): string {
 }
 
 /**
- * A small "Apple Maps · Google Maps" directions row as raw HTML, for
- * embedding in Mapbox GL popups (which take an HTML string, not React).
+ * A small "Apple Maps · Google Maps" directions row as raw HTML, for the
+ * map pin bubbles (built as DOM elements, not React).
  * These render as real <a> elements, so a genuine click - unlike a
  * JS-triggered window.open() - reliably hands off to the native app via
  * each URL's universal link, with no Capacitor plugin involved.

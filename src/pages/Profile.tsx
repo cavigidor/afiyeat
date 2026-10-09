@@ -12,7 +12,6 @@ import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { ANIMAL_AVATARS, type AnimalAvatarPreset } from '@/lib/animalAvatars';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import {
   Form,
   FormControl,

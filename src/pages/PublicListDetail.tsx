@@ -16,7 +16,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { withApplePlaceDetails } from '@/lib/appleMaps';
-import { Search, ArrowLeft, Map, Lock } from 'lucide-react';
+import { Search, ArrowLeft, Lock } from 'lucide-react';
 import { useViewMode } from '@/hooks/useViewMode';
 import { useMapCenter } from '@/hooks/useMapCenter';
 import { PlaceMap, type MapPoint } from '@/components/maps/PlaceMap';

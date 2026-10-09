@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { withApplePlaceDetails } from '@/lib/appleMaps';
-import { Map, Plus, Check, Clock, Search, FileDown, Pencil } from 'lucide-react';
+import { Plus, Check, Clock, Search, FileDown, Pencil } from 'lucide-react';
 import { exportListAsPdf } from '@/lib/exportPdf';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
@@ -27,7 +27,6 @@ import { ManageTypesSheet } from '@/components/folders/ManageTypesSheet';
 import { useViewMode } from '@/hooks/useViewMode';
 import type { RestaurantSortBy } from '@/hooks/useRestaurantListControls';
 import { toast } from 'sonner';
-import { useLocationPermission } from '@/hooks/useLocationPermission';
 import { LocationDeniedDialog } from '@/components/shared/LocationDeniedDialog';
 import { NearMeButton } from '@/components/shared/NearMeButton';
 import { Spinner } from '@/components/ui/spinner';
@@ -84,7 +83,7 @@ async function fetchMyFolders(userId: string): Promise<Folder[]> {
 
 
 export default function MyList() {
-  const { user, session, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [addDialogOpen, setAddDialogOpen] = useState(false);

@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { FOLDER_COLORS, TYPE_ICON_SUGGESTIONS } from '@/hooks/useFolderManagement';
+import { errorMessage } from '@/lib/utils';
 
 export interface ManagedListType {
   id: string;
@@ -62,8 +63,8 @@ export function useListTypeManagement(
       setSelectedIcon('');
       setIsAdding(false);
       onTypesChange();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to create type');
+    } catch (error) {
+      toast.error(errorMessage(error, 'Failed to create type'));
     }
   };
 
@@ -97,8 +98,8 @@ export function useListTypeManagement(
       setEditName('');
       setEditIcon('');
       onTypesChange();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to update type');
+    } catch (error) {
+      toast.error(errorMessage(error, 'Failed to update type'));
     }
   };
 
@@ -108,8 +109,8 @@ export function useListTypeManagement(
       if (error) throw error;
       toast.success('Type deleted');
       onTypesChange();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to delete type');
+    } catch (error) {
+      toast.error(errorMessage(error, 'Failed to delete type'));
     }
   };
 
@@ -130,8 +131,8 @@ export function useListTypeManagement(
       ]);
       if (e1 || e2) throw e1 || e2;
       onTypesChange();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to reorder types');
+    } catch (error) {
+      toast.error(errorMessage(error, 'Failed to reorder types'));
     }
   };
 

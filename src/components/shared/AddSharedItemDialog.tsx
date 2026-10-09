@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -85,7 +85,6 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
     setSearchQuery,
     searchResults,
     searching,
-    showResults,
     setShowResults,
     noResults,
     dropdownVisible,
@@ -107,8 +106,6 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
   const [myPlaces, setMyPlaces] = useState<MyPlace[]>([]);
   const [loadingMine, setLoadingMine] = useState(false);
   const [mineSearch, setMineSearch] = useState('');
-
-  const priceEmojiIndex = useMemo(() => Math.floor(Math.random() * 10), [open]);
 
   const reset = () => {
     setName('');

@@ -99,7 +99,7 @@ async function fetchNearbyEvents(
 }
 
 export default function Explore() {
-  const { user, session, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [contentType, setContentType] = useState<ExploreContentType>('restaurants');
   const [mode, setMode] = useState<ExploreMode>('all');

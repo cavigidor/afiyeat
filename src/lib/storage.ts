@@ -123,16 +123,6 @@ export async function getSignedUrl(urlOrPath: string | null | undefined): Promis
   return getSignedImageUrl(extracted.bucket, extracted.path);
 }
 
-/**
- * Batch get signed URLs for multiple images
- * @param urls - Array of public URLs or storage paths
- * @returns Array of signed URLs (null for failed conversions)
- */
-export async function getSignedUrls(
-  urls: (string | null | undefined)[]
-): Promise<(string | null)[]> {
-  return Promise.all(urls.map(url => getSignedUrl(url)));
-}
 
 /**
  * Clears the signed URL cache

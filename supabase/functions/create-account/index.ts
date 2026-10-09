@@ -176,7 +176,7 @@ const handler = async (req: Request): Promise<Response> => {
       }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in create-account function:", error);
     return new Response(
       JSON.stringify({ error: "An unexpected error occurred" }),

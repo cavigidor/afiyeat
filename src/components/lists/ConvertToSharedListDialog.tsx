@@ -20,6 +20,7 @@ import type { CustomListItem } from './AddCustomListItemDialog';
 import type { ManagedListStatus } from '@/hooks/useListStatusManagement';
 import { getPriceSortValue, getRatingSortValue } from '@/lib/customListValues';
 import { Spinner } from '@/components/ui/spinner';
+import { errorMessage } from '@/lib/utils';
 
 interface ConvertToSharedListDialogProps {
   open: boolean;
@@ -119,8 +120,8 @@ export function ConvertToSharedListDialog({
       reset();
       onOpenChange(false);
       onSuccess(sharedList.id);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to create shared list');
+    } catch (error) {
+      toast.error(errorMessage(error, 'Failed to create shared list'));
       console.error(error);
     } finally {
       setLoading(false);

@@ -1,26 +1,18 @@
 // Builds a single-div CSS "teardrop" map pin: a rounded square rotated
 // -45deg (border-radius 50% 50% 50% 0 leaves one sharp corner, which the
-// rotation swings straight down) filled with the type's color, with its
-// emoji rendered unrotated on top so it stays upright and centered in the
-// round head. Falls back to the original plain map-pin glyph when the type
-// has no emoji set (or the restaurant has no type at all).
+// rotation swings straight down) filled with the type's colour, with its
+// emoji rendered unrotated on top so it stays upright and centred in the
+// round head. Falls back to a plain map-pin glyph when the type has no
+// emoji (or the place has no type at all).
 //
-// The wrapper is taller than it is wide on purpose - the rotated square's
-// sharp point sits below its own box (by size * (Math.SQRT2 - 1) / 2), so
-// the wrapper height accounts for that offset. Pair this with
-// `new mapboxgl.Marker(el, { anchor: 'bottom' })` so Mapbox anchors the
-// wrapper's bottom-center (i.e. the pin's point) at the coordinate, not
-// the wrapper's visual center.
+// The wrapper is taller than it is wide on purpose: the rotated square's
+// point sits below its own box (by size * (Math.SQRT2 - 1) / 2), so the
+// wrapper's height includes it. PlaceMap anchors the wrapper so that point,
+// not the centre, sits on the coordinate.
 //
-// IMPORTANT: the returned element is the one Mapbox hands straight to
-// `new mapboxgl.Marker(el)`, which repositions the marker every pan/zoom
-// frame by writing directly to *that same element's* inline `transform`.
-// A CSS transition on `transform` anywhere on this root element fights
-// that - the browser tweens toward each new position instead of snapping,
-// so pins visibly lag and drift during any camera movement. That's why
-// the hover-scale effect lives on an inner `scaleWrap` child instead of
-// the root: Mapbox never touches that child's transform, so it's safe to
-// transition/scale.
+// The hover-scale effect lives on an inner `scaleWrap` child rather than
+// the root, so the map is free to position the root element without a
+// transition fighting it.
 
 export interface PinOptions {
   color?: string | null;
@@ -39,22 +31,11 @@ export function createPinElement({ color, icon, focused = false }: PinOptions): 
   const pinColor = color || FALLBACK_COLOR;
 
   const wrap = document.createElement('div');
-  // Mapbox's own stylesheet (.mapboxgl-marker) requires position: absolute
-  // so each marker's translate-based transform is independent of normal
-  // document flow. An inline style always beats that stylesheet rule, so
-  // setting 'relative' here silently overrode it - this element stayed
-  // partly in-flow, meaning its rendered position depended on its siblings
-  // in the marker layer (how many other markers exist, their heights, DOM
-  // order) on top of Mapbox's own transform. That's what made pins visibly
-  // reshuffle relative to each other on every zoom/pan recalculation.
-  wrap.style.position = 'absolute';
+  wrap.style.position = 'relative';
   wrap.style.width = `${size}px`;
   wrap.style.height = `${wrapHeight}px`;
   wrap.style.cursor = 'pointer';
 
-  // Mapbox positions the marker by writing to `wrap`'s transform directly
-  // (see the note above) - the hover/transition effect goes on this inner
-  // child instead, which Mapbox never writes to, so it's free to animate.
   const scaleWrap = document.createElement('div');
   scaleWrap.className = 'transition-transform duration-300 hover:scale-110';
   scaleWrap.style.position = 'absolute';

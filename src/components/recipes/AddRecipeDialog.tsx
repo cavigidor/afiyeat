@@ -26,7 +26,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { blockedByContentFilter } from '@/lib/contentFilter';
 import { Spinner } from '@/components/ui/spinner';
 
-interface InitialRecipeData {
+export interface InitialRecipeData {
   title?: string;
   description?: string;
   prep_time_minutes?: number | null;
@@ -99,7 +99,6 @@ export function AddRecipeDialog({ open, onOpenChange, onSuccess, initialData }: 
       if (initialData.instructions && initialData.instructions.length) setInstructions(initialData.instructions);
       if (initialData.tags && initialData.tags.length) setTags(initialData.tags.join(', '));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialData]);
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

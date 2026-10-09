@@ -1,12 +1,12 @@
 import { useState, useRef } from 'react';
-import { ImagePlus, Trash2, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { ImagePlus, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { validateImageFile, compressImage, MAX_IMAGES_PER_RESTAURANT } from '@/lib/imageValidation';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import { Spinner } from '@/components/ui/spinner';
+import { errorMessage } from '@/lib/utils';
 
 interface ExistingImage {
   id: string;
@@ -108,8 +108,8 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
 
       toast.success(`${toUpload.length} image${toUpload.length > 1 ? 's' : ''} uploaded!`);
       onImagesChange();
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to upload image');
+    } catch (err) {
+      toast.error(errorMessage(err, 'Failed to upload image'));
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';

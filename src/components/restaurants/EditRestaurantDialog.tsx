@@ -36,6 +36,7 @@ import { TagMultiSelect } from '@/components/shared/TagMultiSelect';
 import { blockedByContentFilter } from '@/lib/contentFilter';
 import { placeColumnsForEdit, type AppleFilled } from '@/lib/appleMaps';
 import { Spinner } from '@/components/ui/spinner';
+import { errorMessage } from '@/lib/utils';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Restaurant name is required'),
@@ -226,8 +227,8 @@ export function EditRestaurantDialog({
       toast.success('Restaurant updated successfully!');
       onOpenChange(false);
       onSuccess();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to update restaurant');
+    } catch (error) {
+      toast.error(errorMessage(error, 'Failed to update restaurant'));
     } finally {
       setLoading(false);
     }

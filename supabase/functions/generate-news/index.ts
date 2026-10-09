@@ -44,6 +44,7 @@ function getEnv(name: string): string {
 async function firecrawlScrape(
   url: string,
   formats: string[],
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- external JSON (Firecrawl / AI gateway)
 ): Promise<any | null> {
   try {
     const resp = await fetch(`${FC_BASE}/scrape`, {
@@ -66,6 +67,7 @@ async function firecrawlScrape(
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- external JSON (Firecrawl / AI gateway)
 async function callAI(messages: unknown[]): Promise<any | null> {
   try {
     const resp = await fetch(AI_URL, {
@@ -264,6 +266,7 @@ serve(async (req) => {
 
   // Run the (slow) scraping + summarizing work in the background so the
   // HTTP request returns immediately and isn't killed by request timeouts.
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment -- EdgeRuntime exists only in the deployed runtime
   // @ts-ignore EdgeRuntime is available in the Supabase edge runtime.
   EdgeRuntime.waitUntil(
     run(targetCity).catch((e) => console.error("generate-news run error", (e as Error).message)),

@@ -19,8 +19,6 @@ export interface ResolvedPlace {
   longitude: number | null;
   /** Apple place ID - the only part of a search result that gets stored. */
   applePlaceId: string | null;
-  /** Legacy Mapbox ID. Always null now; kept so older callers compile. */
-  placeId: string | null;
   category: string | null;
 }
 
@@ -153,7 +151,6 @@ export function usePlaceAutocomplete({ enabled = true, kind = 'food', onSelect }
       latitude: place.latitude,
       longitude: place.longitude,
       applePlaceId: place.id,
-      placeId: null,
       category: place.category,
     });
   };

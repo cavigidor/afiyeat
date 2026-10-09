@@ -69,15 +69,11 @@ export function warmUpPlaceSearch(): void {
 // ---------------------------------------------------------------------
 
 // In-memory copy for this session, so the same place isn't asked for twice
-// while the app is open. Cleared with the rest of the cache on account
-// change (see clearApplePlaceMemory) and naturally on relaunch.
+// while the app is open. Place details aren't private, so it isn't tied to
+// the signed-in account; it simply empties on relaunch.
 const memory = new Map<string, { place: ApplePlace; until: number }>();
 const MEMORY_TTL_MS = 30 * 60 * 1000;
 const inFlight = new Map<string, Promise<void>>();
-
-export function clearApplePlaceMemory(): void {
-  memory.clear();
-}
 
 /**
  * Details for a set of Apple place IDs. Unknown or unavailable IDs are
