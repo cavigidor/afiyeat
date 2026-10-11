@@ -44,6 +44,18 @@ function ResultSkeleton() {
 //    listens on the capture phase at the document level to see scrolls on
 //    any nested scroll container, and closes unless the scroll originated
 //    inside this dropdown itself.
+//
+// Do NOT stop touchstart from propagating out of this list. Every place
+// this dropdown appears is inside a Radix Dialog, which locks background
+// scrolling with react-remove-scroll. That library records where each
+// touch begins with a touchstart listener on `document`, then on every
+// touchmove decides whether the touched element can scroll in that
+// direction - and cancels the move if not. Stopping touchstart here (React
+// 18 listens on the portal's container, document.body, so its
+// stopPropagation stops the native event before it reaches `document`)
+// left it measuring each swipe from the previous touch - usually the tap
+// on the search field just above - so every swipe read as "scroll up",
+// and a list sitting at the top was judged unable to scroll and frozen.
 export function PlaceResultsDropdown({
   results,
   onSelect,
@@ -67,7 +79,6 @@ export function PlaceResultsDropdown({
     <div
       ref={ref}
       onMouseDown={(e) => e.preventDefault()}
-      onTouchStart={(e) => e.stopPropagation()}
       className={
         className ??
         'bg-popover border rounded-md shadow-lg max-h-[200px] overflow-y-auto overscroll-contain'
