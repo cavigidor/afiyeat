@@ -99,17 +99,29 @@ afiyeat-app/
 
 ## 4. Routes (`src/App.tsx`)
 
+Bottom tabs (phones) and navbar links (desktop) both come from `PRIMARY_TABS` in `src/lib/navigation.ts`:
+**Home | Explore | Lists | Activity | You**.
+
 | Route | Page | Notes |
 |---|---|---|
-| `/` | Index | Landing page on web; redirects into the app on native or when signed in |
-| `/auth` | Auth | Sign-in/up; afterwards goes to `postAuthDestination()` |
-| `/dashboard`, `/search`, `/news`, `/recipes`, `/my-list`, `/profile` | (various) | The 4 main tabs stay mounted via PersistentTabs |
-| `/my-lists/:listId` | CustomListDetail | |
+| `/` | Index | Landing page on web; redirects to `/home` on native or when signed in |
+| `/auth` | Auth | Sign-in/up; afterwards goes to `postAuthDestination()` (default `/home`) |
+| `/home` | Home | Tab: Home. Starting screen for signed-in users |
+| `/explore` | Explore | Tab: Explore. `?c=food\|coffee\|drinks\|events`, `&tab=recipes` for Recipes |
+| `/my-lists` | MyLists | Tab: Lists. `/my-list` (My Restaurants) and `/my-lists/:listId` sit under it |
+| `/activity` | Activity | Tab: Activity. Follow requests, new followers, shared-list activity |
+| `/profile` | Profile | Tab: You |
+| `/friends` | Friends | Not a tab: find people + shared lists; reached from Activity and Lists |
+| `/search` | Search | Find people (unified search lands here at CP2) |
+| `/foodie`, `/recipes`, `/news` | redirect | → `/explore?c=food&tab=recipes` (Foodie was Recipes) |
+| `/dashboard` | redirect | → `/my-list` |
 | `/u/:userId`, `/u/:userId/lists/:listId` | PublicProfile, PublicListDetail | Signed-out visitors see a preview, not a login wall |
 | `/r/:id`, `/recipe/:id` | PublicRestaurant, PublicRecipe | Share-link landing pages |
 | `/invite/:code` | Invite | Stores the referral code, then goes to sign-up |
 | `/passport` | Passport | Invite screen, history, milestones |
-| `/terms`, `/privacy` | | Privacy policy is out of date (Dec 2024) |
+| `/terms`, `/privacy`, `/support` | | |
+
+`/home`, `/explore`, `/my-lists`, `/activity` and `/friends` stay mounted between switches (PersistentTabs).
 
 ---
 

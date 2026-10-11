@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
@@ -9,7 +9,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Users, LogOut, User, ListChecks, ChefHat, Compass, Stamp, ShieldAlert } from 'lucide-react';
+import { LogOut, User, Stamp, ShieldAlert } from 'lucide-react';
+import { HOME_PATH, PRIMARY_TABS } from '@/lib/navigation';
 import { fetchIsModerator } from '@/lib/moderation';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -25,12 +26,13 @@ async function fetchOwnAvatar(userId: string) {
 }
 
 // Primary nav on mobile is the fixed bottom tab bar (see BottomTabBar.tsx) -
-// these desktop-only links (hidden md:flex below) mirror the same four
-// destinations for consistency. Profile intentionally isn't one of them;
-// it stays behind the avatar menu on both breakpoints.
+// these desktop-only links (hidden md:flex below) render from the same
+// PRIMARY_TABS list. "You" isn't one of them on desktop; Profile stays
+// behind the avatar menu there.
 export function Navbar() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Shared cache key with Profile.tsx's avatar picker, which writes
   // through to this same query on save - so the menu avatar updates
@@ -58,34 +60,23 @@ export function Navbar() {
 
   const NavLinks = () => (
     <>
-      <Link
-        to="/foodie"
-        className="active-press flex items-center gap-2 text-foreground/80 hover:text-foreground transition-[color,transform] duration-150 ease-out active:opacity-60"
-      >
-        <ChefHat className="h-4 w-4" />
-        <span>Foodie</span>
-      </Link>
-      <Link
-        to="/my-lists"
-        className="active-press flex items-center gap-2 text-foreground/80 hover:text-foreground transition-[color,transform] duration-150 ease-out active:opacity-60"
-      >
-        <ListChecks className="h-4 w-4" />
-        <span>My Lists</span>
-      </Link>
-      <Link
-        to="/friends"
-        className="active-press flex items-center gap-2 text-foreground/80 hover:text-foreground transition-[color,transform] duration-150 ease-out active:opacity-60"
-      >
-        <Users className="h-4 w-4" />
-        <span>Friends</span>
-      </Link>
-      <Link
-        to="/explore"
-        className="active-press flex items-center gap-2 text-foreground/80 hover:text-foreground transition-[color,transform] duration-150 ease-out active:opacity-60"
-      >
-        <Compass className="h-4 w-4" />
-        <span>Explore</span>
-      </Link>
+      {PRIMARY_TABS.filter((tab) => tab.desktop).map((tab) => {
+        const Icon = tab.icon;
+        const active = tab.isActive(location.pathname);
+        return (
+          <Link
+            key={tab.to}
+            to={tab.to}
+            aria-current={active ? 'page' : undefined}
+            className={`active-press flex items-center gap-2 transition-[color,transform] duration-150 ease-out active:opacity-60 ${
+              active ? 'text-foreground font-medium' : 'text-foreground/70 hover:text-foreground'
+            }`}
+          >
+            <Icon className="h-4 w-4" />
+            <span>{tab.label}</span>
+          </Link>
+        );
+      })}
     </>
   );
 
@@ -95,7 +86,7 @@ export function Navbar() {
           64px header with a 48px logo was spending a lot of a small screen
           on branding above a bottom tab bar that takes another 56px. */}
       <div className="container flex h-14 sm:h-16 items-center justify-between gap-3">
-        <Link to="/" className="active-press flex items-center gap-2 min-w-0 transition-opacity duration-150 ease-out active:opacity-70">
+        <Link to={user ? HOME_PATH : '/'} className="active-press flex items-center gap-2 min-w-0 transition-opacity duration-150 ease-out active:opacity-70">
           <img
             src={logo}
             alt="Afiyeat"

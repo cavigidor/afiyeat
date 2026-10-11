@@ -28,6 +28,7 @@ import PublicRecipe from "./pages/PublicRecipe";
 import { ReferralCapture } from "@/components/sharing/ReferralCapture";
 import { NativeLinkRouter } from "@/components/shared/NativeLinkRouter";
 import NotFound from "./pages/NotFound";
+import { RECIPES_PATH } from "@/lib/navigation";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import Support from "./pages/Support";
@@ -50,7 +51,7 @@ const queryClient = new QueryClient({
 // Paths PersistentTabs owns (see PersistentTabs.tsx) - their <Route> below
 // renders null, so there's nothing worth animating a fade-in for and no
 // point remounting the wrapper div when bouncing between them.
-const PERSISTENT_TAB_PATHS = new Set(['/foodie', '/my-lists', '/friends', '/explore']);
+const PERSISTENT_TAB_PATHS = new Set(['/home', '/explore', '/my-lists', '/activity', '/friends']);
 
 // Restrained fade+slight-rise on every "real" (non-persistent-tab) route
 // change, so navigating to a detail screen, profile, etc. feels like a
@@ -73,20 +74,22 @@ function AnimatedRoutes() {
             fully superseded - redirect rather than maintain two
             divergent copies of the same screen. */}
         <Route path="/dashboard" element={<Navigate to="/my-list" replace />} />
+        <Route path="/home" element={null} />
+        <Route path="/activity" element={null} />
         <Route path="/friends" element={null} />
         <Route path="/search" element={<Search />} />
         <Route path="/explore" element={null} />
         <Route path="/u/:userId" element={<PublicProfile />} />
         <Route path="/u/:userId/lists/:listId" element={<PublicListDetail />} />
 
-        {/* News and Recipes used to be their own top-level nav items;
-            both now live as tabs inside Foodie (see nav restructure -
-            Foodie/My Lists/Friends/Explore). Redirect old links/
-            bookmarks rather than keep two ways to reach the same
-            content. */}
-        <Route path="/news" element={<Navigate to="/foodie" replace />} />
-        <Route path="/recipes" element={<Navigate to="/foodie" replace />} />
-        <Route path="/foodie" element={null} />
+        {/* Foodie was the app's first tab and, with News switched off,
+            was just Recipes. Recipes now lives in Explore -> Food, and Home
+            is the starting screen. News and Recipes were top-level routes
+            before Foodie existed. All three redirect so old links,
+            bookmarks and history entries land in the right place. */}
+        <Route path="/news" element={<Navigate to={RECIPES_PATH} replace />} />
+        <Route path="/recipes" element={<Navigate to={RECIPES_PATH} replace />} />
+        <Route path="/foodie" element={<Navigate to={RECIPES_PATH} replace />} />
         <Route path="/my-list" element={<MyList />} />
         <Route path="/my-lists" element={null} />
         <Route path="/my-lists/:listId" element={<CustomListDetail />} />
@@ -190,7 +193,7 @@ const App = () => {
               signed-in account changes - see AccountBoundary.tsx. */}
           <AccountBoundary>
             <BottomTabBar />
-            {/* Renders the four bottom-tab pages itself, kept mounted across
+            {/* Renders the bottom-tab pages itself, kept mounted across
                 switches instead of the normal Route mount/unmount cycle below
                 (see PersistentTabs.tsx) - the matching routes for their paths
                 render nothing so react-router still matches them instead of

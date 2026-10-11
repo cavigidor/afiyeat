@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Navigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { HOME_PATH } from '@/lib/navigation';
 import {
   isSafeInternalPath,
   setReturnTo,
@@ -47,7 +48,7 @@ export default function Invite() {
   if (!code) return <Navigate to="/" replace />;
 
   if (user) {
-    return <Navigate to={returnTo ?? '/foodie'} replace />;
+    return <Navigate to={returnTo ?? HOME_PATH} replace />;
   }
   return <Navigate to="/auth?mode=signup" replace />;
 }

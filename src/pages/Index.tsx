@@ -17,6 +17,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Seo } from '@/components/Seo';
+import { HOME_PATH } from '@/lib/navigation';
 
 // Set this to the App Store listing URL once the iPhone app is live. Until
 // then the download button stays hidden - the page shouldn't advertise an
@@ -111,13 +112,13 @@ export default function Index() {
     // Auth hasn't resolved yet - render nothing. The native splash screen
     // is still covering the webview (see NativeLaunchGate in App.tsx).
     if (loading) return null;
-    return <Navigate to={user ? '/foodie' : '/auth'} replace />;
+    return <Navigate to={user ? HOME_PATH : '/auth'} replace />;
   }
 
   // On the web, keep serving the landing page to visitors and crawlers -
   // but a signed-in visitor belongs in the app, not the pitch.
   if (!loading && user) {
-    return <Navigate to="/foodie" replace />;
+    return <Navigate to={HOME_PATH} replace />;
   }
 
   const join = () => navigate('/auth?mode=signup');
