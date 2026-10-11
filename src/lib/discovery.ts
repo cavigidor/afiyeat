@@ -78,6 +78,15 @@ export function isEnabledCategory(id: string | null | undefined): id is Discover
   return !!id && ENABLED_CATEGORIES.some((c) => c.id === id);
 }
 
+/**
+ * What Explore can be showing: one category, or 'all' - every place
+ * regardless of category. 'all' is Explore's own overview (and where
+ * Home's mixed-category Popular row leads); it isn't a category, so it
+ * isn't one of Home's tiles.
+ */
+export type ExploreSelection = DiscoveryCategoryId | 'all';
+export const ALL_PLACES_PATH = '/explore?c=all';
+
 /** Explore, opened on a category. */
 export function exploreCategoryPath(id: DiscoveryCategoryId): string {
   return `/explore?c=${id}`;

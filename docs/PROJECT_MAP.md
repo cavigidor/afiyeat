@@ -114,11 +114,11 @@ Bottom tabs (phones) and navbar links (desktop) both come from `PRIMARY_TABS` in
 | `/` | Index | Landing page on web; redirects to `/home` on native or when signed in |
 | `/auth` | Auth | Sign-in/up; afterwards goes to `postAuthDestination()` (default `/home`) |
 | `/home` | Home | Tab: Home. Starting screen for signed-in users |
-| `/explore` | Explore | Tab: Explore. `?c=food\|coffee\|drinks\|events`, `&tab=recipes` for Recipes |
-| `/my-lists` | MyLists | Tab: Lists. `/my-list` (My Restaurants) and `/my-lists/:listId` sit under it |
+| `/explore` | Explore | Tab: Explore. `?c=all\|food\|coffee\|drinks\|events` (opens on All), `&tab=recipes` for Recipes |
+| `/my-lists` | MyLists | Tab: Lists. `?tab=shared\|discover`. `/my-list` (My Restaurants), `/my-lists/:listId` (custom list) and `/my-lists/shared/:listId` (shared list, SharedListDetail) sit under it |
 | `/activity` | Activity | Tab: Activity. Follow requests, new followers, shared-list activity |
 | `/profile` | Profile | Tab: You |
-| `/friends` | Friends | Not a tab: find people + shared lists; reached from Activity and Lists |
+| `/friends` | Friends | Not a tab: find people, see a friend's places. Old "Shared Lists" state is forwarded to `/my-lists/shared/:id` |
 | `/search` | Search | One search: Places (Apple Maps), People, Lists; hands events off to Explore. `?q=…&type=people\|lists` |
 | `/foodie`, `/recipes`, `/news` | redirect | → `/explore?c=food&tab=recipes` (Foodie was Recipes) |
 | `/dashboard` | redirect | → `/my-list` |
@@ -129,6 +129,8 @@ Bottom tabs (phones) and navbar links (desktop) both come from `PRIMARY_TABS` in
 | `/terms`, `/privacy`, `/support` | | |
 
 `/home`, `/explore`, `/my-lists`, `/activity` and `/friends` stay mounted between switches (PersistentTabs).
+
+**Selected tab** (`resolveActiveTab` in `lib/navigation.ts`): each tab owns its screens (Lists owns `/my-list` and everything under `/my-lists/`; You owns `/profile` and `/passport`). Screens reached from several places (`/search`, `/friends`, `/u/...`, `/r/...`) keep the tab they were opened from; on a cold deep link `/search` falls back to Explore and `/friends` to Activity.
 
 ---
 

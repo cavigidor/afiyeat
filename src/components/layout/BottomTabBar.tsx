@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { hapticTap } from '@/lib/haptics';
 import { PRIMARY_TABS } from '@/lib/navigation';
 import { usePendingRequests } from '@/lib/followRequests';
+import { useActiveTab } from '@/hooks/useActiveTab';
 
 /**
  * Primary navigation on mobile - a fixed iOS-style bottom tab bar:
@@ -18,7 +19,9 @@ import { usePendingRequests } from '@/lib/followRequests';
  */
 export function BottomTabBar() {
   const { user } = useAuth();
-  const location = useLocation();
+  // Owned screens select their tab; shared sub-screens (search, people,
+  // profiles) keep the tab they were opened from - see resolveActiveTab.
+  const activeTab = useActiveTab();
   // The one count that's real today: follow requests waiting on you.
   // There's no read/unread state for anything else, so nothing else badges.
   const { data: pendingRequests = [] } = usePendingRequests(user?.id);
@@ -43,7 +46,7 @@ export function BottomTabBar() {
     >
       <div className="grid grid-cols-5">
         {PRIMARY_TABS.map((tab) => {
-          const active = tab.isActive(location.pathname);
+          const active = tab.to === activeTab;
           const Icon = tab.icon;
           const badge = tab.to === '/activity' ? pendingRequests.length : 0;
           return (

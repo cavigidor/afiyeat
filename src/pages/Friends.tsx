@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RestaurantCard } from '@/components/restaurants/RestaurantCard';
 import { RestaurantListRow } from '@/components/restaurants/RestaurantListRow';
 import { RestaurantDetailDialog, type DetailRestaurant } from '@/components/restaurants/RestaurantDetailDialog';
@@ -32,7 +32,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { SharedLists } from '@/components/shared/SharedLists';
+import { useGoBack } from '@/hooks/useGoBack';
+import { SHARED_LISTS_PATH, sharedListPath } from '@/lib/navigation';
 import { LocationDeniedDialog } from '@/components/shared/LocationDeniedDialog';
 import { NearMeButton } from '@/components/shared/NearMeButton';
 import { Spinner } from '@/components/ui/spinner';
@@ -126,16 +127,15 @@ export default function Friends() {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
-  // Arriving here via "Share" on a custom list, or a shared-list preview on
-  // My Lists, passes navigation state to land straight on the right tab and
-  // list instead of the default Discover view.
+  const goBack = useGoBack('/activity');
+  // Friends is about people now; shared lists live under Lists
+  // (/my-lists/shared/:id). Anything still arriving the old way - state
+  // asking for the Shared Lists tab, optionally with a list - is forwarded
+  // there instead of being shown here.
   const navState = location.state as { tab?: 'discover' | 'shared'; listId?: string } | null;
-  const [topTab, setTopTab] = useState<'discover' | 'shared'>(navState?.tab ?? 'discover');
-  // This screen stays mounted (PersistentTabs), so a later visit carrying
-  // state - "open this shared list" from Lists or Activity - has to be
-  // applied here; the initial useState above only covers the first visit.
   useEffect(() => {
-    if (location.pathname === '/friends' && navState?.tab) setTopTab(navState.tab);
+    if (location.pathname !== '/friends' || navState?.tab !== 'shared') return;
+    navigate(navState.listId ? sharedListPath(navState.listId) : SHARED_LISTS_PATH, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.key]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -289,26 +289,14 @@ export default function Friends() {
       <Navbar />
 
       <main className="container py-4 sm:py-8 px-4 sm:px-6 lg:px-8">
-        {/* Not a tab any more - reached from Activity, Lists and Home - so
-            it needs its own way back. */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="-ml-2 mb-1"
-          onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/activity'))}
-        >
+        {/* Not a tab - reached from Activity, Home and Lists - so it needs
+            its own way back. */}
+        <Button variant="ghost" size="sm" className="-ml-2 mb-1" onClick={goBack}>
           <ArrowLeft className="h-4 w-4 mr-1.5" />
           Back
         </Button>
         <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Friends</h1>
 
-        <Tabs value={topTab} onValueChange={(v) => setTopTab(v as 'discover' | 'shared')}>
-          <TabsList className="mb-4 sm:mb-6">
-            <TabsTrigger value="discover">Discover</TabsTrigger>
-            <TabsTrigger value="shared">Shared Lists</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="discover">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
           {/* Search and Following List */}
           <div className="lg:col-span-1 space-y-6">
@@ -709,12 +697,6 @@ export default function Friends() {
             )}
           </div>
         </div>
-          </TabsContent>
-
-          <TabsContent value="shared">
-            <SharedLists following={following} initialSelectedListId={navState?.listId} />
-          </TabsContent>
-        </Tabs>
       </main>
 
       <RestaurantDetailDialog

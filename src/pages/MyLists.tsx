@@ -33,6 +33,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ExploreListCard } from '@/components/explore/ExploreListCard';
 import { exploreKeys, fetchExploreLists, type ExploreMode } from '@/lib/discovery';
+import { sharedListPath } from '@/lib/navigation';
 
 async function fetchMyLists(userId: string): Promise<CustomList[]> {
   const { data, error } = await supabase
@@ -84,9 +85,8 @@ interface SharedListPreview {
   } | null;
 }
 
-// Lightweight version of SharedLists.tsx's own fetch - just enough to show
-// a preview card here (name + partner), full item lists still live on the
-// Friends > Shared Lists tab.
+// Just enough to show a card per shared list (name + partner). Each card
+// opens the list at /my-lists/shared/:id (SharedListDetail).
 async function fetchSharedLists(userId: string): Promise<SharedListPreview[]> {
   const { data, error } = await supabase
     .from('shared_lists')
@@ -119,8 +119,8 @@ const isListsTab = (v: string | null): v is ListsTab => v === 'mine' || v === 's
 /**
  * Lists: "things I want to remember, organise or share."
  *   - Mine: My Restaurants (pinned) and every custom list you've made.
- *   - Shared: two-person lists with a friend (opened in Friends -> Shared
- *     Lists, where their items and comments live).
+ *   - Shared: two-person lists with a friend. Each opens at
+ *     /my-lists/shared/:id, still under Lists.
  *   - Discover: lists other people are building - moved here from Explore's
  *     old "Other Lists" tab. /my-lists?tab=discover opens it directly.
  */
@@ -429,7 +429,7 @@ export default function MyLists() {
                   key={sl.id}
                   interactive
                   className="hover:shadow-md transition-shadow overflow-hidden"
-                  onClick={() => navigate('/friends', { state: { tab: 'shared', listId: sl.id } })}
+                  onClick={() => navigate(sharedListPath(sl.id))}
                 >
                   <CardContent className="p-4 flex items-center gap-3">
                     <AnimalAvatar

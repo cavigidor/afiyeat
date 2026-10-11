@@ -11,6 +11,7 @@ import { PeopleResults } from '@/components/search/PeopleResults';
 import { ListResults } from '@/components/search/ListResults';
 import { AddExplorePlaceDialog } from '@/components/explore/AddExplorePlaceDialog';
 import type { ExplorePlace } from '@/components/explore/ExplorePlaceCard';
+import { useGoBack } from '@/hooks/useGoBack';
 
 type SearchType = 'places' | 'people' | 'lists';
 const TYPES: { id: SearchType; label: string; hint: string }[] = [
@@ -36,6 +37,7 @@ export default function Search() {
   const [type, setType] = useState<SearchType>(isType(params.get('type')) ? (params.get('type') as SearchType) : 'places');
   const [savePlace, setSavePlace] = useState<ExplorePlace | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const goBack = useGoBack('/explore');
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
@@ -72,7 +74,7 @@ export default function Search() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/explore'))}
+            onClick={goBack}
             aria-label="Back"
             className="active-press -ml-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-opacity active:opacity-60"
           >

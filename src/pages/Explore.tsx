@@ -16,6 +16,7 @@ import {
   rankPopularPlaces,
   type DiscoveryCategoryId,
   type ExploreMode,
+  type ExploreSelection,
   type PlaceCategoryId,
 } from '@/lib/discovery';
 import { Map as MapIcon, List as ListIcon, Compass, LocateFixed, Search, ChevronRight } from 'lucide-react';
@@ -34,7 +35,11 @@ import Recipes from './Recipes';
 type ExploreView = 'map' | 'list';
 type FoodView = 'places' | 'recipes';
 
-const EMPTY_COPY: Record<PlaceCategoryId, { all: string; friends: string }> = {
+const EMPTY_COPY: Record<PlaceCategoryId | 'all', { all: string; friends: string }> = {
+  all: {
+    all: 'Places people on Afiyeat have been to will show up here.',
+    friends: 'Places you and people you follow have been to will show up here.',
+  },
   food: {
     all: 'Restaurants people on Afiyeat have been to will show up here.',
     friends: 'Restaurants you and people you follow have been to will show up here.',
@@ -50,14 +55,15 @@ const EMPTY_COPY: Record<PlaceCategoryId, { all: string; friends: string }> = {
 };
 
 /**
- * Explore: "I want to find something." Category chips across the top
- * (Food, Coffee, Drinks, Events - see DISCOVERY_CATEGORIES), then:
- *   - Food / Coffee / Drinks: the most-visited places in that category,
+ * Explore: "I want to find something." Chips across the top - All, then
+ * the categories (Food, Coffee, Drinks, Events - see DISCOVERY_CATEGORIES):
+ *   - All / Food / Coffee / Drinks: the most-visited places (in that
+ *     category, or of every kind for All),
  *     then every place on a map or list (Everyone / Friends). Food also
  *     has Recipes - the screen that used to be the Foodie tab.
  *   - Events: Ticketmaster events near you.
  *
- * Deep-linkable: /explore?c=coffee, /explore?c=food&tab=recipes,
+ * Deep-linkable: /explore?c=all, /explore?c=coffee, /explore?c=food&tab=recipes,
  * /explore?c=events&q=jazz. Opening /explore with no parameters (the tab
  * bar) keeps whatever was open last, since this tab stays mounted.
  */
@@ -65,7 +71,8 @@ export default function Explore() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [category, setCategory] = useState<DiscoveryCategoryId>('food');
+  // Opens on All - every place - so Explore's first view isn't food-only.
+  const [category, setCategory] = useState<ExploreSelection>('all');
   const [foodView, setFoodView] = useState<FoodView>('places');
   const [eventsKeyword, setEventsKeyword] = useState<string | undefined>(undefined);
   const [mode, setMode] = useState<ExploreMode>('all');
@@ -88,18 +95,24 @@ export default function Explore() {
     if (location.pathname !== '/explore') return;
     const params = new URLSearchParams(location.search);
     const c = params.get('c');
+    if (c === 'all') {
+      setCategory('all');
+      return;
+    }
     if (!isEnabledCategory(c)) return;
     setCategory(c);
     if (c === 'food') setFoodView(params.get('tab') === 'recipes' ? 'recipes' : 'places');
     if (c === 'events') setEventsKeyword(params.get('q') ?? undefined);
   }, [location.pathname, location.search]);
 
-  const goTo = (c: DiscoveryCategoryId, tab?: FoodView) => {
+  const goTo = (c: ExploreSelection, tab?: FoodView) => {
     navigate(`/explore?c=${c}${tab === 'recipes' ? '&tab=recipes' : ''}`, { replace: true });
   };
 
-  const placeCategory: PlaceCategoryId | null =
-    category === 'food' || category === 'coffee' || category === 'drinks' ? category : null;
+  // Which places to show: one place category, every place ('all'), or
+  // none (Events).
+  const placeCategory: PlaceCategoryId | 'all' | null =
+    category === 'food' || category === 'coffee' || category === 'drinks' || category === 'all' ? category : null;
   const showingPlaces = !!placeCategory && !(category === 'food' && foodView === 'recipes');
 
   const { data: allPlaces = [], isLoading: placesLoading } = useQuery({
@@ -109,7 +122,12 @@ export default function Explore() {
   });
 
   const places = useMemo(
-    () => (placeCategory ? allPlaces.filter((p) => placeCategoryOf(p.category) === placeCategory) : []),
+    () =>
+      placeCategory === 'all'
+        ? allPlaces
+        : placeCategory
+          ? allPlaces.filter((p) => placeCategoryOf(p.category) === placeCategory)
+          : [],
     [allPlaces, placeCategory],
   );
 
@@ -131,7 +149,7 @@ export default function Explore() {
     );
   }
 
-  const categoryLabel = categoryById(category).label;
+  const placesNoun = category === 'all' ? 'Places' : `${categoryById(category as DiscoveryCategoryId).label} spots`;
 
   return (
     <div className="min-h-screen bg-background">
@@ -172,7 +190,7 @@ export default function Explore() {
             {!placesLoading && popular.length >= 2 && (
               <DiscoverySection
                 title={mode === 'friends' ? 'Most visited by your circle' : 'Most visited'}
-                subtitle={`${categoryLabel} spots the most people have been to`}
+                subtitle={`${placesNoun} the most people have been to`}
               >
                 <Rail>
                   {popular.map((place) => (
@@ -213,7 +231,7 @@ export default function Explore() {
             ) : places.length === 0 ? (
               <div className="text-center py-16 sm:py-24 bg-card rounded-xl px-6">
                 <div className="text-4xl mb-3" aria-hidden>
-                  {categoryById(placeCategory).emoji}
+                  {placeCategory === 'all' ? '🧭' : categoryById(placeCategory).emoji}
                 </div>
                 <h3 className="text-lg font-medium mb-2">Nothing here yet</h3>
                 <p className="text-muted-foreground">{EMPTY_COPY[placeCategory][mode]}</p>

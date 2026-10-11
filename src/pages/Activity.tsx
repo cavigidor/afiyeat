@@ -11,6 +11,7 @@ import { usePendingRequests } from '@/lib/followRequests';
 import { fetchActivity, type ActivityItem } from '@/lib/activity';
 import { timeAgo } from '@/lib/circle';
 import { FollowRequestsCard } from '@/components/activity/FollowRequestsCard';
+import { sharedListPath } from '@/lib/navigation';
 
 function actorName(item: ActivityItem): string {
   return item.actor.display_name || item.actor.username || 'Someone';
@@ -19,9 +20,7 @@ function actorName(item: ActivityItem): string {
 function ActivityRow({ item }: { item: ActivityItem }) {
   const navigate = useNavigate();
   const open = () =>
-    item.kind === 'follower'
-      ? navigate(`/u/${item.actor.user_id}`)
-      : navigate('/friends', { state: { tab: 'shared', listId: item.listId } });
+    item.kind === 'follower' ? navigate(`/u/${item.actor.user_id}`) : navigate(sharedListPath(item.listId));
 
   const Icon = item.kind === 'follower' ? UserPlus : item.kind === 'shared_add' ? Plus : MessageCircle;
 

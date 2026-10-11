@@ -20,6 +20,7 @@ import PublicListDetail from "./pages/PublicListDetail";
 
 import MyList from "./pages/MyList";
 import CustomListDetail from "./pages/CustomListDetail";
+import SharedListDetailPage from "./pages/SharedListDetail";
 import Profile from "./pages/Profile";
 import Passport from "./pages/Passport";
 import Invite from "./pages/Invite";
@@ -92,6 +93,9 @@ function AnimatedRoutes() {
         <Route path="/foodie" element={<Navigate to={RECIPES_PATH} replace />} />
         <Route path="/my-list" element={<MyList />} />
         <Route path="/my-lists" element={null} />
+        {/* Shared (two-person) lists live under Lists. They used to open
+            inside Friends -> Shared Lists; Friends forwards old links. */}
+        <Route path="/my-lists/shared/:listId" element={<SharedListDetailPage />} />
         <Route path="/my-lists/:listId" element={<CustomListDetail />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/passport" element={<Passport />} />

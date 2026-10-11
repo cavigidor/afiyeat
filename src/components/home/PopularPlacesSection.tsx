@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { DiscoverySection, Rail } from '@/components/discovery/DiscoverySection';
 import { PlaceTile, TileSkeleton } from '@/components/discovery/DiscoveryTiles';
 import type { ExplorePlace } from '@/components/explore/ExplorePlaceCard';
-import { exploreKeys, fetchExplorePlaces, rankPopularPlaces, type Origin } from '@/lib/discovery';
+import { ALL_PLACES_PATH, exploreKeys, fetchExplorePlaces, rankPopularPlaces, type Origin } from '@/lib/discovery';
 
 async function fetchOwnSaved(userId: string) {
   const { data, error } = await supabase
@@ -81,7 +81,9 @@ export function PopularPlacesSection({ origin, onOpen, onSave }: PopularPlacesSe
           ? 'Where the most people around you have been'
           : 'Where the most people on Afiyeat have been'
       }
-      seeAllTo="/explore?c=food"
+      // The row mixes restaurants, cafés and bars, so "See all" opens
+      // Explore -> All (every place), not one category.
+      seeAllTo={ALL_PLACES_PATH}
     >
       <Rail>
         {ranked.places.map((place) => (

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
+import { useQueryClient } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AlertDialog,
@@ -32,7 +32,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { withApplePlaceDetails } from '@/lib/appleMaps';
 import { Plus, Users, Check, Clock, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { CreateSharedListDialog } from './CreateSharedListDialog';
 import { AddSharedItemDialog } from './AddSharedItemDialog';
 import { EditSharedItemDialog, SharedItem } from './EditSharedItemDialog';
 import { Spinner } from '@/components/ui/spinner';
@@ -54,58 +53,64 @@ interface SharedList {
   partner?: Profile | null;
 }
 
-interface SharedListsProps {
-  following: Profile[];
-  // Set when arriving here via a deep link (e.g. "Make a Shared List with a
-  // Friend" from a custom list, or clicking a shared list preview on My
-  // Lists) so the right list is already open instead of landing on the
-  // generic "select a list" empty state.
-  initialSelectedListId?: string;
+interface SharedListDetailProps {
+  listId: string;
+  /** Called after the list has been deleted, so the page can leave it. */
+  onDeleted: () => void;
 }
 
-export function SharedLists({ following, initialSelectedListId }: SharedListsProps) {
+/**
+ * One shared (two-person) list: its places, To Go / Been There, sort and
+ * view controls, add / edit / mark visited / delete, item comments, and
+ * deleting the whole list. The single implementation of the shared-list
+ * experience - rendered by pages/SharedListDetail.tsx at
+ * /my-lists/shared/:listId. The index of shared lists is Lists -> Shared.
+ *
+ * (This was SharedLists.tsx, which also held a list picker and lived on
+ * the Friends screen. The picker is gone - Lists -> Shared is the index -
+ * and the detail logic below is unchanged.)
+ */
+export function SharedListDetail({ listId, onDeleted }: SharedListDetailProps) {
   const { user } = useAuth();
-  const [lists, setLists] = useState<SharedList[]>([]);
+  const queryClient = useQueryClient();
+  const [list, setList] = useState<SharedList | null>(null);
   // Profiles for BOTH members of every list (not just "the other person"),
   // so "added by" can be resolved for either side, including the current
   // user themselves.
   const [profilesById, setProfilesById] = useState<Record<string, Profile>>({});
   const [loadingLists, setLoadingLists] = useState(true);
-  const [selectedListId, setSelectedListId] = useState<string | null>(initialSelectedListId ?? null);
-  // Friends stays mounted between visits, so a newly requested list must
-  // replace the one picked last time.
-  useEffect(() => {
-    if (initialSelectedListId) setSelectedListId(initialSelectedListId);
-  }, [initialSelectedListId]);
+  const selectedListId = listId;
   const [items, setItems] = useState<SharedItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [activeTab, setActiveTab] = useState<'to_go' | 'went_to'>('to_go');
 
-  const [createOpen, setCreateOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [editItem, setEditItem] = useState<SharedItem | null>(null);
-  const [deleteListId, setDeleteListId] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [sortBy, setSortBy] = useState<RestaurantSortBy>('name');
   const [viewMode, setViewMode] = useViewMode('shared-lists');
   const [detailItem, setDetailItem] = useState<SharedItem | null>(null);
 
-  const selectedList = lists.find((l) => l.id === selectedListId) || null;
+  const selectedList = list;
 
-  const fetchLists = useCallback(async () => {
+  const fetchList = useCallback(async () => {
     if (!user) return;
     setLoadingLists(true);
+    // Row-level security returns the list only to its two members; anyone
+    // else (or a deleted list) gets nothing and sees the not-found state.
     const { data, error } = await supabase
       .from('shared_lists')
       .select('id, name, user_a, user_b')
-      .order('created_at', { ascending: false });
+      .eq('id', listId)
+      .maybeSingle();
 
     if (error) {
-      console.error('Error fetching shared lists:', error);
+      console.error('Error fetching shared list:', error);
       setLoadingLists(false);
       return;
     }
 
-    const rows = data || [];
+    const rows = data ? [data] : [];
     const allUserIds = Array.from(new Set(rows.flatMap((r) => [r.user_a, r.user_b])));
     const byId: Record<string, Profile> = {};
     if (allUserIds.length > 0) {
@@ -124,13 +129,13 @@ export function SharedLists({ following, initialSelectedListId }: SharedListsPro
       return { ...r, partner: byId[partnerId] || null };
     });
 
-    setLists(withPartner);
+    setList(withPartner[0] ?? null);
     setLoadingLists(false);
-  }, [user]);
+  }, [user, listId]);
 
   useEffect(() => {
-    fetchLists();
-  }, [fetchLists]);
+    fetchList();
+  }, [fetchList]);
 
   const fetchItems = useCallback(async () => {
     if (!selectedListId) {
@@ -182,15 +187,15 @@ export function SharedLists({ following, initialSelectedListId }: SharedListsPro
   };
 
   const handleDeleteList = async () => {
-    if (!deleteListId) return;
-    const { error } = await supabase.from('shared_lists').delete().eq('id', deleteListId);
+    const { error } = await supabase.from('shared_lists').delete().eq('id', listId);
     if (error) {
       toast.error('Failed to delete list');
     } else {
       toast.success('Shared list deleted');
-      if (selectedListId === deleteListId) setSelectedListId(null);
-      setDeleteListId(null);
-      fetchLists();
+      setDeleteOpen(false);
+      // Lists -> Shared reads its cards from this cache entry.
+      void queryClient.invalidateQueries({ queryKey: ['shared_lists_preview'] });
+      onDeleted();
     }
   };
 
@@ -236,93 +241,50 @@ export function SharedLists({ following, initialSelectedListId }: SharedListsPro
   const wentToList = sortItems(items.filter((i) => i.status === 'went_to'));
   const currentList = activeTab === 'to_go' ? toGoList : wentToList;
 
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
-      {/* Lists sidebar */}
-      <div className="lg:col-span-1">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Shared Lists
-            </CardTitle>
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
-              <Plus className="h-4 w-4 sm:mr-1" />
-              <span className="hidden sm:inline">New</span>
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {loadingLists ? (
-              <div className="flex justify-center py-6">
-                <Spinner className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : lists.length === 0 ? (
-              <p className="text-center text-muted-foreground py-4 text-sm">
-                No shared lists yet. Create one with a friend!
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {lists.map((l) => (
-                  <div
-                    key={l.id}
-                    className={`flex items-center gap-2 rounded-lg p-2 transition-colors ${
-                      selectedListId === l.id ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
-                    }`}
-                  >
-                    <button
-                      onClick={() => setSelectedListId(l.id)}
-                      className="flex items-center gap-3 flex-1 min-w-0 text-left"
-                    >
-                      <AnimalAvatar
-                        emoji={l.partner?.avatar_emoji}
-                        color={l.partner?.avatar_color}
-                        className="h-9 w-9"
-                      />
-                      <div className="min-w-0">
-                        <p className="font-medium truncate">{l.name}</p>
-                        <p
-                          className={`text-xs truncate ${
-                            selectedListId === l.id ? 'text-primary-foreground/70' : 'text-muted-foreground'
-                          }`}
-                        >
-                          with {partnerLabel(l)}
-                        </p>
-                      </div>
-                    </button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Delete shared list"
-                      className={`h-8 w-8 shrink-0 ${
-                        selectedListId === l.id ? 'hover:bg-primary-foreground/20' : ''
-                      }`}
-                      onClick={() => setDeleteListId(l.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+  if (loadingLists && !selectedList) {
+    return (
+      <div className="flex justify-center py-16">
+        <Spinner className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
+    );
+  }
 
-      {/* Selected list view */}
-      <div className="lg:col-span-2">
+  return (
+    <div>
+      <div>
         {selectedList ? (
           <>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 sm:mb-6">
-              <div>
-                <h2 className="text-lg sm:text-xl font-bold">{selectedList.name}</h2>
-                <p className="text-sm text-muted-foreground">
-                  Shared with {partnerLabel(selectedList)} · {items.length} places
-                </p>
+            {/* On phones the actions drop below the title, so the name and
+                "Shared with" line aren't truncated beside them. */}
+            <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 mb-4 sm:mb-6">
+              <div className="flex min-w-0 basis-full sm:basis-auto items-center gap-3">
+                <AnimalAvatar
+                  emoji={selectedList.partner?.avatar_emoji}
+                  color={selectedList.partner?.avatar_color}
+                  className="h-11 w-11"
+                />
+                <div className="min-w-0">
+                  <h1 className="text-xl sm:text-2xl font-bold truncate">{selectedList.name}</h1>
+                  <p className="text-sm text-muted-foreground truncate">
+                    Shared with {partnerLabel(selectedList)} · {items.length} places
+                  </p>
+                </div>
               </div>
-              <Button size="sm" onClick={() => setAddOpen(true)}>
-                <Plus className="h-4 w-4 mr-1" />
-                Add Place
-              </Button>
+              <div className="flex shrink-0 items-center gap-1 ml-auto">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Delete shared list"
+                  className="h-9 w-9 text-destructive hover:text-destructive"
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+                <Button size="sm" onClick={() => setAddOpen(true)}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Place
+                </Button>
+              </div>
             </div>
 
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'to_go' | 'went_to')}>
@@ -409,22 +371,15 @@ export function SharedLists({ following, initialSelectedListId }: SharedListsPro
             </Tabs>
           </>
         ) : (
-          <div className="text-center py-12 bg-card rounded-xl">
+          <div className="text-center py-12 bg-card rounded-xl px-6">
             <Users className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-            <h3 className="text-lg font-medium mb-2">Select a shared list</h3>
+            <h3 className="text-lg font-medium mb-2">This shared list isn't available</h3>
             <p className="text-muted-foreground">
-              Pick a list on the left, or create one with a friend.
+              It may have been deleted, or you're not one of its members.
             </p>
           </div>
         )}
       </div>
-
-      <CreateSharedListDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        following={following}
-        onSuccess={fetchLists}
-      />
 
       {selectedListId && (
         <AddSharedItemDialog
@@ -469,7 +424,7 @@ export function SharedLists({ following, initialSelectedListId }: SharedListsPro
         />
       )}
 
-      <AlertDialog open={!!deleteListId} onOpenChange={(o) => !o && setDeleteListId(null)}>
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this shared list?</AlertDialogTitle>

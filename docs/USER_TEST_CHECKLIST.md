@@ -55,7 +55,9 @@ Run this on the **TestFlight build** (see RELEASE_CHECKLIST.md §D), as a user w
 - [ ] Home search bar → type a restaurant: Places results appear; tap one → it saves to My Restaurants (address and pin show). People and Lists tabs find B and B's lists.
 - [ ] Old links: afiyeat.com/foodie opens Explore → Food → Recipes.
 - [ ] Activity: B requests to follow private A → A's Activity tab shows a badge; Accept there clears it (and Profile's banner).
-- [ ] B adds an item and a comment on a shared list → it appears in A's Activity; tapping it opens that shared list.
+- [ ] B adds an item and a comment on a shared list → it appears in A's Activity; tapping it opens that shared list with **Lists** selected in the tab bar, and Back returns to Activity.
+- [ ] Lists → Shared → a list → Back returns to Lists → Shared. Friends no longer has a Shared Lists tab.
+- [ ] Home → Popular → **See all** opens Explore on **All**.
 - [ ] Lists → Shared / Discover tabs show shared lists and other people's lists.
 - [ ] Follow B from B's profile; B's places show on the Friends map (Activity → Find people).
 - [ ] Make B private. As A (if you don't follow B), B's Explore comments show as **Anonymous** with no notes, and B's lists aren't listed.

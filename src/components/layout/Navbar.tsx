@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { LogOut, User, Stamp, ShieldAlert } from 'lucide-react';
 import { HOME_PATH, PRIMARY_TABS } from '@/lib/navigation';
+import { useActiveTab } from '@/hooks/useActiveTab';
 import { fetchIsModerator } from '@/lib/moderation';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,7 +33,7 @@ async function fetchOwnAvatar(userId: string) {
 export function Navbar() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
+  const activeTab = useActiveTab();
 
   // Shared cache key with Profile.tsx's avatar picker, which writes
   // through to this same query on save - so the menu avatar updates
@@ -62,7 +63,7 @@ export function Navbar() {
     <>
       {PRIMARY_TABS.filter((tab) => tab.desktop).map((tab) => {
         const Icon = tab.icon;
-        const active = tab.isActive(location.pathname);
+        const active = tab.to === activeTab;
         return (
           <Link
             key={tab.to}
