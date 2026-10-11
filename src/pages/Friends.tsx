@@ -15,7 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { withApplePlaceDetails } from '@/lib/appleMaps';
 import type { SavedRestaurant } from '@/lib/restaurantTypes';
-import { Search, UserPlus, UserMinus, Users, Sparkles, Check, Clock, X } from 'lucide-react';
+import { Search, UserPlus, UserMinus, Users, Sparkles, Check, Clock, X, ArrowLeft } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { hapticSuccess } from '@/lib/haptics';
@@ -131,6 +131,13 @@ export default function Friends() {
   // list instead of the default Discover view.
   const navState = location.state as { tab?: 'discover' | 'shared'; listId?: string } | null;
   const [topTab, setTopTab] = useState<'discover' | 'shared'>(navState?.tab ?? 'discover');
+  // This screen stays mounted (PersistentTabs), so a later visit carrying
+  // state - "open this shared list" from Lists or Activity - has to be
+  // applied here; the initial useState above only covers the first visit.
+  useEffect(() => {
+    if (location.pathname === '/friends' && navState?.tab) setTopTab(navState.tab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
@@ -282,6 +289,17 @@ export default function Friends() {
       <Navbar />
 
       <main className="container py-4 sm:py-8 px-4 sm:px-6 lg:px-8">
+        {/* Not a tab any more - reached from Activity, Lists and Home - so
+            it needs its own way back. */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="-ml-2 mb-1"
+          onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/activity'))}
+        >
+          <ArrowLeft className="h-4 w-4 mr-1.5" />
+          Back
+        </Button>
         <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">Friends</h1>
 
         <Tabs value={topTab} onValueChange={(v) => setTopTab(v as 'discover' | 'shared')}>

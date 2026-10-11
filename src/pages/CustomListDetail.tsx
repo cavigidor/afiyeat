@@ -287,7 +287,7 @@ export default function CustomListDetail() {
       <main className="container py-4 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-4 sm:space-y-6">
         <Button variant="ghost" size="sm" className="-ml-2" onClick={() => navigate('/my-lists')}>
           <ArrowLeft className="h-4 w-4 mr-1.5" />
-          My Lists
+          Lists
         </Button>
 
         <div className="flex items-center justify-between gap-2">

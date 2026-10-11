@@ -72,6 +72,11 @@ export function SharedLists({ following, initialSelectedListId }: SharedListsPro
   const [profilesById, setProfilesById] = useState<Record<string, Profile>>({});
   const [loadingLists, setLoadingLists] = useState(true);
   const [selectedListId, setSelectedListId] = useState<string | null>(initialSelectedListId ?? null);
+  // Friends stays mounted between visits, so a newly requested list must
+  // replace the one picked last time.
+  useEffect(() => {
+    if (initialSelectedListId) setSelectedListId(initialSelectedListId);
+  }, [initialSelectedListId]);
   const [items, setItems] = useState<SharedItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [activeTab, setActiveTab] = useState<'to_go' | 'went_to'>('to_go');
