@@ -236,8 +236,10 @@ export default function Recipes({ embedded = false }: RecipesProps) {
       <Root className={embedded ? undefined : 'container py-4 sm:py-8 px-4 sm:px-6 lg:px-8'}>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
           <h1 className={embedded ? 'sr-only' : 'text-2xl sm:text-3xl font-bold'}>Recipes</h1>
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-64">
+          {/* On phones the search gets its own row - three controls side by
+              side squeezed the field down to just its icon. */}
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            <div className="relative basis-full sm:basis-auto flex-1 sm:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search recipes, ingredients..."
@@ -246,7 +248,7 @@ export default function Recipes({ embedded = false }: RecipesProps) {
                 className="pl-9"
               />
             </div>
-            <Button variant="outline" onClick={startScan} disabled={scanning}>
+            <Button variant="outline" className="flex-1 sm:flex-initial" onClick={startScan} disabled={scanning}>
               {scanning ? (
                 <Spinner className="h-4 w-4 mr-2 animate-spin" />
               ) : (
@@ -271,7 +273,7 @@ export default function Recipes({ embedded = false }: RecipesProps) {
                 setAddDialogOpen(true);
               }}
             />
-            <Button onClick={() => { setScanInitialData(null); setAddDialogOpen(true); }}>
+            <Button className="flex-1 sm:flex-initial" onClick={() => { setScanInitialData(null); setAddDialogOpen(true); }}>
               <Plus className="h-4 w-4 mr-2" />
               Add Recipe
             </Button>

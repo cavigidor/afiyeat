@@ -10,13 +10,13 @@ import { ENABLED_CATEGORIES, exploreCategoryPath, type DiscoveryCategoryId } fro
  */
 export function CategoryTiles() {
   return (
-    <nav aria-label="Categories" className="rail gap-2.5 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
+    <nav aria-label="Categories" className="rail gap-2.5 -mx-4 px-4 scroll-px-4 sm:-mx-6 sm:px-6 sm:scroll-px-6 lg:mx-0 lg:px-0 lg:scroll-px-0">
       {ENABLED_CATEGORIES.map((c) => (
         <Link
           key={c.id}
           to={exploreCategoryPath(c.id)}
           onClick={() => void hapticTap()}
-          className="active-press group flex w-[4.75rem] flex-col items-center gap-1.5 transition-transform duration-150 ease-out"
+          className="active-press group flex min-w-[4.75rem] flex-1 flex-col items-center gap-1.5 transition-transform duration-150 ease-out"
         >
           <span className="flex h-16 w-16 items-center justify-center rounded-2xl border bg-card text-3xl shadow-sm transition-colors group-active:bg-muted/60">
             <span aria-hidden>{c.emoji}</span>
@@ -36,7 +36,7 @@ interface CategoryChipsProps {
 /** Explore's category switcher: compact pills, the selected one filled. */
 export function CategoryChips({ value, onChange }: CategoryChipsProps) {
   return (
-    <div role="tablist" aria-label="Categories" className="rail gap-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+    <div role="tablist" aria-label="Categories" className="rail gap-2 -mx-4 px-4 scroll-px-4 sm:mx-0 sm:px-0 sm:scroll-px-0">
       {ENABLED_CATEGORIES.map((c) => {
         const active = c.id === value;
         return (

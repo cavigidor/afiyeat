@@ -43,13 +43,17 @@ afiyeat-app/
 │   │                             .reveal-on-hover, iOS spinner, MapKit touch handling)
 │   ├── pages/                    one file per route (see §4)
 │   ├── components/
-│   │   ├── layout/               Navbar, BottomTabBar, PersistentTabs (keeps 4 tabs mounted),
+│   │   ├── layout/               Navbar, BottomTabBar, PersistentTabs (keeps the tabs mounted),
 │   │   │                         AccountBoundary (clears data on account change)
 │   │   ├── maps/                 PlaceMap - the one Apple Maps (MapKit JS) map used everywhere
 │   │   ├── restaurants/          add/edit/detail/card/row for restaurants
 │   │   ├── lists/                custom lists (presets live in CreateListDialog.tsx)
 │   │   ├── recipes/              recipe dialogs/cards, ScanConsentDialog (AI permission)
-│   │   ├── explore/              Explore map, place detail sheet, events
+│   │   ├── explore/              Explore map, place detail sheet, events (ExploreEvents)
+│   │   ├── discovery/            shared by Home + Explore: DiscoverySection/Rail, CategoryTiles/Chips, Place/List/Event tiles
+│   │   ├── home/                 Home sections (header, popular, circle, happening soon, lists)
+│   │   ├── search/               search screen results: places, people, lists
+│   │   ├── activity/             follow requests card
 │   │   ├── shared/               shared (two-person) lists, place search dropdown,
 │   │   │                         PushNotificationManager, NativeLinkRouter
 │   │   ├── sharing/              share button, signed-out previews, referral capture
@@ -60,6 +64,9 @@ afiyeat-app/
 │   │   └── ui/                   shadcn primitives in use (dialog/sheet edited for iOS safe areas),
 │   │                             spinner.tsx (iOS-style activity indicator)
 │   ├── lib/                      non-UI logic
+│   │   ├── navigation.ts         the 5 tabs (PRIMARY_TABS), HOME_PATH, RECIPES_PATH
+│   │   ├── discovery.ts          explore fetchers, categories (DISCOVERY_CATEGORIES), popular ranking
+│   │   ├── circle.ts / activity.ts / followRequests.ts / events.ts   Home circle feed, Activity feed, requests, Ticketmaster
 │   │   ├── appleMaps.ts          place search, place details (resolve + short-lived cache),
 │   │   │                         what to store when saving, MapKit JS loader
 │   │   ├── native.ts             all Capacitor calls (push, splash, status bar, location, camera)
@@ -177,6 +184,10 @@ Bottom tabs (phones) and navbar links (desktop) both come from `PRIMARY_TABS` in
 ### Status (October 9, 2026)
 
 Phases 1–4 are built, applied and tested on device. Phase 5 is in progress: release docs are written (`docs/RELEASE_CHECKLIST.md`, `APP_STORE_METADATA.md`, `APP_REVIEW_NOTES.md`, `APP_PRIVACY_LABELS.md`, `USER_TEST_CHECKLIST.md`). What remains is demo accounts, screenshots, the TestFlight test and submission.
+
+### Navigation reorganisation (October 11, 2026, branch `home-navigation`)
+
+The tabs are now Home | Explore | Lists | Activity | You (was Foodie | My Lists | Friends | Explore). Foodie was Recipes, which now lives in Explore → Food → Recipes; `/foodie` redirects there. No database, edge-function or API changes. **Before submitting:** retake the App Store screenshots and run §7 of USER_TEST_CHECKLIST.md on device. APP_REVIEW_NOTES.md already describes the new tabs.
 
 ### Before launch, in order
 
