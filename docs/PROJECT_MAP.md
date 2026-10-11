@@ -112,7 +112,7 @@ Bottom tabs (phones) and navbar links (desktop) both come from `PRIMARY_TABS` in
 | `/activity` | Activity | Tab: Activity. Follow requests, new followers, shared-list activity |
 | `/profile` | Profile | Tab: You |
 | `/friends` | Friends | Not a tab: find people + shared lists; reached from Activity and Lists |
-| `/search` | Search | Find people (unified search lands here at CP2) |
+| `/search` | Search | One search: Places (Apple Maps), People, Lists; hands events off to Explore. `?q=| `/search` | Search | Find people (unified search lands here at CP2) |type=` |
 | `/foodie`, `/recipes`, `/news` | redirect | → `/explore?c=food&tab=recipes` (Foodie was Recipes) |
 | `/dashboard` | redirect | → `/my-list` |
 | `/u/:userId`, `/u/:userId/lists/:listId` | PublicProfile, PublicListDetail | Signed-out visitors see a preview, not a login wall |

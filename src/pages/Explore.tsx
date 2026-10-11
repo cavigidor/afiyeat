@@ -17,7 +17,8 @@ import {
 } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { withApplePlaceDetails } from '@/lib/appleMaps';
+import { fetchExplorePlaces, fetchExploreLists, exploreKeys, type ExploreMode } from '@/lib/discovery';
+import { fetchNearbyEvents, type EventsDateFilter } from '@/lib/events';
 import { Map as MapIcon, List as ListIcon, Compass, LocateFixed, Users2, CalendarDays, MapPinOff, Search } from 'lucide-react';
 import { ExploreMapComponent } from '@/components/explore/ExploreMapComponent';
 import { ExplorePlaceCard, type ExplorePlace } from '@/components/explore/ExplorePlaceCard';
@@ -30,73 +31,9 @@ import { useLocationPermission } from '@/hooks/useLocationPermission';
 import { AddExplorePlaceDialog } from '@/components/explore/AddExplorePlaceDialog';
 import { Spinner } from '@/components/ui/spinner';
 
-type ExploreMode = 'friends' | 'all';
 type ExploreView = 'map' | 'list';
 type ExploreContentType = 'restaurants' | 'lists' | 'events';
-type EventsDateFilter = 'all' | 'today' | 'week' | 'month';
 
-
-async function fetchExplorePlaces(mode: ExploreMode): Promise<ExplorePlace[]> {
-  const { data, error } = await supabase.rpc('get_explore_places', { p_mode: mode });
-  if (error) throw error;
-  const places = (data || []) as ExplorePlace[];
-  // Apple-saved places whose short-lived details have expired come back
-  // without an address or pin; look those up again (batched, cached).
-  const filled = await withApplePlaceDetails(
-    places.map((p) => (p.latitude == null || !p.address ? p : { ...p, apple_place_id: null })),
-  );
-  return filled.map((p, i) => ({
-    ...p,
-    apple_place_id: places[i].apple_place_id ?? null,
-    name: p.name || places[i].name,
-  }));
-}
-
-async function fetchExploreLists(mode: ExploreMode): Promise<ExploreList[]> {
-  const { data, error } = await supabase.rpc('get_explore_lists', { p_mode: mode });
-  if (error) throw error;
-  return (data || []) as ExploreList[];
-}
-
-// Ticketmaster wants a UTC window, not a filter keyword - so "Today" /
-// "This Week" / "This Month" are translated into startDateTime/endDateTime
-// here and sent to the edge function, rather than filtered client-side out
-// of the (size-capped) results already fetched.
-function getEventsDateRange(filter: EventsDateFilter): { startDateTime?: string; endDateTime?: string } {
-  if (filter === 'all') return {};
-  const now = new Date();
-  const end = new Date(now);
-  if (filter === 'today') {
-    end.setHours(23, 59, 59, 999);
-  } else if (filter === 'week') {
-    end.setDate(end.getDate() + 7);
-  } else {
-    end.setDate(end.getDate() + 30);
-  }
-  return { startDateTime: now.toISOString(), endDateTime: end.toISOString() };
-}
-
-async function fetchNearbyEvents(
-  latitude: number,
-  longitude: number,
-  keyword: string,
-  dateFilter: EventsDateFilter,
-  radiusMiles: number,
-): Promise<TicketmasterEvent[]> {
-  const { startDateTime, endDateTime } = getEventsDateRange(dateFilter);
-  const { data, error } = await supabase.functions.invoke('search-events', {
-    body: {
-      latitude,
-      longitude,
-      keyword: keyword || undefined,
-      startDateTime,
-      endDateTime,
-      radiusMiles,
-    },
-  });
-  if (error) throw error;
-  return (data?.events || []) as TicketmasterEvent[];
-}
 
 export default function Explore() {
   const { user, loading: authLoading } = useAuth();
@@ -154,13 +91,13 @@ export default function Explore() {
 
 
   const { data: places = [], isLoading: placesLoading } = useQuery({
-    queryKey: ['explore-places', mode],
+    queryKey: exploreKeys.places(mode),
     queryFn: () => fetchExplorePlaces(mode),
     enabled: !!user && contentType === 'restaurants',
   });
 
   const { data: lists = [], isLoading: listsLoading } = useQuery({
-    queryKey: ['explore-lists', mode],
+    queryKey: exploreKeys.lists(mode),
     queryFn: () => fetchExploreLists(mode),
     enabled: !!user && contentType === 'lists',
   });
