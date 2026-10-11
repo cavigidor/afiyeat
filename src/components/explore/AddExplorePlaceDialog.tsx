@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { isDuplicateRestaurant, isDuplicateCustomListItem } from '@/lib/duplicateRestaurant';
+import { resolveApplePlaces } from '@/lib/appleMaps';
 import type { ExplorePlace } from './ExplorePlaceCard';
 import { Spinner } from '@/components/ui/spinner';
 
@@ -86,6 +87,9 @@ export function AddExplorePlaceDialog({ open, onOpenChange, place }: AddExploreP
           status: 'to_go',
         });
         if (error) throw error;
+        // A place picked from search may not be in the details cache yet;
+        // fetch it now so the new entry shows its address and pin at once.
+        if (place.apple_place_id) void resolveApplePlaces([place.apple_place_id]);
         toast.success('Added to My Restaurants!');
       } else {
         const duplicate = await isDuplicateCustomListItem(destination, {
@@ -117,6 +121,7 @@ export function AddExplorePlaceDialog({ open, onOpenChange, place }: AddExploreP
           status_id: firstStatus?.id ?? null,
         });
         if (error) throw error;
+        if (place.apple_place_id) void resolveApplePlaces([place.apple_place_id]);
         const list = lists.find((l) => l.id === destination);
         toast.success(`Added to ${list?.name || 'your list'}!`);
       }
