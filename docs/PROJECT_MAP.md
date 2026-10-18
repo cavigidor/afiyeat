@@ -1,6 +1,6 @@
-# Afiyeat: project map (for planning tools such as Codex)
+# Afiyeat: project map
 
-This is a read-only orientation guide. Codex plans; Claude implements. Don't edit code from a planning session.
+This is a read-only orientation guide for planning and implementation. Don't edit code from a planning session.
 
 ---
 
