@@ -43,13 +43,17 @@ afiyeat-app/
 │   │                             .reveal-on-hover, iOS spinner, MapKit touch handling)
 │   ├── pages/                    one file per route (see §4)
 │   ├── components/
-│   │   ├── layout/               Navbar, BottomTabBar, PersistentTabs (keeps 4 tabs mounted),
+│   │   ├── layout/               Navbar, BottomTabBar, PersistentTabs (keeps the tabs mounted),
 │   │   │                         AccountBoundary (clears data on account change)
 │   │   ├── maps/                 PlaceMap - the one Apple Maps (MapKit JS) map used everywhere
 │   │   ├── restaurants/          add/edit/detail/card/row for restaurants
 │   │   ├── lists/                custom lists (presets live in CreateListDialog.tsx)
 │   │   ├── recipes/              recipe dialogs/cards, ScanConsentDialog (AI permission)
-│   │   ├── explore/              Explore map, place detail sheet, events
+│   │   ├── explore/              Explore map, place detail sheet, events (ExploreEvents)
+│   │   ├── discovery/            shared by Home + Explore: DiscoverySection/Rail, CategoryTiles/Chips, Place/List/Event tiles
+│   │   ├── home/                 Home sections (header, popular, circle, happening soon, lists)
+│   │   ├── search/               search screen results: places, people, lists
+│   │   ├── activity/             follow requests card
 │   │   ├── shared/               shared (two-person) lists, place search dropdown,
 │   │   │                         PushNotificationManager, NativeLinkRouter
 │   │   ├── sharing/              share button, signed-out previews, referral capture
@@ -60,6 +64,9 @@ afiyeat-app/
 │   │   └── ui/                   shadcn primitives in use (dialog/sheet edited for iOS safe areas),
 │   │                             spinner.tsx (iOS-style activity indicator)
 │   ├── lib/                      non-UI logic
+│   │   ├── navigation.ts         the 5 tabs (PRIMARY_TABS), HOME_PATH, RECIPES_PATH
+│   │   ├── discovery.ts          explore fetchers, categories (DISCOVERY_CATEGORIES), popular ranking
+│   │   ├── circle.ts / activity.ts / followRequests.ts / events.ts   Home circle feed, Activity feed, requests, Ticketmaster
 │   │   ├── appleMaps.ts          place search, place details (resolve + short-lived cache),
 │   │   │                         what to store when saving, MapKit JS loader
 │   │   ├── native.ts             all Capacitor calls (push, splash, status bar, location, camera)
@@ -99,17 +106,31 @@ afiyeat-app/
 
 ## 4. Routes (`src/App.tsx`)
 
+Bottom tabs (phones) and navbar links (desktop) both come from `PRIMARY_TABS` in `src/lib/navigation.ts`:
+**Home | Explore | Lists | Activity | You**.
+
 | Route | Page | Notes |
 |---|---|---|
-| `/` | Index | Landing page on web; redirects into the app on native or when signed in |
-| `/auth` | Auth | Sign-in/up; afterwards goes to `postAuthDestination()` |
-| `/dashboard`, `/search`, `/news`, `/recipes`, `/my-list`, `/profile` | (various) | The 4 main tabs stay mounted via PersistentTabs |
-| `/my-lists/:listId` | CustomListDetail | |
+| `/` | Index | Landing page on web; redirects to `/home` on native or when signed in |
+| `/auth` | Auth | Sign-in/up; afterwards goes to `postAuthDestination()` (default `/home`) |
+| `/home` | Home | Tab: Home. Starting screen for signed-in users |
+| `/explore` | Explore | Tab: Explore. `?c=all\|food\|coffee\|drinks\|events` (opens on All), `&tab=recipes` for Recipes |
+| `/my-lists` | MyLists | Tab: Lists. `?tab=shared\|discover`. `/my-list` (My Restaurants), `/my-lists/:listId` (custom list) and `/my-lists/shared/:listId` (shared list, SharedListDetail) sit under it |
+| `/activity` | Activity | Tab: Activity. Follow requests, new followers, shared-list activity |
+| `/profile` | Profile | Tab: You |
+| `/friends` | Friends | Not a tab: find people, see a friend's places. Old "Shared Lists" state is forwarded to `/my-lists/shared/:id` |
+| `/search` | Search | One search: Places (Apple Maps), People, Lists; hands events off to Explore. `?q=…&type=people\|lists` |
+| `/foodie`, `/recipes`, `/news` | redirect | → `/explore?c=food&tab=recipes` (Foodie was Recipes) |
+| `/dashboard` | redirect | → `/my-list` |
 | `/u/:userId`, `/u/:userId/lists/:listId` | PublicProfile, PublicListDetail | Signed-out visitors see a preview, not a login wall |
 | `/r/:id`, `/recipe/:id` | PublicRestaurant, PublicRecipe | Share-link landing pages |
 | `/invite/:code` | Invite | Stores the referral code, then goes to sign-up |
 | `/passport` | Passport | Invite screen, history, milestones |
-| `/terms`, `/privacy` | | Privacy policy is out of date (Dec 2024) |
+| `/terms`, `/privacy`, `/support` | | |
+
+`/home`, `/explore`, `/my-lists`, `/activity` and `/friends` stay mounted between switches (PersistentTabs).
+
+**Selected tab** (`resolveActiveTab` in `lib/navigation.ts`): each tab owns its screens (Lists owns `/my-list` and everything under `/my-lists/`; You owns `/profile` and `/passport`). Screens reached from several places (`/search`, `/friends`, `/u/...`, `/r/...`) keep the tab they were opened from; on a cold deep link `/search` falls back to Explore and `/friends` to Activity.
 
 ---
 
@@ -165,6 +186,10 @@ afiyeat-app/
 ### Status (October 9, 2026)
 
 Phases 1–4 are built, applied and tested on device. Phase 5 is in progress: release docs are written (`docs/RELEASE_CHECKLIST.md`, `APP_STORE_METADATA.md`, `APP_REVIEW_NOTES.md`, `APP_PRIVACY_LABELS.md`, `USER_TEST_CHECKLIST.md`). What remains is demo accounts, screenshots, the TestFlight test and submission.
+
+### Navigation reorganisation (October 11, 2026, branch `home-navigation`)
+
+The tabs are now Home | Explore | Lists | Activity | You (was Foodie | My Lists | Friends | Explore). Foodie was Recipes, which now lives in Explore → Food → Recipes; `/foodie` redirects there. No database, edge-function or API changes. **Before submitting:** retake the App Store screenshots and run §7 of USER_TEST_CHECKLIST.md on device. APP_REVIEW_NOTES.md already describes the new tabs.
 
 ### Before launch, in order
 

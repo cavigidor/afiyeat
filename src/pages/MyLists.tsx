@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/layout/Navbar';
 import { CardGridSkeleton } from '@/components/shared/CardGridSkeleton';
 import { Button } from '@/components/ui/button';
@@ -23,13 +23,17 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, ListChecks, Settings, Trash2, UtensilsCrossed, ListPlus, Users, AlertTriangle } from 'lucide-react';
+import { Plus, ListChecks, Settings, Trash2, UtensilsCrossed, ListPlus, Users, AlertTriangle, Compass } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreateListDialog, type CustomList } from '@/components/lists/CreateListDialog';
 import { CreateSharedListDialog } from '@/components/shared/CreateSharedListDialog';
 import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { useFollowing } from '@/hooks/useFollowing';
 import { Spinner } from '@/components/ui/spinner';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ExploreListCard } from '@/components/explore/ExploreListCard';
+import { exploreKeys, fetchExploreLists, type ExploreMode } from '@/lib/discovery';
+import { sharedListPath } from '@/lib/navigation';
 
 async function fetchMyLists(userId: string): Promise<CustomList[]> {
   const { data, error } = await supabase
@@ -81,9 +85,8 @@ interface SharedListPreview {
   } | null;
 }
 
-// Lightweight version of SharedLists.tsx's own fetch - just enough to show
-// a preview card here (name + partner), full item lists still live on the
-// Friends > Shared Lists tab.
+// Just enough to show a card per shared list (name + partner). Each card
+// opens the list at /my-lists/shared/:id (SharedListDetail).
 async function fetchSharedLists(userId: string): Promise<SharedListPreview[]> {
   const { data, error } = await supabase
     .from('shared_lists')
@@ -110,9 +113,36 @@ async function fetchSharedLists(userId: string): Promise<SharedListPreview[]> {
   }));
 }
 
+type ListsTab = 'mine' | 'shared' | 'discover';
+const isListsTab = (v: string | null): v is ListsTab => v === 'mine' || v === 'shared' || v === 'discover';
+
+/**
+ * Lists: "things I want to remember, organise or share."
+ *   - Mine: My Restaurants (pinned) and every custom list you've made.
+ *   - Shared: two-person lists with a friend. Each opens at
+ *     /my-lists/shared/:id, still under Lists.
+ *   - Discover: lists other people are building - moved here from Explore's
+ *     old "Other Lists" tab. /my-lists?tab=discover opens it directly.
+ */
 export default function MyLists() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [tab, setTab] = useState<ListsTab>('mine');
+  const [discoverMode, setDiscoverMode] = useState<ExploreMode>('all');
+
+  // This tab stays mounted under other routes, so only follow ?tab= while
+  // the URL is actually /my-lists.
+  useEffect(() => {
+    if (location.pathname !== '/my-lists') return;
+    const t = new URLSearchParams(location.search).get('tab');
+    if (isListsTab(t)) setTab(t);
+  }, [location.pathname, location.search]);
+
+  const changeTab = (t: ListsTab) => {
+    setTab(t);
+    navigate(t === 'mine' ? '/my-lists' : `/my-lists?tab=${t}`, { replace: true });
+  };
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [createSharedOpen, setCreateSharedOpen] = useState(false);
@@ -152,6 +182,13 @@ export default function MyLists() {
     queryFn: () => fetchSharedLists(user!.id),
     enabled: !!user,
   });
+
+  const { data: discoverLists = [], isLoading: discoverLoading } = useQuery({
+    queryKey: exploreKeys.lists(discoverMode),
+    queryFn: () => fetchExploreLists(discoverMode),
+    enabled: !!user && tab === 'discover',
+  });
+  const othersLists = discoverLists.filter((l) => l.user_id !== user?.id);
 
   const invalidateLists = () => {
     queryClient.invalidateQueries({ queryKey: ['custom_lists', user?.id] });
@@ -208,16 +245,16 @@ export default function MyLists() {
       <main className="container py-4 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-4 sm:space-y-6">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">My Lists</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">Lists</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Everything you're tracking - your restaurants, and any custom list you create.
+              Remember, organise and share the things you love.
             </p>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="sm" className="sm:size-default shrink-0">
-                <Plus className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Create New List</span>
+                <Plus className="h-4 w-4 min-[380px]:mr-1.5" />
+                <span className="hidden min-[380px]:inline">New list</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -233,7 +270,20 @@ export default function MyLists() {
           </DropdownMenu>
         </div>
 
-        {loadingLists ? (
+        <Tabs value={tab} onValueChange={(v) => changeTab(v as ListsTab)}>
+          <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="mine" className="flex-1 sm:flex-initial">Mine</TabsTrigger>
+            <TabsTrigger value="shared" className="flex-1 sm:flex-initial gap-1.5">
+              Shared
+              {sharedLists.length > 0 && (
+                <span className="text-xs text-muted-foreground">{sharedLists.length}</span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="discover" className="flex-1 sm:flex-initial">Discover</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {tab === 'mine' && (loadingLists ? (
           <CardGridSkeleton />
         ) : (
           <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -342,21 +392,44 @@ export default function MyLists() {
             ))
             )}
           </div>
-        )}
+        ))}
 
-        {sharedLists.length > 0 && (
-          <div className="space-y-3 pt-2">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Shared Lists
-            </h2>
+        {tab === 'shared' && (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+              <Users className="h-4 w-4 shrink-0" />
+              Lists you build together with a friend - you both add, tick off and comment.
+            </p>
+            {sharedLists.length === 0 ? (
+              <Card>
+                <CardContent className="py-10 text-center">
+                  <Users className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
+                  <h3 className="text-base font-medium mb-1">No shared lists yet</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {following.length > 0
+                      ? 'Plan date nights, trips or a wine list with someone you follow.'
+                      : 'Follow a friend first, then start a list together.'}
+                  </p>
+                  {following.length > 0 ? (
+                    <Button size="sm" onClick={() => setCreateSharedOpen(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Start a shared list
+                    </Button>
+                  ) : (
+                    <Button size="sm" onClick={() => navigate('/friends')}>
+                      Find people
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
             <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {sharedLists.map((sl) => (
                 <Card
                   key={sl.id}
                   interactive
                   className="hover:shadow-md transition-shadow overflow-hidden"
-                  onClick={() => navigate('/friends', { state: { tab: 'shared', listId: sl.id } })}
+                  onClick={() => navigate(sharedListPath(sl.id))}
                 >
                   <CardContent className="p-4 flex items-center gap-3">
                     <AnimalAvatar
@@ -374,6 +447,44 @@ export default function MyLists() {
                 </Card>
               ))}
             </div>
+            )}
+          </div>
+        )}
+
+        {tab === 'discover' && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-muted-foreground">
+                {discoverMode === 'friends'
+                  ? 'Lists people you follow are building.'
+                  : 'Lists people on Afiyeat are building - beyond just restaurants.'}
+              </p>
+              <Tabs value={discoverMode} onValueChange={(v) => setDiscoverMode(v as ExploreMode)}>
+                <TabsList>
+                  <TabsTrigger value="all">Everyone</TabsTrigger>
+                  <TabsTrigger value="friends">Friends</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+            {discoverLoading ? (
+              <CardGridSkeleton />
+            ) : othersLists.length === 0 ? (
+              <div className="text-center py-16 bg-card rounded-xl px-6">
+                <Compass className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+                <h3 className="text-lg font-medium mb-2">Nothing to discover yet</h3>
+                <p className="text-muted-foreground">
+                  {discoverMode === 'friends'
+                    ? 'Lists made by people you follow will show up here.'
+                    : 'Lists made by people with public profiles will show up here.'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+                {othersLists.map((list) => (
+                  <ExploreListCard key={list.list_id} list={list} />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </main>

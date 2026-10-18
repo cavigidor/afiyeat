@@ -1,48 +1,17 @@
 import { useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { ChefHat, ListChecks, Users, Compass } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { hapticTap } from '@/lib/haptics';
-
-interface Tab {
-  to: string;
-  label: string;
-  icon: typeof ChefHat;
-  isActive: (pathname: string) => boolean;
-}
-
-const TABS: Tab[] = [
-  {
-    to: '/foodie',
-    label: 'Foodie',
-    icon: ChefHat,
-    isActive: (p) => p === '/foodie' || p === '/news' || p === '/recipes',
-  },
-  {
-    to: '/my-lists',
-    label: 'My Lists',
-    icon: ListChecks,
-    isActive: (p) => p === '/my-lists' || p === '/my-list' || p.startsWith('/my-lists/'),
-  },
-  {
-    to: '/friends',
-    label: 'Friends',
-    icon: Users,
-    isActive: (p) => p === '/friends',
-  },
-  {
-    to: '/explore',
-    label: 'Explore',
-    icon: Compass,
-    isActive: (p) => p === '/explore',
-  },
-];
+import { PRIMARY_TABS } from '@/lib/navigation';
+import { usePendingRequests } from '@/lib/followRequests';
+import { useActiveTab } from '@/hooks/useActiveTab';
 
 /**
- * Primary navigation on mobile - a fixed iOS-style bottom tab bar, replacing
- * the old hamburger drawer. Only shown once signed in (matches Navbar's own
- * nav links, which are also gated on `user`).
+ * Primary navigation on mobile - a fixed iOS-style bottom tab bar:
+ * Home | Explore | Lists | Activity | You (see lib/navigation.ts). Only
+ * shown once signed in (matches Navbar's own nav links, which are also
+ * gated on `user`).
  *
  * Toggles a body class so index.css can pad page content clear of this
  * bar's height + the safe-area inset, without every single page needing
@@ -50,7 +19,12 @@ const TABS: Tab[] = [
  */
 export function BottomTabBar() {
   const { user } = useAuth();
-  const location = useLocation();
+  // Owned screens select their tab; shared sub-screens (search, people,
+  // profiles) keep the tab they were opened from - see resolveActiveTab.
+  const activeTab = useActiveTab();
+  // The one count that's real today: follow requests waiting on you.
+  // There's no read/unread state for anything else, so nothing else badges.
+  const { data: pendingRequests = [] } = usePendingRequests(user?.id);
 
   useEffect(() => {
     if (user) {
@@ -70,23 +44,36 @@ export function BottomTabBar() {
       className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-t border-border/40 pb-safe"
       aria-label="Primary"
     >
-      <div className="grid grid-cols-4">
-        {TABS.map((tab) => {
-          const active = tab.isActive(location.pathname);
+      <div className="grid grid-cols-5">
+        {PRIMARY_TABS.map((tab) => {
+          const active = tab.to === activeTab;
           const Icon = tab.icon;
+          const badge = tab.to === '/activity' ? pendingRequests.length : 0;
           return (
             <Link
               key={tab.to}
               to={tab.to}
+              aria-current={active ? 'page' : undefined}
+              aria-label={badge > 0 ? `${tab.label}, ${badge} new` : tab.label}
               onClick={() => {
                 if (!active) void hapticTap();
               }}
               className={cn(
-                'active-press flex flex-col items-center justify-center gap-0.5 py-2 text-xs transition-[color,transform] duration-150 ease-out active:opacity-60',
+                'active-press flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] transition-[color,transform] duration-150 ease-out active:opacity-60',
                 active ? 'text-primary' : 'text-muted-foreground',
               )}
             >
-              <Icon className={cn('h-5 w-5', active && 'fill-primary/10')} />
+              <span className="relative">
+                <Icon className={cn('h-5 w-5', active && 'fill-primary/10')} />
+                {badge > 0 && (
+                  <span
+                    aria-hidden
+                    className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground"
+                  >
+                    {badge > 9 ? '9+' : badge}
+                  </span>
+                )}
+              </span>
               <span className={cn(active && 'font-medium')}>{tab.label}</span>
             </Link>
           );
