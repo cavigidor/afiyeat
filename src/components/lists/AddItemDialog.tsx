@@ -45,7 +45,7 @@ import {
   rememberDestination,
   type AddDestination,
 } from '@/lib/addDestinations';
-import { saveCustomListItem, saveRestaurant, saveSharedListItem, type SaveResult } from '@/lib/listItemSave';
+import { photoUploadWarning, saveCustomListItem, saveRestaurant, saveSharedListItem, type SaveResult } from '@/lib/listItemSave';
 
 const PRICE_LABELS = ['<$30', '<$50', '<$100', '$100+'];
 
@@ -122,10 +122,11 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null 
   }, [open, destinations, allDestinations, preferredDestination]);
 
   const customListId = dest.kind === 'custom' ? dest.list.id : null;
-  const { data: statuses = [] } = useQuery({
+  const statusesQuery = useQuery({
     queryKey: ['add-item-statuses', customListId],
     queryFn: () => fetchListStatuses(customListId!),
     enabled: open && !!customListId,
+    retry: false,
   });
   const { data: types = [] } = useQuery({
     queryKey: ['add-item-types', customListId],
@@ -137,7 +138,11 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null 
     queryFn: () => fetchFolders(user!.id),
     enabled: open && !!user && dest.kind === 'restaurants',
   });
-  const sortedStatuses = useMemo(() => sortByOrder(statuses), [statuses]);
+  const sortedStatuses = useMemo(() => sortByOrder(statusesQuery.data ?? []), [statusesQuery.data]);
+  // An empty *successful* response is different from statuses that haven't
+  // arrived. Background refetch failures also block saving stale settings.
+  const statusesMissing = statusesQuery.isSuccess && !statusesQuery.isFetching && sortedStatuses.length === 0;
+  const statusesReady = dest.kind !== 'custom' || (statusesQuery.isSuccess && !statusesQuery.isFetching && sortedStatuses.length > 0);
 
   // -- What the destination uses -------------------------------------------
   const hasLocation = destinationHasLocation(dest);
@@ -174,6 +179,7 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null 
   // Belongs to one list: reset when the destination changes.
   const [placeStatus, setPlaceStatus] = useState<'to_go' | 'went_to'>('to_go');
   const [customStatusId, setCustomStatusId] = useState<string | null>(null);
+  const selectedCustomStatusId = sortedStatuses.find((s) => s.id === customStatusId)?.id ?? sortedStatuses[0]?.id ?? '';
   const [typeIds, setTypeIds] = useState<string[]>([]);
   const [folderIds, setFolderIds] = useState<string[]>([]);
 
@@ -226,6 +232,7 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null 
     setPhotos([]);
     setPhotoPreviews([]);
     setPlaceStatus('to_go');
+    setCustomStatusId(null);
     setTypeIds([]);
     setFolderIds([]);
     setMoreOpen(false);
@@ -251,14 +258,6 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null 
     previousScale.current = ratingScale;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [destKey]);
-
-  // A custom list's first status (by its order) is the default, as in the
-  // list's own Add dialog.
-  useEffect(() => {
-    if (dest.kind === 'custom' && !customStatusId && sortedStatuses.length > 0) {
-      setCustomStatusId(sortedStatuses[0].id);
-    }
-  }, [dest.kind, customStatusId, sortedStatuses]);
 
   // -- Photos -----------------------------------------------------------------
   const addFiles = async (incoming: File[]) => {
@@ -301,7 +300,7 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null 
   };
 
   const handleSave = async () => {
-    if (!user || saving) return;
+    if (!user || saving || !statusesReady || loadingDestinations) return;
     if (!name.trim()) {
       toast.error('Add a name');
       return;
@@ -332,7 +331,7 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null 
       });
     } else if (target.kind === 'custom') {
       result = await saveCustomListItem(user.id, target.list, item, {
-        statusId: customStatusId ?? sortedStatuses[0]?.id ?? null,
+        statusId: selectedCustomStatusId,
         typeIds,
         priceLevel,
         priceManual,
@@ -365,7 +364,9 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null 
     void hapticSuccess();
     rememberDestination(target.key);
     invalidateDestination(target);
-    toast.success(`Added to ${target.label}`, {
+    const warning = photoUploadWarning(result.photos);
+    const notify = warning ? toast.warning : toast.success;
+    notify(warning ?? `Added to ${target.label}`, {
       action: { label: 'View', onClick: () => navigate(destinationPath(target)) },
     });
     onOpenChange(false);
@@ -376,7 +377,7 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null 
     dest.kind === 'shared' ? `Shared with ${dest.partnerName}` : dest.kind === 'custom' ? 'Your list' : 'Places to eat & drink';
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(next) => { if (!saving) onOpenChange(next); }}>
       <DialogContent className="sm:max-w-[500px] gap-0 p-0">
         <div className="space-y-4 p-6 pb-4">
           <DialogHeader>
@@ -498,7 +499,7 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null 
               <div className="space-y-2">
                 <Label>Status</Label>
                 {sortedStatuses.length <= 3 ? (
-                  <Tabs value={customStatusId ?? undefined} onValueChange={setCustomStatusId}>
+                  <Tabs value={selectedCustomStatusId} onValueChange={setCustomStatusId}>
                     <TabsList className="w-full">
                       {sortedStatuses.map((s) => (
                         <TabsTrigger key={s.id} value={s.id} className="flex-1 truncate">
@@ -508,7 +509,7 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null 
                     </TabsList>
                   </Tabs>
                 ) : (
-                  <Select value={customStatusId ?? undefined} onValueChange={setCustomStatusId}>
+                  <Select value={selectedCustomStatusId} onValueChange={setCustomStatusId}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -695,13 +696,27 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null 
             safe areas) so Add stays reachable however long the form gets,
             including while the keyboard is up. */}
         <div className="sticky bottom-0 z-10 space-y-2 border-t bg-background px-6 pb-4 pt-3">
+          {dest.kind === 'custom' && !statusesReady && (
+            !statusesQuery.isFetching && (statusesQuery.isError || statusesMissing) ? (
+              <div role="alert" className="space-y-2 text-sm text-destructive">
+                <p>{statusesMissing
+                  ? 'This list has no statuses. Open the list and add a status before adding items.'
+                  : "Couldn't load this list's statuses. Try again before adding an item."}</p>
+                <Button type="button" variant="outline" size="sm" disabled={statusesQuery.isFetching} onClick={() => void statusesQuery.refetch()}>
+                  Try loading statuses again
+                </Button>
+              </div>
+            ) : (
+              <p role="status" className="text-sm text-muted-foreground">Loading list statuses…</p>
+            )
+          )}
           {problem && (
             <p role="alert" className="flex items-start gap-1.5 text-sm text-destructive">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <span>{problem}</span>
             </p>
           )}
-          <Button className="w-full" onClick={() => void handleSave()} disabled={saving || !name.trim()}>
+          <Button className="w-full" onClick={() => void handleSave()} disabled={saving || !name.trim() || !statusesReady || loadingDestinations}>
             {saving && <Spinner className="mr-2 h-4 w-4 animate-spin" />}
             <span className="truncate">Add to {dest.label}</span>
           </Button>

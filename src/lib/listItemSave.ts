@@ -21,7 +21,7 @@ import type { CustomList } from '@/components/lists/CreateListDialog';
 // Discriminated on a string (not a boolean) so it narrows without
 // strictNullChecks, which this project doesn't enable.
 export type SaveResult =
-  | { status: 'saved'; id: string }
+  | { status: 'saved'; id: string; photos: PhotoUploadResult }
   | { status: 'duplicate' }
   | { status: 'error'; error: unknown };
 
@@ -39,45 +39,65 @@ export interface ItemBasics {
 // Photos
 // ---------------------------------------------------------------------------
 
-/**
- * Uploads photos for a saved restaurant. A failed upload is logged and
- * skipped, as before - the restaurant itself is already saved.
- */
-export async function uploadRestaurantPhotos(userId: string, restaurantId: string, files: File[]): Promise<void> {
+export interface PhotoUploadResult {
+  uploaded: number;
+  failed: number;
+}
+
+export function photoUploadWarning(result: PhotoUploadResult): string | null {
+  if (!result.failed) return null;
+  return `Your item was saved, but ${result.failed} ${result.failed === 1 ? 'photo' : 'photos'} couldn't be attached. Open the item to add ${result.failed === 1 ? 'it' : 'them'} again.`;
+}
+
+// Once the item exists, attachment failures must never turn into an item-save
+// error: retrying the whole save would either duplicate it or hit its duplicate
+// check. Count both storage and attachment-record failures, including rejected
+// requests, and keep trying the other files.
+async function uploadPhotos(files: File[], attach: (file: File) => Promise<void>): Promise<PhotoUploadResult> {
+  const result = { uploaded: 0, failed: 0 };
   for (const image of files) {
+    try {
+      await attach(image);
+      result.uploaded++;
+    } catch (error) {
+      console.error('Photo attachment failed:', error);
+      result.failed++;
+    }
+  }
+  return result;
+}
+
+export async function uploadRestaurantPhotos(userId: string, restaurantId: string, files: File[]): Promise<PhotoUploadResult> {
+  return uploadPhotos(files, async (image) => {
     const fileExt = image.name.split('.').pop();
     const fileName = `${userId}/${restaurantId}/${crypto.randomUUID()}.${fileExt}`;
     const { error: uploadError } = await supabase.storage.from('restaurant-images').upload(fileName, image);
-    if (uploadError) {
-      console.error('Image upload error:', uploadError);
-      continue;
-    }
+    if (uploadError) throw uploadError;
     const storagePath = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/restaurant-images/${fileName}`;
-    await supabase.from('restaurant_images').insert({
+    const { error } = await supabase.from('restaurant_images').insert({
       restaurant_id: restaurantId,
       user_id: userId,
       image_url: storagePath,
     });
-  }
+    if (error) throw error;
+  });
 }
 
-/** Uploads photos for a saved custom-list item (same skip-on-failure rule). */
-export async function uploadCustomListPhotos(userId: string, itemId: string, files: File[]): Promise<void> {
-  for (const image of files) {
+/** Attach photos without losing the already-saved custom-list item. */
+export async function uploadCustomListPhotos(userId: string, itemId: string, files: File[]): Promise<PhotoUploadResult> {
+  return uploadPhotos(files, async (image) => {
     const fileExt = image.name.split('.').pop();
     const fileName = `${userId}/${itemId}/${crypto.randomUUID()}.${fileExt}`;
     const { error: uploadError } = await supabase.storage.from('custom-list-images').upload(fileName, image);
-    if (uploadError) {
-      console.error('Image upload error:', uploadError);
-      continue;
-    }
+    if (uploadError) throw uploadError;
     const storagePath = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/custom-list-images/${fileName}`;
-    await supabase.from('custom_list_item_images').insert({
+    const { error } = await supabase.from('custom_list_item_images').insert({
       item_id: itemId,
       user_id: userId,
       image_url: storagePath,
     });
-  }
+    if (error) throw error;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -134,8 +154,8 @@ export async function saveRestaurant(userId: string, item: ItemBasics, fields: R
     // Fetch Apple's details into the short-lived cache now, so the new
     // place appears on lists and maps straight away.
     if (restaurant.apple_place_id) void resolveApplePlaces([restaurant.apple_place_id]);
-    if (fields.photos?.length) await uploadRestaurantPhotos(userId, restaurant.id, fields.photos);
-    return { status: 'saved', id: restaurant.id };
+    const photos = await uploadRestaurantPhotos(userId, restaurant.id, fields.photos ?? []);
+    return { status: 'saved', id: restaurant.id, photos };
   } catch (error) {
     return { status: 'error', error };
   }
@@ -220,8 +240,8 @@ export async function saveCustomListItem(
 
     // Warm Apple's details for the saved place so it shows on the map now.
     if (payload.apple_place_id) void resolveApplePlaces([payload.apple_place_id]);
-    if (list.show_photos && fields.photos?.length) await uploadCustomListPhotos(userId, data.id, fields.photos);
-    return { status: 'saved', id: data.id };
+    const photos = await uploadCustomListPhotos(userId, data.id, list.show_photos ? fields.photos ?? [] : []);
+    return { status: 'saved', id: data.id, photos };
   } catch (error) {
     return { status: 'error', error };
   }
@@ -279,7 +299,7 @@ export async function saveSharedListItem(
     if (error) throw error;
 
     if (location.apple_place_id) void resolveApplePlaces([location.apple_place_id]);
-    return { status: 'saved', id: data.id };
+    return { status: 'saved', id: data.id, photos: { uploaded: 0, failed: 0 } };
   } catch (error) {
     return { status: 'error', error };
   }

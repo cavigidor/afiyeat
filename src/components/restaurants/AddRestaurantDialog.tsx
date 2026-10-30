@@ -31,7 +31,7 @@ import { isNative, capturePhoto } from '@/lib/native';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { validateImageFile, compressImage, MAX_IMAGES_PER_RESTAURANT } from '@/lib/imageValidation';
-import { saveRestaurant } from '@/lib/listItemSave';
+import { photoUploadWarning, saveRestaurant } from '@/lib/listItemSave';
 import { PriceLevelPicker } from './PriceLevelPicker';
 import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
 import { PlaceResultsDropdown } from '@/components/shared/PlaceResultsDropdown';
@@ -291,7 +291,9 @@ export function AddRestaurantDialog({
       }
       if (result.status === 'error') throw result.error;
 
-      toast.success('Restaurant added successfully!');
+      const warning = photoUploadWarning(result.photos);
+      if (warning) toast.warning(warning);
+      else toast.success('Restaurant added successfully!');
       form.reset();
       setImages([]);
       setImagePreviews([]);
