@@ -27,7 +27,7 @@ import { PriceLevelPicker } from '@/components/restaurants/PriceLevelPicker';
 import { StarRatingPicker } from '@/components/lists/StarRatingPicker';
 import { StorageImage } from '@/components/shared/StorageImage';
 import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
-import { customListItemPayload, saveCustomListItem, uploadCustomListPhotos } from '@/lib/listItemSave';
+import { customListItemPayload, photoUploadWarning, saveCustomListItem, uploadCustomListPhotos, type PhotoUploadResult } from '@/lib/listItemSave';
 import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
 import { locationColumns, resolveApplePlaces, type AppleFilled, type PickedPlace } from '@/lib/appleMaps';
 import { PlaceResultsDropdown } from '@/components/shared/PlaceResultsDropdown';
@@ -231,6 +231,7 @@ export function AddCustomListItemDialog({
     if (blockedByContentFilter(name, notes)) return;
     setLoading(true);
     try {
+      let photos: PhotoUploadResult = { uploaded: 0, failed: 0 };
       const fields = {
         statusId,
         typeIds,
@@ -255,6 +256,7 @@ export function AddCustomListItemDialog({
           return;
         }
         if (result.status === 'error') throw result.error;
+        photos = result.photos;
       } else {
         // Only the Apple place ID is stored for a place picked from search;
         // Apple's address and pin are shown from the short-lived cache.
@@ -269,10 +271,12 @@ export function AddCustomListItemDialog({
         if (removedImageIds.length > 0) {
           await supabase.from('custom_list_item_images').delete().in('id', removedImageIds);
         }
-        if (images.length > 0) await uploadCustomListPhotos(user.id, itemId, images);
+        if (images.length > 0) photos = await uploadCustomListPhotos(user.id, itemId, images);
       }
 
-      toast.success(isEditing ? 'Item updated!' : `Added to ${list.name}!`);
+      const warning = photoUploadWarning(photos);
+      if (warning) toast.warning(warning);
+      else toast.success(isEditing ? 'Item updated!' : `Added to ${list.name}!`);
       onOpenChange(false);
       onSuccess();
     } catch (error) {
