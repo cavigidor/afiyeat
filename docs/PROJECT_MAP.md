@@ -114,7 +114,7 @@ Bottom tabs (phones) and navbar links (desktop) both come from `PRIMARY_TABS` in
 | `/` | Index | Landing page on web; redirects to `/home` on native or when signed in |
 | `/auth` | Auth | Sign-in/up; afterwards goes to `postAuthDestination()` (default `/home`) |
 | `/home` | Home | Tab: Home. Starting screen for signed-in users |
-| `/explore` | Explore | Tab: Explore. `?c=all\|food\|coffee\|drinks\|events` (opens on All), `&tab=recipes` for Recipes |
+| `/explore` | Explore | Tab: Explore. `?c=all\|food\|coffee\|drinks\|events\|lists` (opens on All), `&tab=recipes` for Recipes, `c=lists&q=…` for a list search |
 | `/my-lists` | MyLists | Tab: Lists. `?tab=shared\|discover`. `/my-list` (My Restaurants), `/my-lists/:listId` (custom list) and `/my-lists/shared/:listId` (shared list, SharedListDetail) sit under it |
 | `/activity` | Activity | Tab: Activity. Follow requests, new followers, shared-list activity |
 | `/profile` | Profile | Tab: You |
@@ -123,6 +123,7 @@ Bottom tabs (phones) and navbar links (desktop) both come from `PRIMARY_TABS` in
 | `/foodie`, `/recipes`, `/news` | redirect | → `/explore?c=food&tab=recipes` (Foodie was Recipes) |
 | `/dashboard` | redirect | → `/my-list` |
 | `/u/:userId`, `/u/:userId/lists/:listId` | PublicProfile, PublicListDetail | Signed-out visitors see a preview, not a login wall |
+| `/lists/discover/:token` | DiscoverableList | An anonymous list (no owner shown). Signed-in only; contextual, falls back to Explore |
 | `/r/:id`, `/recipe/:id` | PublicRestaurant, PublicRecipe | Share-link landing pages |
 | `/invite/:code` | Invite | Stores the referral code, then goes to sign-up |
 | `/passport` | Passport | Invite screen, history, milestones |
@@ -141,6 +142,7 @@ Bottom tabs (phones) and navbar links (desktop) both come from `PRIMARY_TABS` in
 - `20260920140000_afiyeat_passport_referrals`: referral codes, referral status machine (SECURITY DEFINER RPCs), milestones.
 - `20260922120000_shared_content_preview`: the `get_shared_preview` RPC for anonymous single-item previews.
 - `20260930120000_referral_hardening_and_history`: **check it's applied in Lovable.**
+- `20261030120000_list_visibility_and_anonymous_discovery` (CP2, **not applied yet**): `custom_lists.visibility` (`profile` default \| `private` \| `anonymous`) and `discovery_token`; one `can_view_custom_list()` check behind the read policies on lists, items, types, statuses and photos; `get_explore_lists(mode, query, limit, offset)` with server search and anonymous rows; `get_discoverable_list`, `get_list_discovery_preview`, `report_discoverable_list`; `get_shared_preview` only previews `profile` lists. Additive only: existing lists keep today's behaviour. Tested in `tests/listVisibility.db.test.ts`.
 
 ---
 
@@ -190,6 +192,10 @@ Phases 1–4 are built, applied and tested on device. Phase 5 is in progress: re
 ### Navigation reorganisation (October 11, 2026, branch `home-navigation`)
 
 The tabs are now Home | Explore | Lists | Activity | You (was Foodie | My Lists | Friends | Explore). Foodie was Recipes, which now lives in Explore → Food → Recipes; `/foodie` redirects there. No database, edge-function or API changes. **Before submitting:** retake the App Store screenshots and run §7 of USER_TEST_CHECKLIST.md on device. APP_REVIEW_NOTES.md already describes the new tabs.
+
+### Lists CP2: list visibility and anonymous discovery (October 2026, branch `lists-discovery`)
+
+Each list has a visibility: follows the profile (today's behaviour, the default), Only me, or Discoverable anonymously (offered to private accounts, explicit consent each time it's turned on). Explore → Lists (also Lists → Discover, Home's rail and Search) shows named and anonymous lists from one RPC. Anonymous lists open at `/lists/discover/:token` and show only title, icon, statuses, types, item names and ratings. The migration above must be applied before this ships; the client only writes `visibility` when someone changes it.
 
 ### Before launch, in order
 

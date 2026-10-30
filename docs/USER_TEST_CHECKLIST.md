@@ -39,6 +39,10 @@ Run this on the **TestFlight build** (see RELEASE_CHECKLIST.md §D), as a user w
 - [ ] New List → **Coffee Shops** preset → add a place by search (address and pin show) → it appears on that list's map.
 - [ ] New List → **Books** preset → add a book (no location) → statuses are Want to Read / Reading / Read.
 - [ ] Shared list with B: add a place, and B sees it. B adds a comment, and A sees it.
+- [ ] A list's header shows who can see it (public A: **Visible to everyone**). Tap it → choose **Only me** → as B, the list is gone from A's profile, Explore → Lists and B's search; opening A's old share link no longer shows it.
+- [ ] Private A: list settings offer **Followers only / Discoverable anonymously / Only me**. Choose Discoverable anonymously: Save is blocked until the box is ticked; **Preview what others will see** shows names and items only.
+- [ ] As C (not following A): Explore → **Lists** shows A's list marked **Anonymous** with no name; opening it shows items and ratings but no notes, photos, addresses or A's name. Search finds it by an item name.
+- [ ] A switches it back to Only me → C's open page says **This list isn't available** after a refresh, and the old link stays dead even if A turns anonymous on again.
 
 ## 6. Recipes
 - [ ] Explore → Food → **Recipes** → Add Recipe by typing: it saves.
