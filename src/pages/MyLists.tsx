@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, ListChecks, Settings, Trash2, UtensilsCrossed, ListPlus, Users, AlertTriangle, Compass } from 'lucide-react';
+import { Plus, ListChecks, Settings, Trash2, UtensilsCrossed, ListPlus, Users, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreateListDialog, type CustomList } from '@/components/lists/CreateListDialog';
 import { CreateSharedListDialog } from '@/components/shared/CreateSharedListDialog';
@@ -31,8 +31,7 @@ import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { useFollowing } from '@/hooks/useFollowing';
 import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ExploreListCard } from '@/components/explore/ExploreListCard';
-import { exploreKeys, fetchExploreLists, type ExploreMode } from '@/lib/discovery';
+import { CommunityListsBrowser } from '@/components/discovery/CommunityListsBrowser';
 import { sharedListPath } from '@/lib/navigation';
 
 async function fetchMyLists(userId: string): Promise<CustomList[]> {
@@ -121,15 +120,14 @@ const isListsTab = (v: string | null): v is ListsTab => v === 'mine' || v === 's
  *   - Mine: My Restaurants (pinned) and every custom list you've made.
  *   - Shared: two-person lists with a friend. Each opens at
  *     /my-lists/shared/:id, still under Lists.
- *   - Discover: lists other people are building - moved here from Explore's
- *     old "Other Lists" tab. /my-lists?tab=discover opens it directly.
+ *   - Discover: lists other people are building, identified or anonymous -
+ *     the same browser as Explore -> Lists. /my-lists?tab=discover opens it.
  */
 export default function MyLists() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [tab, setTab] = useState<ListsTab>('mine');
-  const [discoverMode, setDiscoverMode] = useState<ExploreMode>('all');
 
   // This tab stays mounted under other routes, so only follow ?tab= while
   // the URL is actually /my-lists.
@@ -183,12 +181,6 @@ export default function MyLists() {
     enabled: !!user,
   });
 
-  const { data: discoverLists = [], isLoading: discoverLoading } = useQuery({
-    queryKey: exploreKeys.lists(discoverMode),
-    queryFn: () => fetchExploreLists(discoverMode),
-    enabled: !!user && tab === 'discover',
-  });
-  const othersLists = discoverLists.filter((l) => l.user_id !== user?.id);
 
   const invalidateLists = () => {
     queryClient.invalidateQueries({ queryKey: ['custom_lists', user?.id] });
@@ -451,42 +443,8 @@ export default function MyLists() {
           </div>
         )}
 
-        {tab === 'discover' && (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm text-muted-foreground">
-                {discoverMode === 'friends'
-                  ? 'Lists people you follow are building.'
-                  : 'Lists people on Afiyeat are building - beyond just restaurants.'}
-              </p>
-              <Tabs value={discoverMode} onValueChange={(v) => setDiscoverMode(v as ExploreMode)}>
-                <TabsList>
-                  <TabsTrigger value="all">Everyone</TabsTrigger>
-                  <TabsTrigger value="friends">Friends</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-            {discoverLoading ? (
-              <CardGridSkeleton />
-            ) : othersLists.length === 0 ? (
-              <div className="text-center py-16 bg-card rounded-xl px-6">
-                <Compass className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-                <h3 className="text-lg font-medium mb-2">Nothing to discover yet</h3>
-                <p className="text-muted-foreground">
-                  {discoverMode === 'friends'
-                    ? 'Lists made by people you follow will show up here.'
-                    : 'Lists made by people with public profiles will show up here.'}
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-                {othersLists.map((list) => (
-                  <ExploreListCard key={list.list_id} list={list} />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        {/* The same browser as Explore -> Lists: one source, one look. */}
+        {tab === 'discover' && <CommunityListsBrowser excludeOwn />}
       </main>
 
       <CreateListDialog

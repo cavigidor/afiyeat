@@ -15,18 +15,26 @@ import {
   submitReport,
   type ReportReason,
   type ReportableContentType,
+  type SubmitReportResult,
 } from '@/lib/moderation';
 import { Spinner } from '@/components/ui/spinner';
 
 interface ReportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  reportedUserId: string;
+  /** Required unless `submit` is given. */
+  reportedUserId?: string;
   /** What's being reported. Defaults to the account itself. */
   contentType?: ReportableContentType;
   contentId?: string;
   /** Shown in the dialog so it's unambiguous what's being reported. */
   subjectLabel?: string;
+  /**
+   * Files the report some other way - e.g. an anonymous list, where the
+   * reporter doesn't (and mustn't) know who owns it. Same choices and
+   * messages as a normal report.
+   */
+  submit?: (reason: ReportReason, description: string) => Promise<SubmitReportResult>;
 }
 
 export function ReportDialog({
@@ -36,6 +44,7 @@ export function ReportDialog({
   contentType = 'user',
   contentId,
   subjectLabel,
+  submit,
 }: ReportDialogProps) {
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [description, setDescription] = useState('');
@@ -50,13 +59,15 @@ export function ReportDialog({
   const handleSubmit = async () => {
     if (!reason) return;
     setSubmitting(true);
-    const result = await submitReport({
-      reportedUserId,
-      reason,
-      description,
-      contentType,
-      contentId,
-    });
+    const result = submit
+      ? await submit(reason, description)
+      : await submitReport({
+          reportedUserId: reportedUserId!,
+          reason,
+          description,
+          contentType,
+          contentId,
+        });
     setSubmitting(false);
 
     if (result.ok === false) {

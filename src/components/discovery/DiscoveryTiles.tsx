@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Plus, Star, Users, ListChecks, CalendarDays } from 'lucide-react';
+import { Plus, Star, Users, ListChecks, CalendarDays, EyeOff } from 'lucide-react';
 import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { toNumber, type ExplorePlace } from '@/components/explore/ExplorePlaceCard';
 import type { ExploreList } from '@/components/explore/ExploreListCard';
@@ -7,6 +7,7 @@ import type { TicketmasterEvent } from '@/components/explore/EventCard';
 import { areaFromAddress, emojiForPlace, placeCategoryOf } from '@/lib/discovery';
 import { formatEventDate, formatEventTime } from '@/lib/events';
 import { openExternalUrl } from '@/lib/externalLink';
+import { communityListPath } from '@/lib/communityLists';
 import { cn } from '@/lib/utils';
 
 // Compact cards for horizontal rails. Saved places have no photos we can
@@ -78,9 +79,11 @@ export function PlaceTile({ place, onOpen, onSave }: PlaceTileProps) {
 export function ListTile({ list }: { list: ExploreList }) {
   const count = toNumber(list.item_count) ?? 0;
   const owner = list.display_name || list.username;
+  const path = communityListPath(list);
+  if (!path) return null;
   return (
     <Link
-      to={`/u/${list.user_id}/lists/${list.list_id}`}
+      to={path}
       className="active-press flex w-56 flex-col justify-between gap-4 rounded-2xl border bg-card p-4 shadow-sm transition-[transform,background-color] duration-150 ease-out active:bg-muted/60"
     >
       <div className="flex items-start gap-3">
@@ -94,16 +97,23 @@ export function ListTile({ list }: { list: ExploreList }) {
           </p>
         </div>
       </div>
-      {owner && (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <AnimalAvatar
-            emoji={list.avatar_emoji}
-            color={list.avatar_color}
-            className="h-5 w-5"
-            emojiClassName="text-[11px]"
-          />
-          <span className="truncate">by {owner}</span>
+      {list.is_anonymous ? (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <EyeOff className="h-3.5 w-3.5" />
+          <span>Shared anonymously</span>
         </div>
+      ) : (
+        owner && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <AnimalAvatar
+              emoji={list.avatar_emoji}
+              color={list.avatar_color}
+              className="h-5 w-5"
+              emojiClassName="text-[11px]"
+            />
+            <span className="truncate">by {owner}</span>
+          </div>
+        )
       )}
     </Link>
   );
