@@ -1,19 +1,26 @@
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
-import { ListChecks } from 'lucide-react';
+import { ListChecks, EyeOff } from 'lucide-react';
+import { communityListPath } from '@/lib/communityLists';
 
+/**
+ * A community list as get_explore_lists returns it. Identified lists carry
+ * their id and owner; anonymous lists carry only a discovery token - the
+ * server never sends their id or anything about who made them.
+ */
 export interface ExploreList {
-  list_id: string;
+  list_id: string | null;
   list_name: string;
   list_icon: string | null;
   item_count: number | string | null;
-  user_id: string;
+  user_id: string | null;
   username: string | null;
   display_name: string | null;
   avatar_emoji: string | null;
   avatar_color: string | null;
   is_anonymous: boolean;
+  discovery_token?: string | null;
 }
 
 function toCount(value: number | string | null | undefined): number {
@@ -26,28 +33,26 @@ interface ExploreListCardProps {
   list: ExploreList;
 }
 
-// Unlike restaurant places (merged across contributors into one card),
-// each row here is one account's own list - so the contributor is shown
-// directly on the card rather than tucked into a detail sheet. Clicking
-// the card body opens the list; clicking the contributor row opens their
-// profile instead (own click handler + stopPropagation, since a Link
-// can't nest inside another Link). A private account's list still shows
-// up (same "All Nearby" convention as restaurants), but with its
-// identity withheld and nothing on the card clickable at all - the list
-// itself isn't actually viewable by a non-follower (RLS blocks it), so
-// there's nowhere useful to send the click.
+// Each row is one account's own list, so the contributor is shown on the
+// card. Tapping the card opens the list; tapping the contributor opens
+// their profile (own handler + stopPropagation, since a Link can't nest in
+// a Link). An anonymous list opens its anonymous view, and its card says
+// plainly that nobody's name is attached - there's no profile to open.
 export function ExploreListCard({ list }: ExploreListCardProps) {
   const navigate = useNavigate();
   const itemCount = toCount(list.item_count);
-  const nameLabel = list.display_name || list.username || 'Anonymous';
+  const path = communityListPath(list);
+  const nameLabel = list.display_name || list.username || 'Afiyeat member';
 
   return (
     <Card
-      interactive={!list.is_anonymous}
-      className={`overflow-hidden ${list.is_anonymous ? 'opacity-90' : 'hover:shadow-md transition-shadow'}`}
-      onClick={list.is_anonymous ? undefined : () => navigate(`/u/${list.user_id}/lists/${list.list_id}`)}
-      role={list.is_anonymous ? undefined : 'button'}
-      tabIndex={list.is_anonymous ? undefined : 0}
+      interactive={!!path}
+      className="overflow-hidden hover:shadow-md transition-shadow"
+      onClick={path ? () => navigate(path) : undefined}
+      role={path ? 'link' : undefined}
+      aria-label={path ? `${list.list_name}, ${list.is_anonymous ? 'anonymous list' : `by ${nameLabel}`}` : undefined}
+      tabIndex={path ? 0 : undefined}
+      onKeyDown={path ? (e) => e.key === 'Enter' && navigate(path) : undefined}
     >
       <CardContent className="p-4 flex items-center gap-3">
         <div className="w-11 h-11 rounded-lg flex items-center justify-center text-xl shrink-0 bg-muted">
@@ -59,28 +64,29 @@ export function ExploreListCard({ list }: ExploreListCardProps) {
             {itemCount} item{itemCount === 1 ? '' : 's'}
           </p>
         </div>
-        <button
-          type="button"
-          disabled={list.is_anonymous}
-          onClick={(e) => {
-            if (list.is_anonymous) return;
-            e.stopPropagation();
-            navigate(`/u/${list.user_id}`);
-          }}
-          className={`flex items-center gap-2 shrink-0 rounded-full ${
-            list.is_anonymous ? 'cursor-default' : 'hover:underline'
-          }`}
-        >
-          <AnimalAvatar
-            emoji={list.avatar_emoji}
-            color={list.avatar_color}
-            className="h-7 w-7"
-            emojiClassName="text-xs"
-          />
-          <span className={`text-sm max-w-[100px] truncate ${list.is_anonymous ? 'text-muted-foreground' : ''}`}>
-            {list.is_anonymous ? 'Anonymous' : nameLabel}
+        {list.is_anonymous ? (
+          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
+            <EyeOff className="h-3.5 w-3.5" />
+            Anonymous
           </span>
-        </button>
+        ) : (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (list.user_id) navigate(`/u/${list.user_id}`);
+            }}
+            className="flex items-center gap-2 shrink-0 rounded-full hover:underline"
+          >
+            <AnimalAvatar
+              emoji={list.avatar_emoji}
+              color={list.avatar_color}
+              className="h-7 w-7"
+              emojiClassName="text-xs"
+            />
+            <span className="text-sm max-w-[100px] truncate">{nameLabel}</span>
+          </button>
+        )}
       </CardContent>
     </Card>
   );
