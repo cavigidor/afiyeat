@@ -79,13 +79,15 @@ export function isEnabledCategory(id: string | null | undefined): id is Discover
 }
 
 /**
- * What Explore can be showing: one category, or 'all' - every place
- * regardless of category. 'all' is Explore's own overview (and where
- * Home's mixed-category Popular row leads); it isn't a category, so it
- * isn't one of Home's tiles.
+ * What Explore can be showing: one category, 'all' - every place
+ * regardless of category (Explore's overview, and where Home's
+ * mixed-category Popular row leads) - or 'lists', the community lists
+ * people share. Neither 'all' nor 'lists' is a place category, so neither
+ * is one of Home's tiles.
  */
-export type ExploreSelection = DiscoveryCategoryId | 'all';
+export type ExploreSelection = DiscoveryCategoryId | 'all' | 'lists';
 export const ALL_PLACES_PATH = '/explore?c=all';
+export const COMMUNITY_LISTS_PATH = '/explore?c=lists';
 
 /** Explore, opened on a category. */
 export function exploreCategoryPath(id: DiscoveryCategoryId): string {

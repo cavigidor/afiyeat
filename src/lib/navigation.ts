@@ -81,6 +81,7 @@ export const PRIMARY_TABS: PrimaryTab[] = [
 const CONTEXTUAL_SCREENS: { matches: (p: string) => boolean; fallback: string | null }[] = [
   { matches: (p) => p === '/search', fallback: '/explore' },
   { matches: (p) => p === '/friends', fallback: '/activity' },
+  { matches: (p) => p.startsWith('/lists/discover/'), fallback: '/explore' },
 ];
 
 // The tab of the last tab-owned screen shown - what a contextual screen

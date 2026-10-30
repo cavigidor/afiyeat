@@ -5,6 +5,7 @@ import { DiscoverySection, Rail } from '@/components/discovery/DiscoverySection'
 import { ListTile, TileSkeleton } from '@/components/discovery/DiscoveryTiles';
 import { toNumber } from '@/components/explore/ExplorePlaceCard';
 import { exploreKeys, fetchExploreLists } from '@/lib/discovery';
+import { communityListKey } from '@/lib/communityLists';
 
 const MIN_ITEMS = 3;
 
@@ -25,7 +26,7 @@ export function CommunityListsSection() {
   const worthExploring = useMemo(
     () =>
       lists
-        .filter((l) => l.user_id !== user?.id && !l.is_anonymous && (toNumber(l.item_count) ?? 0) >= MIN_ITEMS)
+        .filter((l) => !(l.user_id && l.user_id === user?.id) && (toNumber(l.item_count) ?? 0) >= MIN_ITEMS)
         .slice(0, 10),
     [lists, user?.id],
   );
@@ -48,11 +49,11 @@ export function CommunityListsSection() {
     <DiscoverySection
       title="Lists worth exploring"
       subtitle="What people on Afiyeat are collecting"
-      seeAllTo="/my-lists?tab=discover"
+      seeAllTo="/explore?c=lists"
     >
       <Rail>
         {worthExploring.map((list) => (
-          <ListTile key={list.list_id} list={list} />
+          <ListTile key={communityListKey(list)} list={list} />
         ))}
       </Rail>
     </DiscoverySection>

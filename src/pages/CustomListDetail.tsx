@@ -34,6 +34,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { withApplePlaceDetails } from '@/lib/appleMaps';
 import { Plus, Search, Pencil, Settings, ArrowLeft, Share2, Link2, Users } from 'lucide-react';
 import { sharedListPath } from '@/lib/navigation';
+import { visibilityChip } from '@/lib/listVisibility';
 import { toast } from 'sonner';
 import { useViewMode } from '@/hooks/useViewMode';
 import { useMapCenter } from '@/hooks/useMapCenter';
@@ -179,6 +180,7 @@ export default function CustomListDetail() {
   const { data: following = [] } = useFollowing(user?.id);
 
   const shareIdentity = useMyShareIdentity();
+  const visibility = visibilityChip(list?.visibility, shareIdentity.isPrivate);
   const handleShareLink = async () => {
     if (!user || !list) return;
     // Carries this user's referral code, so a friend who joins from the
@@ -301,7 +303,27 @@ export default function CustomListDetail() {
             </div>
             <div className="min-w-0">
               <h1 className="text-xl sm:text-2xl font-bold truncate">{list.name}</h1>
-              <p className="text-xs text-muted-foreground">{items.length} item{items.length === 1 ? '' : 's'}</p>
+              <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+                <span>{items.length} item{items.length === 1 ? '' : 's'}</span>
+                <span aria-hidden>·</span>
+                {/* Who can see it, at a glance; tapping opens the setting. */}
+                <button
+                  type="button"
+                  onClick={() => setSettingsOpen(true)}
+                  className="underline-offset-2 hover:underline"
+                  aria-label={`Who can see this list: ${visibility.label}. Change`}
+                >
+                  {visibility.icon} {visibility.label}
+                </button>
+                {list.visibility === 'anonymous' && list.discovery_token && (
+                  <>
+                    <span aria-hidden>·</span>
+                    <Link to={`/lists/discover/${list.discovery_token}`} className="text-primary underline-offset-2 hover:underline">
+                      See what others see
+                    </Link>
+                  </>
+                )}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -312,10 +334,18 @@ export default function CustomListDetail() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleShareLink}>
-                  <Link2 className="h-4 w-4 mr-2" />
-                  Share Link
-                </DropdownMenuItem>
+                {/* A link names you as the sender and opens the list on your
+                    profile, so it's only offered for lists shown there. */}
+                {(list.visibility ?? 'profile') === 'profile' ? (
+                  <DropdownMenuItem onClick={handleShareLink}>
+                    <Link2 className="h-4 w-4 mr-2" />
+                    Share Link
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem disabled className="whitespace-normal text-xs">
+                    Links are only for lists shown on your profile.
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={() => setConvertOpen(true)}>
                   <Users className="h-4 w-4 mr-2" />
                   Make a Shared List with a Friend

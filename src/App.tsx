@@ -17,6 +17,7 @@ import Auth from "./pages/Auth";
 import Search from "./pages/Search";
 import PublicProfile from "./pages/PublicProfile";
 import PublicListDetail from "./pages/PublicListDetail";
+import DiscoverableListPage from "./pages/DiscoverableList";
 
 import MyList from "./pages/MyList";
 import CustomListDetail from "./pages/CustomListDetail";
@@ -82,6 +83,9 @@ function AnimatedRoutes() {
         <Route path="/explore" element={null} />
         <Route path="/u/:userId" element={<PublicProfile />} />
         <Route path="/u/:userId/lists/:listId" element={<PublicListDetail />} />
+        {/* A list shared anonymously: reached by its discovery token, never
+            by its id or its owner. Signed-in only. */}
+        <Route path="/lists/discover/:token" element={<DiscoverableListPage />} />
 
         {/* Foodie was the app's first tab and, with News switched off,
             was just Recipes. Recipes now lives in Explore -> Food, and Home

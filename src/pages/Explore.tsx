@@ -17,6 +17,7 @@ import {
   type DiscoveryCategoryId,
   type ExploreMode,
   type ExploreSelection,
+  COMMUNITY_LISTS_PATH,
   type PlaceCategoryId,
 } from '@/lib/discovery';
 import { Map as MapIcon, List as ListIcon, Compass, LocateFixed, Search, ChevronRight } from 'lucide-react';
@@ -31,6 +32,7 @@ import { DiscoverySection, Rail } from '@/components/discovery/DiscoverySection'
 import { PlaceTile } from '@/components/discovery/DiscoveryTiles';
 import { Spinner } from '@/components/ui/spinner';
 import Recipes from './Recipes';
+import { CommunityListsBrowser } from '@/components/discovery/CommunityListsBrowser';
 
 type ExploreView = 'map' | 'list';
 type FoodView = 'places' | 'recipes';
@@ -62,9 +64,11 @@ const EMPTY_COPY: Record<PlaceCategoryId | 'all', { all: string; friends: string
  *     then every place on a map or list (Everyone / Friends). Food also
  *     has Recipes - the screen that used to be the Foodie tab.
  *   - Events: Ticketmaster events near you.
+ *   - Lists: lists people share with the community, named or anonymous
+ *     (the same browser as Lists -> Discover).
  *
  * Deep-linkable: /explore?c=all, /explore?c=coffee, /explore?c=food&tab=recipes,
- * /explore?c=events&q=jazz. Opening /explore with no parameters (the tab
+ * /explore?c=events&q=jazz, /explore?c=lists&q=wine. Opening /explore with no parameters (the tab
  * bar) keeps whatever was open last, since this tab stays mounted.
  */
 export default function Explore() {
@@ -75,6 +79,7 @@ export default function Explore() {
   const [category, setCategory] = useState<ExploreSelection>('all');
   const [foodView, setFoodView] = useState<FoodView>('places');
   const [eventsKeyword, setEventsKeyword] = useState<string | undefined>(undefined);
+  const [listsQuery, setListsQuery] = useState('');
   const [mode, setMode] = useState<ExploreMode>('all');
   const [view, setView] = useState<ExploreView>('map');
   const [selectedPlace, setSelectedPlace] = useState<ExplorePlace | null>(null);
@@ -97,6 +102,11 @@ export default function Explore() {
     const c = params.get('c');
     if (c === 'all') {
       setCategory('all');
+      return;
+    }
+    if (c === 'lists') {
+      setCategory('lists');
+      setListsQuery(params.get('q') ?? '');
       return;
     }
     if (!isEnabledCategory(c)) return;
@@ -149,7 +159,8 @@ export default function Explore() {
     );
   }
 
-  const placesNoun = category === 'all' ? 'Places' : `${categoryById(category as DiscoveryCategoryId).label} spots`;
+  const placesNoun =
+    category === 'all' || category === 'lists' ? 'Places' : `${categoryById(category as DiscoveryCategoryId).label} spots`;
 
   return (
     <div className="min-h-screen bg-background">
@@ -272,9 +283,9 @@ export default function Explore() {
               </div>
             )}
 
-            {/* Lists moved to Lists -> Discover; keep a way there from here. */}
+            {/* Community lists live one chip over; point there from places. */}
             <Link
-              to="/my-lists?tab=discover"
+              to={COMMUNITY_LISTS_PATH}
               className="active-press flex items-center gap-3 rounded-xl border bg-card p-4 transition-[background-color,transform] duration-150 ease-out active:bg-muted/60"
             >
               <span aria-hidden className="text-xl">📋</span>
@@ -285,6 +296,8 @@ export default function Explore() {
               <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
             </Link>
           </>
+        ) : category === 'lists' ? (
+          <CommunityListsBrowser initialQuery={listsQuery} excludeOwn />
         ) : null}
       </main>
 
