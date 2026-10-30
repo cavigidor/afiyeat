@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
@@ -21,6 +22,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { blockedByContentFilter } from '@/lib/contentFilter';
+import { DEFAULT_LIST_VISIBILITY, type ListVisibility } from '@/lib/listVisibility';
+import { useMyShareIdentity } from '@/hooks/useMyShareIdentity';
+import { ListVisibilityControl } from './ListVisibilityControl';
+import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import { Spinner } from '@/components/ui/spinner';
 
 export type PriceMode = 'manual' | 'dollar';
@@ -38,6 +43,10 @@ export interface CustomList {
   rating_mode: RatingMode;
   show_notes: boolean;
   show_photos: boolean;
+  /** Who can see it (see lib/listVisibility.ts). Absent on rows fetched before CP2. */
+  visibility?: ListVisibility;
+  /** Opaque handle for the anonymous view; only meaningful while anonymous. */
+  discovery_token?: string;
   // Kept only so old rows still typecheck - statuses are now managed
   // per-list via custom_list_statuses (see ListStatusesManager), not these
   // two fixed labels. New lists no longer set them to anything meaningful.
@@ -145,6 +154,18 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
   // The preset last tapped, if any. Kept even if the name is then edited:
   // renaming "Books" to "Books 2026" shouldn't lose the books statuses.
   const [preset, setPreset] = useState<ListPreset | null>(null);
+  // Who can see the list. New lists keep today's default ("profile") - the
+  // choice is visible here, so it's always a deliberate one.
+  const [visibility, setVisibility] = useState<ListVisibility>(DEFAULT_LIST_VISIBILITY);
+  const [anonymousConsent, setAnonymousConsent] = useState(false);
+  const { isPrivate: isPrivateAccount } = useMyShareIdentity();
+  const queryClient = useQueryClient();
+  // Discovery caches - a visibility change should show up there at once.
+  const refreshDiscovery = () => {
+    void queryClient.invalidateQueries({ queryKey: ['community-lists'] });
+    void queryClient.invalidateQueries({ queryKey: ['explore-lists'] });
+    void queryClient.invalidateQueries({ queryKey: ['list-discovery-preview'] });
+  };
 
   const isEditing = !!editList;
 
@@ -172,6 +193,7 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
       setRatingMode(editList.rating_mode);
       setShowNotes(editList.show_notes);
       setShowPhotos(editList.show_photos);
+      setVisibility(editList.visibility ?? DEFAULT_LIST_VISIBILITY);
     } else {
       setName('');
       setShowLocation(true);
@@ -181,8 +203,14 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
       setRatingMode('scale_10');
       setShowNotes(true);
       setShowPhotos(true);
+      setVisibility(DEFAULT_LIST_VISIBILITY);
     }
+    setAnonymousConsent(false);
   }, [open, editList]);
+
+  // Turning anonymous discovery on needs an explicit OK each time; a list
+  // that is already anonymous doesn't ask again.
+  const needsAnonymousConsent = visibility === 'anonymous' && editList?.visibility !== 'anonymous';
 
   const handleSubmit = async () => {
     if (!user) return;
@@ -191,6 +219,10 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
       return;
     }
     if (blockedByContentFilter(name)) return;
+    if (needsAnonymousConsent && !anonymousConsent) {
+      toast.error('Tick the box to confirm anonymous sharing, or pick another option.');
+      return;
+    }
     setLoading(true);
 
     const payload = {
@@ -202,10 +234,20 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
       rating_mode: ratingMode,
       show_notes: showNotes,
       show_photos: showPhotos,
+      // Only written when it differs from what the list already has (the
+      // default, for a new list). Saving other settings never rewrites who
+      // can see a list, and lists keep saving if the column isn't there yet.
+      ...(visibility !== (editList ? editList.visibility ?? DEFAULT_LIST_VISIBILITY : DEFAULT_LIST_VISIBILITY)
+        ? { visibility }
+        : {}),
     };
 
     if (isEditing) {
-      const { error } = await supabase.from('custom_lists').update(payload).eq('id', editList!.id);
+      // visibility is newer than the generated table types.
+      const { error } = await supabase
+        .from('custom_lists')
+        .update(payload as TablesUpdate<'custom_lists'>)
+        .eq('id', editList!.id);
       setLoading(false);
       if (error) {
         toast.error('Failed to update list');
@@ -213,6 +255,7 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
         return;
       }
       toast.success('List updated!');
+      refreshDiscovery();
       onOpenChange(false);
       onSuccess();
       return;
@@ -222,7 +265,7 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
       .from('custom_lists')
       // A preset list gets its own icon on the My Lists card and list
       // header; otherwise the column default applies.
-      .insert({ ...payload, user_id: user.id, ...(preset ? { icon: preset.icon } : {}) })
+      .insert({ ...payload, user_id: user.id, ...(preset ? { icon: preset.icon } : {}) } as TablesInsert<'custom_lists'>)
       .select()
       .single();
 
@@ -263,6 +306,7 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
 
     setLoading(false);
     toast.success('List created!');
+    refreshDiscovery();
     onOpenChange(false);
     onSuccess();
   };
@@ -307,6 +351,17 @@ export function CreateListDialog({ open, onOpenChange, onSuccess, editList }: Cr
               </div>
             )}
           </div>
+
+          <ListVisibilityControl
+            value={visibility}
+            onChange={setVisibility}
+            isPrivateAccount={isPrivateAccount}
+            listId={editList?.id ?? null}
+            listName={name}
+            needsConsent={needsAnonymousConsent}
+            consent={anonymousConsent}
+            onConsentChange={setAnonymousConsent}
+          />
 
           <div className="space-y-3 rounded-lg border p-3">
             <p className="text-sm font-medium">What to include when adding items</p>

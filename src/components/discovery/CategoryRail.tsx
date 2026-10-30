@@ -34,12 +34,13 @@ interface CategoryChipsProps {
 }
 
 const ALL_CHIP = { id: 'all' as const, label: 'All', emoji: '✨' };
+const LISTS_CHIP = { id: 'lists' as const, label: 'Lists', emoji: '📋' };
 
-/** Explore's category switcher: All, then each category; the selected one filled. */
+/** Explore's switcher: All, each category, then community Lists; the selected one filled. */
 export function CategoryChips({ value, onChange }: CategoryChipsProps) {
   return (
     <div role="tablist" aria-label="Categories" className="rail gap-2 -mx-4 px-4 scroll-px-4 sm:mx-0 sm:px-0 sm:scroll-px-0">
-      {[ALL_CHIP, ...ENABLED_CATEGORIES].map((c) => {
+      {[ALL_CHIP, ...ENABLED_CATEGORIES, LISTS_CHIP].map((c) => {
         const active = c.id === value;
         return (
           <button
