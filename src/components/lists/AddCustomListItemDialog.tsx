@@ -27,7 +27,7 @@ import { PriceLevelPicker } from '@/components/restaurants/PriceLevelPicker';
 import { StarRatingPicker } from '@/components/lists/StarRatingPicker';
 import { useSignedImageUrls } from '@/hooks/useSignedImageUrl';
 import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
-import { isDuplicateCustomListItem } from '@/lib/duplicateRestaurant';
+import { customListItemPayload, photoUploadWarning, saveCustomListItem, uploadCustomListPhotos, type PhotoUploadResult } from '@/lib/listItemSave';
 import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
 import { locationColumns, resolveApplePlaces, type AppleFilled, type PickedPlace } from '@/lib/appleMaps';
 import { PlaceResultsDropdown } from '@/components/shared/PlaceResultsDropdown';
@@ -230,86 +230,52 @@ export function AddCustomListItemDialog({
     if (blockedByContentFilter(name, notes)) return;
     setLoading(true);
     try {
+      let photos: PhotoUploadResult = { uploaded: 0, failed: 0 };
+      const fields = {
+        statusId,
+        typeIds,
+        priceLevel,
+        priceManual,
+        rating,
+        ratingManual,
+        notes,
+        photos: images,
+      };
+
       if (!isEditing) {
-        const duplicate = await isDuplicateCustomListItem(list.id, {
-          name,
-          latitude: list.show_location ? latitude : null,
-          longitude: list.show_location ? longitude : null,
-          applePlaceId: list.show_location ? picked?.applePlaceId : null,
-        });
-        if (duplicate) {
+        const result = await saveCustomListItem(
+          user.id,
+          list,
+          { name, address, latitude, longitude, picked },
+          fields,
+        );
+        if (result.status === 'duplicate') {
           toast.error("This is already on this list. Add it again if it's a different location.");
           setLoading(false);
           return;
         }
-      }
-
-      const parsedPriceManual = priceManual.trim() ? parseFloat(priceManual) : null;
-      const parsedRatingManual = ratingManual.trim() ? parseFloat(ratingManual) : null;
-
-      // Only the Apple place ID is stored for a place picked from search;
-      // Apple's address and pin are shown from the short-lived cache.
-      const location = list.show_location
-        ? locationColumns(picked, editItem, { address, latitude, longitude })
-        : { apple_place_id: null, address: null, latitude: null, longitude: null };
-
-      const payload = {
-        name: name.trim(),
-        ...location,
-        type_ids: typeIds,
-        price_level: list.show_price && list.price_mode === 'dollar' ? priceLevel : null,
-        price_manual:
-          list.show_price && list.price_mode === 'manual' && parsedPriceManual != null && !Number.isNaN(parsedPriceManual)
-            ? parsedPriceManual
-            : null,
-        rating: list.show_rating && list.rating_mode !== 'manual' ? rating : null,
-        rating_manual:
-          list.show_rating && list.rating_mode === 'manual' && parsedRatingManual != null && !Number.isNaN(parsedRatingManual)
-            ? parsedRatingManual
-            : null,
-        notes: list.show_notes ? notes.trim() || null : null,
-        status_id: statusId,
-      };
-
-      let itemId = editItem?.id;
-      if (isEditing) {
-        const { error } = await supabase.from('custom_list_items').update(payload).eq('id', itemId!);
-        if (error) throw error;
+        if (result.status === 'error') throw result.error;
+        photos = result.photos;
       } else {
-        const { data, error } = await supabase
-          .from('custom_list_items')
-          .insert({ ...payload, list_id: list.id, user_id: user.id })
-          .select()
-          .single();
+        // Only the Apple place ID is stored for a place picked from search;
+        // Apple's address and pin are shown from the short-lived cache.
+        const location = locationColumns(picked, editItem, { address, latitude, longitude });
+        const payload = customListItemPayload(list, location, name, fields);
+        const itemId = editItem!.id;
+        const { error } = await supabase.from('custom_list_items').update(payload).eq('id', itemId);
         if (error) throw error;
-        itemId = data.id;
-      }
-      // Warm Apple's details for the saved place so it shows on the map now.
-      if (location.apple_place_id) void resolveApplePlaces([location.apple_place_id]);
+        // Warm Apple's details for the saved place so it shows on the map now.
+        if (payload.apple_place_id) void resolveApplePlaces([payload.apple_place_id]);
 
-      if (removedImageIds.length > 0) {
-        await supabase.from('custom_list_item_images').delete().in('id', removedImageIds);
-      }
-
-      if (images.length > 0 && itemId) {
-        for (const image of images) {
-          const fileExt = image.name.split('.').pop();
-          const fileName = `${user.id}/${itemId}/${crypto.randomUUID()}.${fileExt}`;
-          const { error: uploadError } = await supabase.storage.from('custom-list-images').upload(fileName, image);
-          if (uploadError) {
-            console.error('Image upload error:', uploadError);
-            continue;
-          }
-          const storagePath = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/custom-list-images/${fileName}`;
-          await supabase.from('custom_list_item_images').insert({
-            item_id: itemId,
-            user_id: user.id,
-            image_url: storagePath,
-          });
+        if (removedImageIds.length > 0) {
+          await supabase.from('custom_list_item_images').delete().in('id', removedImageIds);
         }
+        if (images.length > 0) photos = await uploadCustomListPhotos(user.id, itemId, images);
       }
 
-      toast.success(isEditing ? 'Item updated!' : `Added to ${list.name}!`);
+      const warning = photoUploadWarning(photos);
+      if (warning) toast.warning(warning);
+      else toast.success(isEditing ? 'Item updated!' : `Added to ${list.name}!`);
       onOpenChange(false);
       onSuccess();
     } catch (error) {

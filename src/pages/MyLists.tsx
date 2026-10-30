@@ -26,6 +26,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Plus, ListChecks, Settings, Trash2, UtensilsCrossed, ListPlus, Users, AlertTriangle, Compass } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreateListDialog, type CustomList } from '@/components/lists/CreateListDialog';
+import { AddItemDialog } from '@/components/lists/AddItemDialog';
 import { CreateSharedListDialog } from '@/components/shared/CreateSharedListDialog';
 import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { useFollowing } from '@/hooks/useFollowing';
@@ -129,6 +130,7 @@ export default function MyLists() {
   const navigate = useNavigate();
   const location = useLocation();
   const [tab, setTab] = useState<ListsTab>('mine');
+  const [addItemOpen, setAddItemOpen] = useState(false);
   const [discoverMode, setDiscoverMode] = useState<ExploreMode>('all');
 
   // This tab stays mounted under other routes, so only follow ?tab= while
@@ -242,7 +244,8 @@ export default function MyLists() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <main className="container py-4 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-4 sm:space-y-6">
+      {/* pb-24 on phones keeps the last card clear of the Add item button. */}
+      <main className="container pt-4 sm:pt-8 pb-24 md:pb-8 px-4 sm:px-6 lg:px-8 space-y-4 sm:space-y-6">
         <div className="flex items-center justify-between gap-2">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">Lists</h1>
@@ -250,10 +253,17 @@ export default function MyLists() {
               Remember, organise and share the things you love.
             </p>
           </div>
+          <div className="flex shrink-0 items-center gap-2">
+          {/* Desktop: Add item sits next to New list. Phones get the
+              floating button below instead, like My Restaurants. */}
+          <Button className="hidden md:inline-flex" onClick={() => setAddItemOpen(true)}>
+            <Plus className="h-4 w-4 mr-1.5" />
+            Add item
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="sm" className="sm:size-default shrink-0">
-                <Plus className="h-4 w-4 min-[380px]:mr-1.5" />
+              <Button size="sm" variant="outline" className="sm:size-default shrink-0">
+                <ListPlus className="h-4 w-4 min-[380px]:mr-1.5" />
                 <span className="hidden min-[380px]:inline">New list</span>
               </Button>
             </DropdownMenuTrigger>
@@ -268,6 +278,7 @@ export default function MyLists() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </div>
 
         <Tabs value={tab} onValueChange={(v) => changeTab(v as ListsTab)}>
@@ -488,6 +499,22 @@ export default function MyLists() {
           </div>
         )}
       </main>
+
+      {/* Add to any list without opening it first. Same placement and look
+          as My Restaurants' Add place button. */}
+      <Button
+        onClick={() => setAddItemOpen(true)}
+        className="md:hidden fixed right-4 z-40 h-12 rounded-full px-5 shadow-lg active-press bottom-[calc(56px+env(safe-area-inset-bottom,0px)+16px)]"
+      >
+        <Plus className="h-5 w-5 mr-1.5" />
+        Add item
+      </Button>
+
+      <AddItemDialog
+        open={addItemOpen}
+        onOpenChange={setAddItemOpen}
+        preferredDestination={tab === 'shared' ? 'shared' : null}
+      />
 
       <CreateListDialog
         open={createOpen}
