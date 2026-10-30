@@ -28,18 +28,16 @@ import {
 } from '@/components/ui/select';
 import { ImagePlus, X, Search, Camera } from 'lucide-react';
 import { isNative, capturePhoto } from '@/lib/native';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { uploadRestaurantPhotos, photoUploadWarning } from '@/lib/photoUpload';
 import { validateImageFile, compressImage, MAX_IMAGES_PER_RESTAURANT } from '@/lib/imageValidation';
-import { isDuplicateRestaurant } from '@/lib/duplicateRestaurant';
+import { saveRestaurant } from '@/lib/listItemSave';
 import { PriceLevelPicker } from './PriceLevelPicker';
 import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
 import { PlaceResultsDropdown } from '@/components/shared/PlaceResultsDropdown';
 import { TagMultiSelect } from '@/components/shared/TagMultiSelect';
 import { blockedByContentFilter } from '@/lib/contentFilter';
-import { placeColumnsForSave, resolveApplePlaces, type PickedPlace } from '@/lib/appleMaps';
+import type { PickedPlace } from '@/lib/appleMaps';
 import { Spinner } from '@/components/ui/spinner';
 import { errorMessage } from '@/lib/utils';
 
@@ -274,58 +272,33 @@ export function AddRestaurantDialog({
 
     setLoading(true);
     try {
-      const duplicate = await isDuplicateRestaurant(user.id, {
-        name: values.name,
-        latitude: values.latitude,
-        longitude: values.longitude,
-        applePlaceId: selectedPlaceMeta.applePlaceId,
-      });
-      if (duplicate) {
+      const result = await saveRestaurant(
+        user.id,
+        {
+          name: values.name,
+          address: values.address,
+          latitude: values.latitude,
+          longitude: values.longitude,
+          picked: selectedPlaceMeta,
+        },
+        {
+          status: values.status,
+          folderIds: values.folder_ids,
+          rating: values.rating,
+          priceLevel: values.price_level,
+          notes: values.notes,
+          category: selectedPlaceMeta.category,
+          photos: images,
+        },
+      );
+      if (result.status === 'duplicate') {
         toast.error("You've already added this place to your list.");
         setLoading(false);
         return;
       }
-
-      // Clear rating for to_go status, keep price_level for both
-      const submitValues = {
-        ...values,
-        rating: isToGo ? null : values.rating || null,
-        price_level: values.price_level || null,
-      };
-
-      const { data: restaurant, error: restaurantError } = await supabase
-        .from('restaurants')
-        .insert({
-          user_id: user.id,
-          name: submitValues.name,
-          // Only the Apple place ID is stored for a place picked from search;
-          // its address and pin are shown from Apple's short-lived cache.
-          ...placeColumnsForSave(selectedPlaceMeta, submitValues),
-          place_id: null,
-          notes: submitValues.notes || null,
-          status: submitValues.status,
-          folder_ids: submitValues.folder_ids,
-          category: selectedPlaceMeta.category,
-          rating: submitValues.rating,
-          price_level: submitValues.price_level,
-          visited_at: submitValues.status === 'went_to' ? new Date().toISOString() : null,
-        })
-        .select()
-        .single();
-
-      if (restaurantError) throw restaurantError;
-
-      // Fetch Apple's details into the short-lived cache now, so the new
-      // place appears on lists and maps straight away.
-      if (restaurant.apple_place_id) void resolveApplePlaces([restaurant.apple_place_id]);
-
-      // The place is saved; photo failures are reported, never turned into a
-      // save error (retrying would hit the duplicate check).
-      const photos = await uploadRestaurantPhotos(user.id, restaurant.id, images);
-      const photoWarning = photoUploadWarning(photos);
+      if (result.status === 'error') throw result.error;
 
       toast.success('Restaurant added successfully!');
-      if (photoWarning) toast.error(photoWarning);
       form.reset();
       setImages([]);
       setImagePreviews([]);

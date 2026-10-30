@@ -141,6 +141,7 @@ Bottom tabs (phones) and navbar links (desktop) both come from `PRIMARY_TABS` in
 - `20260920140000_afiyeat_passport_referrals`: referral codes, referral status machine (SECURITY DEFINER RPCs), milestones.
 - `20260922120000_shared_content_preview`: the `get_shared_preview` RPC for anonymous single-item previews.
 - `20260930120000_referral_hardening_and_history`: **check it's applied in Lovable.**
+- `20261029120000_custom_list_items_owner_check` (branch `lists-add-item`, **not applied yet**): custom-list items can only be added to, or moved into, a list you own. Policy-only, re-runnable.
 
 ---
 

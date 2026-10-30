@@ -21,14 +21,13 @@ import { Search, ImagePlus, X, Camera } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { uploadCustomListPhotos, photoUploadWarning } from '@/lib/photoUpload';
 import { isNative, capturePhoto } from '@/lib/native';
 import { validateImageFile, compressImage, MAX_IMAGES_PER_ITEM } from '@/lib/imageValidation';
 import { PriceLevelPicker } from '@/components/restaurants/PriceLevelPicker';
 import { StarRatingPicker } from '@/components/lists/StarRatingPicker';
 import { StorageImage } from '@/components/shared/StorageImage';
 import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
-import { isDuplicateCustomListItem } from '@/lib/duplicateRestaurant';
+import { customListItemPayload, saveCustomListItem, uploadCustomListPhotos } from '@/lib/listItemSave';
 import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
 import { locationColumns, resolveApplePlaces, type AppleFilled, type PickedPlace } from '@/lib/appleMaps';
 import { PlaceResultsDropdown } from '@/components/shared/PlaceResultsDropdown';
@@ -232,74 +231,48 @@ export function AddCustomListItemDialog({
     if (blockedByContentFilter(name, notes)) return;
     setLoading(true);
     try {
+      const fields = {
+        statusId,
+        typeIds,
+        priceLevel,
+        priceManual,
+        rating,
+        ratingManual,
+        notes,
+        photos: images,
+      };
+
       if (!isEditing) {
-        const duplicate = await isDuplicateCustomListItem(list.id, {
-          name,
-          latitude: list.show_location ? latitude : null,
-          longitude: list.show_location ? longitude : null,
-          applePlaceId: list.show_location ? picked?.applePlaceId : null,
-        });
-        if (duplicate) {
+        const result = await saveCustomListItem(
+          user.id,
+          list,
+          { name, address, latitude, longitude, picked },
+          fields,
+        );
+        if (result.status === 'duplicate') {
           toast.error("This is already on this list. Add it again if it's a different location.");
           setLoading(false);
           return;
         }
-      }
-
-      const parsedPriceManual = priceManual.trim() ? parseFloat(priceManual) : null;
-      const parsedRatingManual = ratingManual.trim() ? parseFloat(ratingManual) : null;
-
-      // Only the Apple place ID is stored for a place picked from search;
-      // Apple's address and pin are shown from the short-lived cache.
-      const location = list.show_location
-        ? locationColumns(picked, editItem, { address, latitude, longitude })
-        : { apple_place_id: null, address: null, latitude: null, longitude: null };
-
-      const payload = {
-        name: name.trim(),
-        ...location,
-        type_ids: typeIds,
-        price_level: list.show_price && list.price_mode === 'dollar' ? priceLevel : null,
-        price_manual:
-          list.show_price && list.price_mode === 'manual' && parsedPriceManual != null && !Number.isNaN(parsedPriceManual)
-            ? parsedPriceManual
-            : null,
-        rating: list.show_rating && list.rating_mode !== 'manual' ? rating : null,
-        rating_manual:
-          list.show_rating && list.rating_mode === 'manual' && parsedRatingManual != null && !Number.isNaN(parsedRatingManual)
-            ? parsedRatingManual
-            : null,
-        notes: list.show_notes ? notes.trim() || null : null,
-        status_id: statusId,
-      };
-
-      let itemId = editItem?.id;
-      if (isEditing) {
-        const { error } = await supabase.from('custom_list_items').update(payload).eq('id', itemId!);
-        if (error) throw error;
+        if (result.status === 'error') throw result.error;
       } else {
-        const { data, error } = await supabase
-          .from('custom_list_items')
-          .insert({ ...payload, list_id: list.id, user_id: user.id })
-          .select()
-          .single();
+        // Only the Apple place ID is stored for a place picked from search;
+        // Apple's address and pin are shown from the short-lived cache.
+        const location = locationColumns(picked, editItem, { address, latitude, longitude });
+        const payload = customListItemPayload(list, location, name, fields);
+        const itemId = editItem!.id;
+        const { error } = await supabase.from('custom_list_items').update(payload).eq('id', itemId);
         if (error) throw error;
-        itemId = data.id;
-      }
-      // Warm Apple's details for the saved place so it shows on the map now.
-      if (location.apple_place_id) void resolveApplePlaces([location.apple_place_id]);
+        // Warm Apple's details for the saved place so it shows on the map now.
+        if (payload.apple_place_id) void resolveApplePlaces([payload.apple_place_id]);
 
-      if (removedImageIds.length > 0) {
-        await supabase.from('custom_list_item_images').delete().in('id', removedImageIds);
+        if (removedImageIds.length > 0) {
+          await supabase.from('custom_list_item_images').delete().in('id', removedImageIds);
+        }
+        if (images.length > 0) await uploadCustomListPhotos(user.id, itemId, images);
       }
-
-      // The item is saved; photo failures are reported, never turned into a
-      // save error (retrying would duplicate a new item).
-      const photos = itemId ? await uploadCustomListPhotos(user.id, itemId, images) : { uploaded: 0, failed: 0 };
-      const photoWarning = photoUploadWarning(photos);
 
       toast.success(isEditing ? 'Item updated!' : `Added to ${list.name}!`);
-      if (photoWarning) toast.error(photoWarning);
       onOpenChange(false);
       onSuccess();
     } catch (error) {
