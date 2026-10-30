@@ -23,13 +23,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { PriceLevelPicker } from '@/components/restaurants/PriceLevelPicker';
 import { PRICE_LABELS } from './EmojiSlider';
-import { isDuplicateSharedItem } from '@/lib/duplicateRestaurant';
+import { saveSharedListItem } from '@/lib/listItemSave';
 import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
 import { PlaceResultsDropdown } from '@/components/shared/PlaceResultsDropdown';
 import { blockedByContentFilter } from '@/lib/contentFilter';
 import {
-  locationColumns,
-  resolveApplePlaces,
   withApplePlaceDetails,
   type AppleFilled,
   type PickedPlace,
@@ -184,42 +182,27 @@ export function AddSharedItemDialog({ open, onOpenChange, listId, onSuccess }: A
     if (blockedByContentFilter(name, notes)) return;
     setLoading(true);
 
-    const duplicate = await isDuplicateSharedItem(listId, {
-      name,
-      latitude,
-      longitude,
-      applePlaceId: picked?.applePlaceId,
-    });
-    if (duplicate) {
-      toast.error("This is already on this list. Add it again if it's a different location.");
-      setLoading(false);
-      return;
-    }
-
-    const location = locationColumns(picked, null, { address, latitude, longitude });
-    const { error } = await supabase.from('shared_list_items').insert({
-      list_id: listId,
-      added_by: user.id,
-      name: name.trim(),
-      // Apple-backed places store only their Apple ID (see locationColumns).
-      ...location,
-      status,
-      price_level: priceLevel,
-      notes: notes.trim() || null,
-      visited_at: status === 'went_to' ? new Date().toISOString() : null,
-    });
+    const result = await saveSharedListItem(
+      user.id,
+      listId,
+      { name, address, latitude, longitude, picked },
+      { status, priceLevel, notes },
+    );
     setLoading(false);
 
-    if (error) {
-      toast.error('Failed to add place');
-      console.error(error);
-    } else {
-      if (location.apple_place_id) void resolveApplePlaces([location.apple_place_id]);
-      toast.success('Place added to shared list!');
-      reset();
-      onOpenChange(false);
-      onSuccess();
+    if (result.status === 'duplicate') {
+      toast.error("This is already on this list. Add it again if it's a different location.");
+      return;
     }
+    if (result.status === 'error') {
+      toast.error('Failed to add place');
+      console.error(result.error);
+      return;
+    }
+    toast.success('Place added to shared list!');
+    reset();
+    onOpenChange(false);
+    onSuccess();
   };
 
   const filteredMine = myPlaces.filter((p) => {
