@@ -39,6 +39,10 @@ Run this on the **TestFlight build** (see RELEASE_CHECKLIST.md §D), as a user w
 - [ ] New List → **Coffee Shops** preset → add a place by search (address and pin show) → it appears on that list's map.
 - [ ] New List → **Books** preset → add a book (no location) → statuses are Want to Read / Reading / Read.
 - [ ] Shared list with B: add a place, and B sees it. B adds a comment, and A sees it.
+- [ ] Lists → **Add item** (bottom right): add a searched place to My Restaurants, a typed item to a Books list, and a place to a shared list - each appears in its list without opening the list first. B sees the shared-list item.
+- [ ] Add item: switch the destination after typing a name and notes - both are kept. A list without location shows no search or address; a list's own statuses and types appear.
+- [ ] Add item: adding something already on that list says so above the button and keeps what you typed.
+- [ ] Add item with the keyboard up: the Add button stays visible; the whole form scrolls on a small iPhone.
 
 ## 6. Recipes
 - [ ] Explore → Food → **Recipes** → Add Recipe by typing: it saves.
