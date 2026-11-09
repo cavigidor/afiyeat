@@ -21,7 +21,7 @@ export function CategoryTiles() {
           <span className="flex h-16 w-16 items-center justify-center rounded-2xl border bg-card text-3xl shadow-sm transition-colors group-active:bg-muted/60">
             <span aria-hidden>{c.emoji}</span>
           </span>
-          <span className="text-xs font-medium text-foreground/80">{c.label}</span>
+          <span className="max-w-[5.5rem] text-center text-xs font-medium leading-tight text-foreground/80">{c.label}</span>
         </Link>
       ))}
     </nav>

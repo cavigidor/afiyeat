@@ -65,7 +65,8 @@ afiyeat-app/
 │   │                             spinner.tsx (iOS-style activity indicator)
 │   ├── lib/                      non-UI logic
 │   │   ├── navigation.ts         the 5 tabs (PRIMARY_TABS), HOME_PATH, RECIPES_PATH
-│   │   ├── discovery.ts          explore fetchers, categories (DISCOVERY_CATEGORIES), popular ranking
+│   │   ├── discovery.ts          explore fetchers, categories (DISCOVERY_CATEGORIES), placesForSelection, popular ranking
+│   │   ├── placeClassification.ts  Food / Coffee / Drinks classifier (see docs/DISCOVERY_CATEGORIES.md)
 │   │   ├── circle.ts / activity.ts / followRequests.ts / events.ts   Home circle feed, Activity feed, requests, Ticketmaster
 │   │   ├── appleMaps.ts          place search, place details (resolve + short-lived cache),
 │   │   │                         what to store when saving, MapKit JS loader

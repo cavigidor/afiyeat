@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { DiscoverySection, Rail } from '@/components/discovery/DiscoverySection';
 import { PlaceTile, TileSkeleton } from '@/components/discovery/DiscoveryTiles';
 import type { ExplorePlace } from '@/components/explore/ExplorePlaceCard';
-import { ALL_PLACES_PATH, exploreKeys, fetchExplorePlaces, rankPopularPlaces, type Origin } from '@/lib/discovery';
+import { ALL_PLACES_PATH, exploreKeys, fetchDiscoveryPlaces, rankPopularPlaces, type Origin } from '@/lib/discovery';
 
 async function fetchOwnSaved(userId: string) {
   const { data, error } = await supabase
@@ -36,7 +36,7 @@ export function PopularPlacesSection({ origin, onOpen, onSave }: PopularPlacesSe
 
   const { data: places = [], isLoading } = useQuery({
     queryKey: exploreKeys.places('all'),
-    queryFn: () => fetchExplorePlaces('all'),
+    queryFn: () => fetchDiscoveryPlaces('all'),
     enabled: !!user,
   });
 
