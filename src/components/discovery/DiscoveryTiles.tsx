@@ -4,7 +4,7 @@ import { AnimalAvatar } from '@/components/shared/AnimalAvatar';
 import { toNumber, type ExplorePlace } from '@/components/explore/ExplorePlaceCard';
 import type { ExploreList } from '@/components/explore/ExploreListCard';
 import type { TicketmasterEvent } from '@/components/explore/EventCard';
-import { areaFromAddress, emojiForPlace, placeCategoryOf } from '@/lib/discovery';
+import { areaFromAddress, emojiForCategory, primaryCategoryOf, type DiscoveryPlace } from '@/lib/discovery';
 import { formatEventDate, formatEventTime } from '@/lib/events';
 import { openExternalUrl } from '@/lib/externalLink';
 import { communityListPath } from '@/lib/communityLists';
@@ -19,10 +19,11 @@ const PLACE_TINT: Record<string, string> = {
   food: 'bg-primary/10',
   coffee: 'bg-accent/25',
   drinks: 'bg-secondary/10',
+  none: 'bg-muted',
 };
 
 interface PlaceTileProps {
-  place: ExplorePlace;
+  place: ExplorePlace | DiscoveryPlace;
   onOpen: () => void;
   onSave?: () => void;
 }
@@ -31,7 +32,8 @@ export function PlaceTile({ place, onOpen, onSave }: PlaceTileProps) {
   const rating = toNumber(place.avg_rating);
   const people = toNumber(place.contributor_count) ?? 0;
   const area = areaFromAddress(place.address);
-  const tint = PLACE_TINT[placeCategoryOf(place.category)];
+  const primary = primaryCategoryOf(place);
+  const tint = PLACE_TINT[primary ?? 'none'];
 
   return (
     <div className="relative w-40">
@@ -41,7 +43,7 @@ export function PlaceTile({ place, onOpen, onSave }: PlaceTileProps) {
         className="active-press block w-full text-left transition-transform duration-150 ease-out"
       >
         <div className={cn('flex aspect-[4/3] items-center justify-center rounded-2xl text-4xl', tint)}>
-          <span aria-hidden>{emojiForPlace(place.category)}</span>
+          <span aria-hidden>{emojiForCategory(primary)}</span>
         </div>
         <p className="mt-2 truncate text-sm font-semibold">{place.name}</p>
         <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
