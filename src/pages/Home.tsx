@@ -20,7 +20,7 @@ import { Spinner } from '@/components/ui/spinner';
  * Every section is built from real data and leaves itself out when it has
  * nothing to show, so a new account sees a short, honest page rather than
  * a wall of empty boxes:
- *   - Popular (near you / on Afiyeat)  - get_explore_places, ranked
+ *   - Popular (near you / on Afiyeat)  - get_discovery_places, places people have been to, ranked
  *   - From your circle                 - follows + their recent saves/lists
  *   - Happening this week              - Ticketmaster, if location allowed
  *   - Lists worth exploring            - get_explore_lists

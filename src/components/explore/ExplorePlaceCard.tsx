@@ -1,7 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MapPin, Star, DollarSign, Users, Plus } from 'lucide-react';
+import { MapPin, Star, DollarSign, Users, Plus, Bookmark } from 'lucide-react';
 
 export interface ExplorePlace {
   place_id: string;
@@ -13,7 +13,10 @@ export interface ExplorePlace {
   price_level: number | null;
   avg_rating: number | null;
   rating_count: number;
+  /** People who have been here (want-to-go saves are never counted here). */
   contributor_count: number;
+  /** People who only want to go (discovery places; absent elsewhere). */
+  saved_count?: number | null;
   /** Set when the place came from Apple Maps (details may need resolving). */
   apple_place_id?: string | null;
 }
@@ -46,6 +49,7 @@ export function ExplorePlaceCard({ place, onClick, onAdd }: ExplorePlaceCardProp
   const avgRating = toNumber(place.avg_rating);
   const ratingCount = toNumber(place.rating_count) ?? 0;
   const contributorCount = toNumber(place.contributor_count) ?? 0;
+  const savedCount = toNumber(place.saved_count) ?? 0;
 
   return (
     <Card
@@ -109,10 +113,22 @@ export function ExplorePlaceCard({ place, onClick, onAdd }: ExplorePlaceCardProp
               ))}
             </div>
           )}
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Users className="h-3 w-3" />
-            {contributorCount} added this
-          </div>
+          {contributorCount > 0 ? (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Users className="h-3 w-3" />
+              {contributorCount} been here
+            </div>
+          ) : (
+            <Badge variant="outline" className="text-xs font-normal">
+              Not visited yet
+            </Badge>
+          )}
+          {savedCount > 0 && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Bookmark className="h-3 w-3" />
+              {savedCount} want{savedCount === 1 ? 's' : ''} to go
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

@@ -62,6 +62,8 @@ export function PlaceDetailSheet({ place, mode, onOpenChange, onAddToList }: Pla
   const categoryLabel = displayPlace ? formatCategory(displayPlace.category) : null;
   const avgRating = displayPlace ? toNumber(displayPlace.avg_rating) : null;
   const ratingCount = displayPlace ? toNumber(displayPlace.rating_count) ?? 0 : 0;
+  const notVisited = displayPlace ? (toNumber(displayPlace.contributor_count) ?? 0) === 0 : false;
+  const savedCount = displayPlace ? toNumber(displayPlace.saved_count) ?? 0 : 0;
 
   return (
     <Sheet open={!!place} onOpenChange={onOpenChange}>
@@ -92,6 +94,12 @@ export function PlaceDetailSheet({ place, mode, onOpenChange, onAddToList }: Pla
             )}
 
             <div className="flex items-center gap-4 mt-3">
+              {notVisited && (
+                <p className="text-sm text-muted-foreground">
+                  Not visited yet
+                  {savedCount > 0 && ` · ${savedCount} ${savedCount === 1 ? 'person wants' : 'people want'} to go`}
+                </p>
+              )}
               {avgRating != null && (
                 <div className="flex items-center gap-1">
                   <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
