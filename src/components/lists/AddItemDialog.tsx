@@ -49,6 +49,18 @@ import { photoUploadWarning, saveCustomListItem, saveRestaurant, saveSharedListI
 
 const PRICE_LABELS = ['<$30', '<$50', '<$100', '$100+'];
 
+/** A place the dialog starts with (from Home, Explore or Search). */
+export interface StartingPlace {
+  name: string;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  category?: string | null;
+  apple_place_id?: string | null;
+  /** Explore's grouping key: an Apple ID, an older place id, or "nm:<hash>". */
+  place_id?: string | null;
+}
+
 type RatingScale = 'ten' | 'five' | 'manual' | null;
 
 interface AddItemDialogProps {
@@ -59,6 +71,11 @@ interface AddItemDialogProps {
    * prefer when the caller knows better (e.g. opened from Lists -> Shared).
    */
   preferredDestination?: 'restaurants' | 'shared' | null;
+  /**
+   * Start with this place filled in (Home, Explore, Search). The form is
+   * still the chosen list's own form; the place only fills what it knows.
+   */
+  initialPlace?: StartingPlace | null;
 }
 
 const sortByOrder = <T extends { name: string; sort_order?: number | null }>(rows: T[]) =>
@@ -79,7 +96,7 @@ const sortByOrder = <T extends { name: string; sort_order?: number | null }>(row
  * the same code as each list's own Add button (lib/listItemSave.ts), so
  * duplicate checks and stored fields are identical either way.
  */
-export function AddItemDialog({ open, onOpenChange, preferredDestination = null }: AddItemDialogProps) {
+export function AddItemDialog({ open, onOpenChange, preferredDestination = null, initialPlace = null }: AddItemDialogProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -169,6 +186,9 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null 
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [picked, setPicked] = useState<(PickedPlace & { category: string | null }) | null>(null);
+  // Category and older place id of a starting place without an Apple ID.
+  const [startCategory, setStartCategory] = useState<string | null>(null);
+  const [legacyPlaceId, setLegacyPlaceId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [priceLevel, setPriceLevel] = useState<number | null>(null);
   const [priceManual, setPriceManual] = useState('');
@@ -210,6 +230,8 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null 
       setLatitude(place.latitude);
       setLongitude(place.longitude);
       setPicked({ applePlaceId: place.applePlaceId, appleAddress: place.address, category: place.category });
+      setStartCategory(null);
+      setLegacyPlaceId(null);
       setProblem(null);
     },
   });
@@ -219,11 +241,22 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null 
   useEffect(() => {
     if (!open) return;
     toast.dismiss();
-    setName('');
-    setAddress('');
-    setLatitude(null);
-    setLongitude(null);
-    setPicked(null);
+    // Everything already known about a starting place is filled in, so
+    // nobody retypes it; the rest of the form is the destination's own.
+    const start = initialPlace;
+    setName(start?.name ?? '');
+    setAddress(start?.address ?? '');
+    setLatitude(start?.latitude ?? null);
+    setLongitude(start?.longitude ?? null);
+    setPicked(
+      start?.apple_place_id
+        ? { applePlaceId: start.apple_place_id, appleAddress: start.address ?? null, category: start.category ?? null }
+        : null,
+    );
+    setStartCategory(start && !start.apple_place_id ? start.category ?? null : null);
+    setLegacyPlaceId(
+      start && !start.apple_place_id && start.place_id && !start.place_id.startsWith('nm:') ? start.place_id : null,
+    );
     setNotes('');
     setPriceLevel(null);
     setPriceManual('');
@@ -321,6 +354,7 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null 
       latitude: hasLocation ? latitude : null,
       longitude: hasLocation ? longitude : null,
       picked: hasLocation ? picked : null,
+      placeId: hasLocation ? legacyPlaceId : null,
     };
 
     setSaving(true);
@@ -333,7 +367,7 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null 
         rating,
         priceLevel,
         notes,
-        category: picked?.category ?? null,
+        category: picked?.category ?? startCategory,
         photos,
       });
     } else if (target.kind === 'custom') {
@@ -388,8 +422,12 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null 
       <DialogContent className="sm:max-w-[500px] gap-0 p-0">
         <div className="space-y-4 p-6 pb-4">
           <DialogHeader>
-            <DialogTitle>Add item</DialogTitle>
-            <DialogDescription className="sr-only">Add something to one of your lists.</DialogDescription>
+            <DialogTitle>{initialPlace ? 'Add to a list' : 'Add item'}</DialogTitle>
+            {initialPlace ? (
+              <DialogDescription className="truncate">{initialPlace.name}</DialogDescription>
+            ) : (
+              <DialogDescription className="sr-only">Add something to one of your lists.</DialogDescription>
+            )}
           </DialogHeader>
 
           {/* Where it goes - first, because it decides the rest of the form. */}
@@ -439,7 +477,8 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null 
             </p>
           </div>
 
-          {hasLocation && (
+          {/* Searching is for finding the place; a starting place is already found. */}
+          {hasLocation && !initialPlace && (
             <div className="relative space-y-2">
               <Label htmlFor="add-item-search">Search</Label>
               <div className="relative">
@@ -487,6 +526,10 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null 
               }}
             />
           </div>
+
+          {initialPlace && !hasLocation && (
+            <p className="text-xs text-muted-foreground">{dest.label} doesn't keep locations, so only the name is saved.</p>
+          )}
 
           {hasLocation && (
             <div className="space-y-2">
