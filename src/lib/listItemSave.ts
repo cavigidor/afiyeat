@@ -34,6 +34,12 @@ export interface ItemBasics {
   longitude?: number | null;
   /** Set when the place was picked from Apple search. */
   picked?: PickedPlace | null;
+  /**
+   * An older (pre-Apple) place id carried over from a place someone else
+   * saved, so My Restaurants keeps grouping it with theirs in Explore.
+   * Ignored when the place has an Apple ID.
+   */
+  placeId?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -73,6 +79,7 @@ export async function saveRestaurant(userId: string, item: ItemBasics, fields: R
       latitude: item.latitude,
       longitude: item.longitude,
       applePlaceId: item.picked?.applePlaceId,
+      placeId: item.picked?.applePlaceId ? null : item.placeId ?? null,
     });
     if (duplicate) return { status: 'duplicate' };
 
@@ -88,7 +95,7 @@ export async function saveRestaurant(userId: string, item: ItemBasics, fields: R
           latitude: item.latitude,
           longitude: item.longitude,
         }),
-        place_id: null,
+        place_id: item.picked?.applePlaceId ? null : item.placeId ?? null,
         notes: fields.notes?.trim() || null,
         status: fields.status,
         folder_ids: fields.folderIds,
