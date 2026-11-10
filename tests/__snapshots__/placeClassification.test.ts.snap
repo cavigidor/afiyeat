@@ -1,0 +1,46 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`holdout evaluation (not tuned) > measured results 1`] = `
+{
+  "exact": 23,
+  "falsePositives": [
+    "Trader Joe's [FoodMarket]: food",
+  ],
+  "partial": [
+    "Kasama [Bakery]: missing coffee",
+  ],
+  "total": 55,
+  "unknown": [
+    "Scofflaw",
+    "The Whistler",
+    "Billy Sunday",
+    "Three Dots and a Dash",
+    "Sportsman's Club",
+    "Map Room",
+    "Delilah's",
+    "Rainbo Club",
+    "Cindy's Rooftop",
+    "Old Town Ale House",
+    "Goose Island Brewhouse",
+    "The Long Room",
+    "Pops for Champagne",
+    "Dollop",
+    "Bow Truss",
+    "Sip of Hope",
+    "La Colombe",
+    "Monteverde",
+    "Smyth",
+    "Kasama",
+    "Lao Sze Chuan",
+    "Portillo's",
+    "Xoco",
+    "Dove's Luncheonette",
+    "Avec",
+    "Superdawg Drive-In",
+    "Mi Tocaya Antojeria",
+    "Birrieria Zaragoza",
+    "Tortello",
+    "Hot Doug's",
+  ],
+}
+`;

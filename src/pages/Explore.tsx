@@ -10,10 +10,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   categoryById,
   exploreKeys,
-  fetchExplorePlaces,
-  isEnabledCategory,
-  placeCategoryOf,
+  fetchDiscoveryPlaces,
+  isVisited,
+  placesForSelection,
   rankPopularPlaces,
+  selectionFromSearch,
   type DiscoveryCategoryId,
   type ExploreMode,
   type ExploreSelection,
@@ -37,20 +38,20 @@ type FoodView = 'places' | 'recipes';
 
 const EMPTY_COPY: Record<PlaceCategoryId | 'all', { all: string; friends: string }> = {
   all: {
-    all: 'Places people on Afiyeat have been to will show up here.',
-    friends: 'Places you and people you follow have been to will show up here.',
+    all: 'Places people on Afiyeat save will show up here.',
+    friends: 'Places you and people you follow save will show up here.',
   },
   food: {
-    all: 'Restaurants people on Afiyeat have been to will show up here.',
-    friends: 'Restaurants you and people you follow have been to will show up here.',
+    all: 'No restaurants on Afiyeat yet. Restaurants people save will show up here.',
+    friends: 'No restaurants from you or people you follow yet.',
   },
   coffee: {
-    all: 'Cafés people on Afiyeat have been to will show up here.',
-    friends: 'Cafés you and people you follow have been to will show up here.',
+    all: 'No cafés on Afiyeat yet. Coffee shops and cafés people save will show up here.',
+    friends: 'No cafés from you or people you follow yet.',
   },
   drinks: {
-    all: 'Bars, breweries and wineries people have been to will show up here.',
-    friends: 'Bars you and people you follow have been to will show up here.',
+    all: 'No bars on Afiyeat yet. Bars, breweries and wineries people save will show up here.',
+    friends: 'No bars from you or people you follow yet.',
   },
 };
 
@@ -94,12 +95,8 @@ export default function Explore() {
   useEffect(() => {
     if (location.pathname !== '/explore') return;
     const params = new URLSearchParams(location.search);
-    const c = params.get('c');
-    if (c === 'all') {
-      setCategory('all');
-      return;
-    }
-    if (!isEnabledCategory(c)) return;
+    const c = selectionFromSearch(location.search);
+    if (!c) return;
     setCategory(c);
     if (c === 'food') setFoodView(params.get('tab') === 'recipes' ? 'recipes' : 'places');
     if (c === 'events') setEventsKeyword(params.get('q') ?? undefined);
@@ -117,19 +114,18 @@ export default function Explore() {
 
   const { data: allPlaces = [], isLoading: placesLoading } = useQuery({
     queryKey: exploreKeys.places(mode),
-    queryFn: () => fetchExplorePlaces(mode),
+    queryFn: () => fetchDiscoveryPlaces(mode),
     enabled: !!user && showingPlaces,
   });
 
+  // The one category rule shared with Home (see placesForSelection): the
+  // list, the map and the rail below all use this array.
   const places = useMemo(
-    () =>
-      placeCategory === 'all'
-        ? allPlaces
-        : placeCategory
-          ? allPlaces.filter((p) => placeCategoryOf(p.category) === placeCategory)
-          : [],
+    () => (placeCategory ? placesForSelection(allPlaces, placeCategory) : []),
     [allPlaces, placeCategory],
   );
+  const beenTo = useMemo(() => places.filter(isVisited), [places]);
+  const wantToGo = useMemo(() => places.filter((p) => !isVisited(p)), [places]);
 
   // "Most visited" rail above the map: the same ranking as Home's Popular
   // section, within this category and audience.
@@ -149,7 +145,7 @@ export default function Explore() {
     );
   }
 
-  const placesNoun = category === 'all' ? 'Places' : `${categoryById(category as DiscoveryCategoryId).label} spots`;
+  const placesNoun = category === 'all' ? 'Places' : categoryById(category as DiscoveryCategoryId).noun;
 
   return (
     <div className="min-h-screen bg-background">
@@ -260,15 +256,37 @@ export default function Explore() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {places.map((place) => (
-                  <ExplorePlaceCard
-                    key={place.place_id}
-                    place={place}
-                    onClick={() => setSelectedPlace(place)}
-                    onAdd={() => setAddPlaceTarget(place)}
-                  />
-                ))}
+              <div className="space-y-6">
+                {[
+                  { key: 'been', title: 'Been there', subtitle: 'Places people have been to and rated', items: beenTo },
+                  {
+                    key: 'want',
+                    title: 'Saved to visit',
+                    subtitle: "On people's want-to-go lists. Nobody's been yet, so no ratings.",
+                    items: wantToGo,
+                  },
+                ]
+                  .filter((group) => group.items.length > 0)
+                  .map((group) => (
+                    <section key={group.key} aria-label={group.title} className="space-y-3">
+                      {wantToGo.length > 0 && (
+                        <div>
+                          <h2 className="text-base font-semibold">{group.title}</h2>
+                          <p className="text-xs text-muted-foreground">{group.subtitle}</p>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {group.items.map((place) => (
+                          <ExplorePlaceCard
+                            key={place.place_id}
+                            place={place}
+                            onClick={() => setSelectedPlace(place)}
+                            onAdd={() => setAddPlaceTarget(place)}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  ))}
               </div>
             )}
 

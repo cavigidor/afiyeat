@@ -75,7 +75,7 @@ export function PlaceResults({ query, onSave }: { query: string; onSave: (place:
             className="active-press flex w-full items-center gap-3 rounded-xl border bg-card p-3 text-left shadow-sm transition-[background-color,transform] duration-150 ease-out active:bg-muted/60"
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-xl" aria-hidden>
-              {emojiForPlace(p.category)}
+              {emojiForPlace(p.category, p.name)}
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate font-medium">{p.name}</span>
