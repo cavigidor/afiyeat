@@ -66,14 +66,13 @@ export function toDiscoveryPlace(raw: RawPlace): DiscoveryPlace {
     rating_count: num(raw.rating_count),
     saved_count: num(raw.saved_count),
     type_names,
-    // Every row comes from My Restaurants today (see the migration); when
-    // custom-list places join (after CP2) they pass 'custom_list' and list
-    // titles here instead.
+    // Where a place was saved never decides its category (My Restaurants
+    // holds cafés and bars too). When custom-list places join (after CP2)
+    // they add their list's types and titles here.
     classification: classifyPlace({
       name: raw.name,
       venueCategory: raw.category,
       placeTypes: type_names,
-      collection: 'restaurants',
     }),
   };
 }
@@ -194,17 +193,14 @@ export function emojiForCategory(id: PlaceCategoryId | null): string {
   return id ? categoryById(id).emoji : UNCATEGORIZED_EMOJI;
 }
 
-/**
- * Emoji for a bare category string (search results, circle feed). Pass
- * 'restaurants' for My Restaurants rows so a hand-typed place keeps 🍽️.
- */
-export function emojiForPlace(category: string | null | undefined, collection?: 'restaurants'): string {
-  return emojiForCategory(classifyPlace({ venueCategory: category, collection }).primary);
+/** Emoji for a place from its category string and (optionally) name. */
+export function emojiForPlace(category: string | null | undefined, name?: string | null): string {
+  return emojiForCategory(classifyPlace({ venueCategory: category, name }).primary);
 }
 
 /** The main category of a discovery place (or any place with a category string). */
 export function primaryCategoryOf(place: ExplorePlace & { classification?: PlaceClassification }): PlaceCategoryId | null {
-  return (place.classification ?? classifyPlace({ name: place.name, venueCategory: place.category, collection: 'restaurants' })).primary;
+  return (place.classification ?? classifyPlace({ name: place.name, venueCategory: place.category })).primary;
 }
 
 export const isVisited = (p: ExplorePlace) => num(p.contributor_count) > 0;
