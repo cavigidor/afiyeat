@@ -21,11 +21,12 @@ import { Search, ImagePlus, X, Camera } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { uploadCustomListPhotos, photoUploadWarning } from '@/lib/photoUpload';
 import { isNative, capturePhoto } from '@/lib/native';
 import { validateImageFile, compressImage, MAX_IMAGES_PER_ITEM } from '@/lib/imageValidation';
 import { PriceLevelPicker } from '@/components/restaurants/PriceLevelPicker';
 import { StarRatingPicker } from '@/components/lists/StarRatingPicker';
-import { useSignedImageUrls } from '@/hooks/useSignedImageUrl';
+import { StorageImage } from '@/components/shared/StorageImage';
 import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
 import { isDuplicateCustomListItem } from '@/lib/duplicateRestaurant';
 import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
@@ -191,7 +192,14 @@ export function AddCustomListItemDialog({
       return true;
     });
     const toAdd = validated.slice(0, remainingSlots);
-    const compressed = await Promise.all(toAdd.map((file) => compressImage(file)));
+    let compressed: File[];
+    try {
+      compressed = await Promise.all(toAdd.map((file) => compressImage(file)));
+    } catch (err) {
+      console.error('Photo preparation failed:', err);
+      toast.error("Couldn't prepare that photo. Try a different one.");
+      return;
+    }
     setImages((prev) => [...prev, ...compressed]);
     compressed.forEach((file) => {
       const reader = new FileReader();
@@ -215,12 +223,6 @@ export function AddCustomListItemDialog({
   };
 
   const totalPhotoCount = existingImages.length + imagePreviews.length;
-  // custom-list-images is a private bucket - the stored image_url isn't
-  // directly loadable, it needs to be exchanged for a signed URL first.
-  const { signedUrls: existingImageSignedUrls } = useSignedImageUrls(
-    existingImages.map((img) => img.image_url),
-  );
-
   const handleSubmit = async () => {
     if (!user) return;
     if (!name.trim()) {
@@ -291,25 +293,13 @@ export function AddCustomListItemDialog({
         await supabase.from('custom_list_item_images').delete().in('id', removedImageIds);
       }
 
-      if (images.length > 0 && itemId) {
-        for (const image of images) {
-          const fileExt = image.name.split('.').pop();
-          const fileName = `${user.id}/${itemId}/${crypto.randomUUID()}.${fileExt}`;
-          const { error: uploadError } = await supabase.storage.from('custom-list-images').upload(fileName, image);
-          if (uploadError) {
-            console.error('Image upload error:', uploadError);
-            continue;
-          }
-          const storagePath = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/custom-list-images/${fileName}`;
-          await supabase.from('custom_list_item_images').insert({
-            item_id: itemId,
-            user_id: user.id,
-            image_url: storagePath,
-          });
-        }
-      }
+      // The item is saved; photo failures are reported, never turned into a
+      // save error (retrying would duplicate a new item).
+      const photos = itemId ? await uploadCustomListPhotos(user.id, itemId, images) : { uploaded: 0, failed: 0 };
+      const photoWarning = photoUploadWarning(photos);
 
       toast.success(isEditing ? 'Item updated!' : `Added to ${list.name}!`);
+      if (photoWarning) toast.error(photoWarning);
       onOpenChange(false);
       onSuccess();
     } catch (error) {
@@ -480,13 +470,9 @@ export function AddCustomListItemDialog({
             <div className="space-y-2">
               <Label>Photos ({totalPhotoCount}/{MAX_IMAGES_PER_ITEM})</Label>
               <div className="grid grid-cols-4 gap-2">
-                {existingImages.map((img, i) => (
+                {existingImages.map((img) => (
                   <div key={img.id} className="relative aspect-square">
-                    <img
-                      src={existingImageSignedUrls[i] || ''}
-                      alt=""
-                      className="w-full h-full object-cover rounded-lg bg-muted"
-                    />
+                    <StorageImage value={img.image_url} bucket="custom-list-images" alt="" compact className="rounded-lg" />
                     <button
                       type="button"
                       onClick={() => removeExistingImage(img.id)}
