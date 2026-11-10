@@ -6,7 +6,7 @@
 | --- | --- |
 | Pick / take photo, validate type and size, downscale to JPEG | `lib/imageValidation.ts` (`validateImageFile`, `compressImage`) |
 | Upload to the owner's folder `<user>/<item>/<uuid>.<ext>` in a **private** bucket | `lib/photoUpload.ts` (`uploadRestaurantPhotos`, `uploadCustomListPhotos`) |
-| Insert the attachment row and read it back | same helper; `restaurant_images` / `custom_list_item_images` |
+| Insert the attachment row (client-chosen id) and read it back | same helper; `restaurant_images` / `custom_list_item_images` |
 | Stored value in `image_url` | `toStoredImageUrl()` → `<supabase>/storage/v1/object/public/<bucket>/<path>` (identifies the object; never loaded directly) |
 | Load the listing | `MyList`, `CustomListDetail`, `Friends`, `PublicProfile` embed `images:restaurant_images(...)` |
 | Turn the stored value into something an `<img>` can load | `lib/storage.ts` `parseStorageRef` → `signImageRef` (1-hour signed URL, cached) |
@@ -14,6 +14,19 @@
 | Refresh after adding photos | Edit place: `ImageUploadSection` keeps a live `['restaurant-images', id]` query and adds the returned rows immediately; the list query is invalidated. Detail sheet reads the place from the live list by id. |
 
 Buckets: `restaurant-images` (owner + accepted followers can read) and `custom-list-images` (owner only). Nothing in the fix changes bucket privacy or policies; `tests/listingPhotos.policies.test.ts` runs the repository's policies to prove it.
+
+## When the network answer can't be trusted
+
+A request can time out, lose its response, or succeed without returning the row. `lib/photoUpload.ts` handles that as follows:
+
+| What happened | How it's told apart | What the helper does |
+| --- | --- | --- |
+| Row saved and returned | 2xx with the row | Done |
+| Database refused the only attempt | HTTP 4xx **with** a Postgres/PostgREST code (e.g. 403 + 42501) | Statement rolled back, so nothing references the new object: it is removed (only that object) |
+| Response lost, timeout, gateway 5xx/429, no row returned (PGRST116), exception | Anything else | **Never deletes.** Looks the row up by its client-chosen id (owner-only by RLS). Not there → retries the insert once with the same id (a repeat hits the primary key, 23505, which proves it's saved). Still unclear → reports the photo as *unconfirmed*, keeps the object, logs its path and row id |
+| Upload response lost / timed out | No HTTP 4xx from storage | Retries the same path once; "already exists" (409) proves the first upload landed. Still failing → reported, nothing removed |
+
+Timeouts: upload 60 s, insert 15 s, lookup 10 s. An unconfirmed photo shows the message "Couldn't confirm the photo was saved - refresh in a moment to check." and the photo list refetches, so a row that did land appears. Objects kept this way without a row show up in the orphan report (query 3) for manual review.
 
 ## Root causes (November 2026)
 
@@ -145,7 +158,8 @@ Before the fix a broken photo's `src` is a bare `<user>/<restaurant>/<file>` pat
 4. **Carousel:** with 3+ photos, the arrows and dots page through every photo.
 5. **Add place with photos:** Add place with 2 photos → card thumbnail and carousel show them.
 6. **Custom list item:** in a list with photos on, add an item with a photo, then edit it, add another and save: reopening Edit shows both, and the card shows the first.
-7. **Failure messages (Safari, Develop → Network conditions → Offline):** add a photo from Edit while offline → "Couldn't add the photo. Check your connection and try again."; the place and its existing photos are unchanged.
-8. **Fallback:** a photo that can't load shows "Photo unavailable" with Retry, never the browser's broken-image icon.
-9. **Privacy:** sign in as a user who doesn't follow the owner (or a pending follower) and open the owner's public profile/place: their photos do not load. An accepted follower sees them (Friends).
-10. **Existing photos intact:** after all of the above, every photo that was there before is still there.
+7. **Interrupted upload:** start adding 2 photos from Edit and turn on Airplane Mode as the spinner tiles appear; wait for the message, turn it off, close and reopen Edit. Every photo is either shown or reported; no photo appears broken, and nothing that was shown disappears.
+8. **Failure messages (Safari, Develop → Network conditions → Offline):** add a photo from Edit while offline → "Couldn't add the photo. Check your connection and try again."; the place and its existing photos are unchanged.
+9. **Fallback:** a photo that can't load shows "Photo unavailable" with Retry, never the browser's broken-image icon.
+10. **Privacy:** sign in as a user who doesn't follow the owner (or a pending follower) and open the owner's public profile/place: their photos do not load. An accepted follower sees them (Friends).
+11. **Existing photos intact:** after all of the above, every photo that was there before is still there.

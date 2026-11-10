@@ -6,6 +6,7 @@ import { createFakeSupabase, type FakeSupabase } from './fakeSupabase';
 
 const fake = vi.hoisted(() => ({ current: null as unknown as FakeSupabase }));
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+const compress = vi.hoisted(() => ({ fn: async (file: File) => file }));
 vi.mock('@/integrations/supabase/client', () => ({
   get supabase() {
     return fake.current.client;
@@ -16,7 +17,7 @@ vi.mock('sonner', () => ({ toast }));
 // jsdom has no canvas; compression is covered elsewhere and irrelevant here.
 vi.mock('@/lib/imageValidation', async (orig) => ({
   ...(await orig<typeof import('@/lib/imageValidation')>()),
-  compressImage: async (file: File) => file,
+  compressImage: (file: File) => compress.fn(file),
 }));
 vi.mock('@/components/sharing/ShareButton', () => ({ ShareButton: () => null }));
 vi.mock('@/components/shared/GetDirectionsButton', () => ({ GetDirectionsButton: () => null }));
@@ -49,6 +50,7 @@ function place(images: string[]): DetailRestaurant {
 
 beforeEach(() => {
   fake.current = createFakeSupabase();
+  compress.fn = async (file: File) => file;
   clearSignedUrlCache();
   toast.success.mockClear();
   toast.error.mockClear();
@@ -217,5 +219,36 @@ describe('Edit place photo uploader', () => {
       expect(toast.error).toHaveBeenCalledWith("1 photo added, 1 couldn't be uploaded. Please try again."),
     );
     expect(fake.current.objects.size).toBe(2); // existing + the one that was recorded
+  });
+
+  it('a photo that can\u2019t be prepared shows an error and the uploader recovers', async () => {
+    const existing = seedExisting();
+    compress.fn = async () => {
+      throw new Error('decode failed');
+    };
+    wrap(<ImageUploadSection restaurantId="r1" existingImages={existing} onImagesChange={() => {}} />);
+    fireEvent.change(screen.getByTestId('photo-input'), { target: { files: [jpeg()] } });
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Couldn't prepare that photo. Try a different one."));
+    expect(screen.queryByTestId('photo-uploading')).toBeNull();
+    expect((screen.getByRole('button', { name: 'Add photos' }) as HTMLButtonElement).disabled).toBe(false);
+    expect(fake.current.calls.some((c) => c.op === 'upload')).toBe(false);
+  });
+
+  it('an unconfirmed save is reported calmly, nothing is deleted, and a refresh shows it if it landed', async () => {
+    const existing = seedExisting();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    // The record is written but every confirmation path fails.
+    fake.current.state.insertPlan.push('lost', 'rejected');
+    fake.current.state.lookupPlan.push('error', 'error');
+    const { container } = wrap(<ImageUploadSection restaurantId="r1" existingImages={existing} onImagesChange={() => {}} />);
+    fireEvent.change(screen.getByTestId('photo-input'), { target: { files: [jpeg()] } });
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("Couldn't confirm the photo was saved - refresh in a moment to check."),
+    );
+    expect(fake.current.calls.some((c) => c.op === 'remove')).toBe(false);
+    // The automatic refetch finds the row that did land.
+    await waitFor(() => expect(container.querySelectorAll('img')).toHaveLength(2));
+    expect(screen.queryByTestId('photo-uploading')).toBeNull();
   });
 });

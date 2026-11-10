@@ -130,3 +130,21 @@ describe('restaurant_images rows follow the same rule as the objects', () => {
     expect(await count(STRANGER)).toBe(0);
   });
 });
+
+describe('idempotent attachment insert (client-chosen id) under the real policies', () => {
+  const id = '30000000-0000-0000-0000-000000000001';
+  const insert = `INSERT INTO public.restaurant_images(id, restaurant_id, user_id, image_url)
+    VALUES ('${id}', '${RESTAURANT}', '${OWNER}', 'https://x/storage/v1/object/public/restaurant-images/${OWNER}/${RESTAURANT}/n.jpg')`;
+  const lookup = `SELECT count(*)::int AS n FROM public.restaurant_images WHERE id = '${id}'`;
+
+  it('the owner may choose the id; a repeat is refused by the primary key (23505), not duplicated', async () => {
+    await as(OWNER, insert);
+    await expect(as(OWNER, insert)).rejects.toMatchObject({ code: '23505' });
+    expect((await as(OWNER, lookup)).rows[0].n).toBe(1);
+  });
+
+  it('the reconcile lookup by id reveals nothing to anyone else', async () => {
+    expect((await as(STRANGER, lookup)).rows[0].n).toBe(0);
+    expect((await as(PENDING, lookup)).rows[0].n).toBe(0);
+  });
+});
