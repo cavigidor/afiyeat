@@ -150,6 +150,14 @@ describe('uploads with unclear outcomes', () => {
     expect(f.objects.size).toBe(1);
   });
 
+  it('the same, when storage reports "already exists" as HTTP 400 with statusCode 409', async () => {
+    f.state.uploadPlan.push('lost');
+    f.state.duplicateAs400 = true;
+    const r = await uploadRestaurantPhotos(OWNER, 'r1', [jpeg()]);
+    expect(r).toMatchObject({ uploaded: 1, failed: 0 });
+    expect(rows()).toHaveLength(1);
+  });
+
   it('upload dropped once, then succeeds on retry', async () => {
     f.state.uploadPlan.push('dropped');
     expect(await uploadRestaurantPhotos(OWNER, 'r1', [jpeg()])).toMatchObject({ uploaded: 1, failed: 0 });
