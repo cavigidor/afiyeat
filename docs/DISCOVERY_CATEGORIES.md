@@ -19,12 +19,13 @@ Deterministic, no AI, no network. Each allowed piece of text is matched against 
 | 5 | Authorised notes | 10 |
 
 - A category's score is the sum of the **best** match from each source, so a source can't stack with itself. A category qualifies at **50**. List titles and notes together (35) can never qualify a place on their own.
-- Ambiguous words ("bar", "lounge", "kitchen", "wine", cuisines like "Italian") count fully as a venue category or chosen type, but only half in names, titles and notes.
+- Ambiguous words ("lounge", "kitchen", "wine", cuisines like "Italian") count fully as a venue category or chosen type, but only half in names, titles and notes.
+- "Bar" counts fully in a venue's own name ("Simone's Bar", "Bar Louie"), and only half in list titles and notes. Non-drinking "... bar" phrases (sushi, oyster, juice, nail, lash, candy, Genius, Bar Method...) are matched first.
 - Phrases match longest-first and consume their words: "Sushi Bar" is Food only; "Espresso Bar" is Coffee; "Coffee Table", "Candy Bar", "Juice Bar" match nothing.
 - Normalisation: accents stripped (Café, caffè, Lokantası), CamelCase split (FoodMarket), `&` = and, plurals singularised, whole words only ("bar" never matches barbecue).
 - A place can be in several categories (a café tagged Brunch is Coffee and Food; a restaurant tagged Bar is Food and Drinks). Categories are ordered by the source of their best evidence, then score.
-- **Unknown is not Food.** A venue category recognised as something else (Museum, Store, Hotel...) blocks names/titles/notes; only a chosen type can still place it. An unrecognised category puts the place in no category (still visible under All).
-- The single fallback: a My Restaurants place with **no category at all** and nothing else qualifying counts as Food (the person saved it to their restaurant list). Never for custom lists, never for an unrecognised category, never alongside another category.
+- **Unknown is not Food, and there is no fallback.** Where a place was saved never decides what it is: My Restaurants holds cafés and bars too. A place with no category, no type and no tell-tale word in its name is in no category and shows under Explore → All only.
+- A venue category recognised as something else (Museum, Store, Hotel...) blocks names/titles/notes; only a chosen type can still place it.
 - Overlap rules: Apple Cafe = Coffee only unless food evidence; Bakery and FoodMarket = Food (scored below a restaurant); Brewery / Winery / Distillery / Nightlife = Drinks; gastropub, brewpub, izakaya, meyhane, "bar and grill" = Food and Drinks.
 
 Every result carries `categories`, `strongest` evidence, a `tier` per category (1-6, used for ranking) and a one-line `reason`.
@@ -53,8 +54,13 @@ New function `get_discovery_places` (migration `20261109120000_discovery_places.
 
 ## After CP2 merges (follow-up)
 
-Add custom-list items to `get_discovery_places` (or a sibling function) behind `can_view_custom_list` / `visibility = 'profile'`, requiring a location (`apple_place_id`, address or coordinates) so books and other non-places never enter. Pass them to `classifyPlace` with `collection: 'custom_list'` (no Food fallback), the list's type names as `placeTypes` and the list title as `listTitles`, and merge with My Restaurants rows by Apple place ID only.
+Add custom-list items to `get_discovery_places` (or a sibling function) behind `can_view_custom_list` / `visibility = 'profile'`, requiring a location (`apple_place_id`, address or coordinates) so books and other non-places never enter. Pass them to `classifyPlace` with the list's type names as `placeTypes` and the list title as `listTitles`, and merge with My Restaurants rows by Apple place ID only.
 
 ## Adding words
 
 Add to `TERMS`, then add a fixture to `tests/fixtures/discoveryPlaces.ts`. The fixture evaluation test fails on any new false positive or negative.
+
+## Measured quality
+
+- **Curated fixtures** (`tests/fixtures/discoveryPlaces.ts`): every case must pass; 0 false positives / 0 false negatives by construction. Known limitations are listed there with the actual result.
+- **Holdout** (`tests/fixtures/holdoutPlaces.ts`): 55 real venue names written down before the stabilization changes and not tuned against; results are snapshotted in `tests/__snapshots__/placeClassification.test.ts.snap`. At CP4 stabilization: 23 exact, 1 false positive (Trader Joe's with Apple's FoodMarket category → Food), 1 partial (a bakery-café → Food, not Coffee), 30 unknown (hand-typed names like "Scofflaw" or "Monteverde" with nothing to go on → All only). The unknowns are the honest outcome without a fallback; Apple categories on new saves and types fix them.

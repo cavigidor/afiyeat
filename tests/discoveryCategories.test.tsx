@@ -97,7 +97,7 @@ beforeEach(() => {
 
 describe('placesForSelection: one rule for every surface', () => {
   it('puts each place where it belongs, in several categories when the evidence is strong', () => {
-    expect(ids(placesForSelection(PLACES, 'food'))).toEqual(['A1', 'A4', 'A8']);
+    expect(ids(placesForSelection(PLACES, 'food'))).toEqual(['A1', 'A4']);
     expect(ids(placesForSelection(PLACES, 'coffee'))).toEqual(['A2', 'A4', 'S1', 'S2', 'A6']);
     expect(ids(placesForSelection(PLACES, 'drinks'))).toEqual(['A3', 'A5']);
   });
@@ -107,6 +107,13 @@ describe('placesForSelection: one rule for every surface', () => {
       expect(ids(placesForSelection(PLACES, c))).not.toContain('A7');
     }
     expect(ids(placesForSelection(PLACES, 'all'))).toContain('A7');
+  });
+
+  it('5. a hand-typed place with nothing to go on is under All only, not guessed as Food', () => {
+    for (const c of ['food', 'coffee', 'drinks'] as const) {
+      expect(ids(placesForSelection(PLACES, c))).not.toContain('A8');
+    }
+    expect(ids(placesForSelection(PLACES, 'all'))).toContain('A8');
   });
 
   it('12. places people have been to come before want-to-go saves', () => {
@@ -143,7 +150,8 @@ describe('placesForSelection: one rule for every surface', () => {
   it('emoji never assumes food for an unknown place', () => {
     expect(emojiForPlace('Museum')).toBe('📍');
     expect(emojiForPlace(null)).toBe('📍');
-    expect(emojiForPlace(null, 'restaurants')).toBe('🍽️');
+    expect(emojiForPlace(null, 'Alinea')).toBe('📍');
+    expect(emojiForPlace(null, "Lou Malnati's Pizzeria")).toBe('🍽️');
     expect(emojiForPlace('Cafe')).toBe('☕');
   });
 });

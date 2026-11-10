@@ -260,7 +260,7 @@ describe('types (Level 2 evidence) and privacy', () => {
     const forMe = byId(await discovery(ME), 'A1')!;
     const forPatsFriend = byId(await discovery(PATS_FRIEND), 'A1')!;
     const cats = (r: DiscoveryRow) =>
-      classifyPlace({ name: r.name, venueCategory: r.category, placeTypes: r.type_names, collection: 'restaurants' }).categories;
+      classifyPlace({ name: r.name, venueCategory: r.category, placeTypes: r.type_names }).categories;
     expect(cats(forMe)).toEqual(['coffee']);
     expect(cats(forPatsFriend)).toEqual(['coffee', 'drinks']);
   });
