@@ -22,27 +22,28 @@
  * once) and the weak sources can't qualify a place on their own: a list
  * title (25) plus notes (10) is 35, under the threshold of 50.
  *
- * Terms that are often part of something else ("bar" in "Sushi Bar",
- * "lounge" in "Airport Lounge") are marked ambiguous: they count fully as
- * a category or type someone chose, but only half in names, titles and
- * notes. Phrases are matched longest-first and consume their words, so
- * "Sushi Bar" is food and never also a bar, and "Coffee Table Design" is
- * a negative phrase that matches nothing.
+ * Terms that are often part of something else ("lounge" in "Airport
+ * Lounge", "kitchen", "wine") are marked ambiguous: they count fully as a
+ * category or type someone chose, but only half in names, titles and
+ * notes. "Bar" is ambiguous only in list titles and notes: in a venue's
+ * own name ("Simone's Bar", "Bar Siena") it means a bar, because every
+ * common non-drinking "... bar" (sushi, juice, nail, candy, Genius, Bar
+ * Method...) is a longer phrase below that is matched first. Phrases are
+ * matched longest-first and consume their words, so "Sushi Bar" is food
+ * and never also a bar, and "Coffee Table Design" matches nothing.
  *
- * Unknown is not Food. A place whose category we recognise as something
- * else (a museum, a store) can only be put in a category by a type
- * someone chose. The one fallback: a place saved to My Restaurants with
- * no category at all (typed in by hand, or saved before categories
- * existed) and no other evidence is treated as Food, because the person
- * saved it to their restaurant list and nothing says otherwise. That
- * fallback never applies to a place with an unrecognised category, to
- * custom-list items, or alongside any other qualifying category.
+ * Unknown is not Food, and there is no fallback. Where a place was saved
+ * (My Restaurants holds cafés and bars too) says nothing about what it
+ * is, so a place with no category, no type and no tell-tale word in its
+ * name lands in no category and shows under Explore -> All only. A place
+ * whose category we recognise as something else (a museum, a store) can
+ * only be put in a category by a type someone chose.
  */
 
 export type PlaceCategoryId = 'food' | 'coffee' | 'drinks';
 export const PLACE_CATEGORY_IDS: readonly PlaceCategoryId[] = ['food', 'coffee', 'drinks'];
 
-export type EvidenceSource = 'venue_category' | 'place_type' | 'name' | 'list_title' | 'notes' | 'collection';
+export type EvidenceSource = 'venue_category' | 'place_type' | 'name' | 'list_title' | 'notes';
 
 /** Weight of a full-strength match from each source. */
 export const SOURCE_WEIGHT: Record<EvidenceSource, number> = {
@@ -51,7 +52,6 @@ export const SOURCE_WEIGHT: Record<EvidenceSource, number> = {
   name: 60,
   list_title: 25,
   notes: 10,
-  collection: 50,
 };
 
 /** Precedence used for "strongest evidence" and the match tier (1 = best). */
@@ -61,7 +61,6 @@ export const SOURCE_TIER: Record<EvidenceSource, number> = {
   name: 3,
   list_title: 4,
   notes: 5,
-  collection: 6,
 };
 
 /** A category qualifies at this score. */
@@ -77,7 +76,12 @@ interface Term {
   categories: readonly PlaceCategoryId[];
   /** How strongly the term says "this is that kind of place" (default 1). */
   strength?: number;
-  ambiguous?: boolean;
+  /**
+   * Counts half where context matters: 'everywhere' = names, list titles
+   * and notes; 'context' = list titles and notes only (full in a name).
+   * Always full in a venue category or a type someone chose.
+   */
+  ambiguous?: boolean | 'context';
 }
 
 const F: PlaceCategoryId[] = ['food'];
@@ -110,6 +114,27 @@ const TERMS: readonly Term[] = [
   { phrase: 'brow bar', categories: NONE },
   { phrase: 'blow dry bar', categories: NONE },
   { phrase: 'genius bar', categories: NONE },
+  { phrase: 'lash bar', categories: NONE },
+  { phrase: 'wax bar', categories: NONE },
+  { phrase: 'waxing bar', categories: NONE },
+  { phrase: 'beauty bar', categories: NONE },
+  { phrase: 'blowout bar', categories: NONE },
+  { phrase: 'smoothie bar', categories: NONE },
+  { phrase: 'yogurt bar', categories: NONE },
+  { phrase: 'cereal bar', categories: NONE },
+  { phrase: 'energy bar', categories: NONE },
+  { phrase: 'mini bar', categories: NONE },
+  { phrase: 'minibar', categories: NONE },
+  { phrase: 'bar method', categories: NONE },
+  { phrase: 'bar harbor', categories: NONE },
+  { phrase: 'bar mitzvah', categories: NONE },
+  { phrase: 'bar stool', categories: NONE },
+  { phrase: 'bar cart', categories: NONE },
+  { phrase: 'bar code', categories: NONE },
+  { phrase: 'bar chart', categories: NONE },
+  { phrase: 'bar soap', categories: NONE },
+  { phrase: 'monkey bar', categories: NONE },
+  { phrase: 'pull up bar', categories: NONE },
   { phrase: 'airport lounge', categories: NONE },
   { phrase: 'hookah lounge', categories: NONE },
   { phrase: 'waiting lounge', categories: NONE },
@@ -153,7 +178,7 @@ const TERMS: readonly Term[] = [
   { phrase: 'tea', categories: C, ambiguous: true },
 
   // --- Bars & Drinks ---
-  { phrase: 'bar', categories: D, ambiguous: true },
+  { phrase: 'bar', categories: D, ambiguous: 'context' },
   { phrase: 'nightlife', categories: D, strength: 0.9 },
   { phrase: 'nightclub', categories: D },
   { phrase: 'night club', categories: D },
@@ -249,6 +274,9 @@ const TERMS: readonly Term[] = [
   { phrase: 'oyster bar', categories: F },
   { phrase: 'raw bar', categories: F },
   { phrase: 'salad bar', categories: F },
+  { phrase: 'snack bar', categories: F },
+  { phrase: 'poke bar', categories: F },
+  { phrase: 'dessert bar', categories: F, strength: 0.85 },
   { phrase: 'chicken', categories: F, ambiguous: true },
   { phrase: 'seafood', categories: F },
   { phrase: 'fish market', categories: F, strength: 0.6 },
@@ -398,11 +426,6 @@ export interface ClassificationInput {
   listTitles?: readonly (string | null | undefined)[];
   /** Notes the viewer is allowed to see. Supporting evidence only. */
   notes?: readonly (string | null | undefined)[];
-  /**
-   * Where the record was saved. 'restaurants' (My Restaurants) enables the
-   * no-category fallback described at the top of this file.
-   */
-  collection?: 'restaurants' | 'custom_list' | 'shared_list' | null;
 }
 
 export interface Evidence {
@@ -425,9 +448,9 @@ export interface PlaceClassification {
   /** The best piece of evidence per qualifying category. */
   strongest: Partial<Record<PlaceCategoryId, Evidence>>;
   /**
-   * 1-6 per qualifying category: the source of its strongest evidence
-   * (1 venue category ... 5 notes, 6 the My Restaurants fallback). Lower
-   * is more certain; used to order places within a category.
+   * 1-5 per qualifying category: the source of its strongest evidence
+   * (1 venue category ... 5 notes). Lower is more certain; used to order
+   * places within a category.
    */
   tier: Partial<Record<PlaceCategoryId, number>>;
   /** Every match, for debugging and tests. */
@@ -444,7 +467,6 @@ const SOURCE_LABEL: Record<EvidenceSource, string> = {
   name: 'name',
   list_title: 'list title',
   notes: 'notes',
-  collection: 'saved to My Restaurants with no category',
 };
 
 const clean = (values: readonly (string | null | undefined)[] | undefined) =>
@@ -456,7 +478,11 @@ export function classifyPlace(input: ClassificationInput): PlaceClassification {
   const collect = (source: EvidenceSource, texts: string[]) => {
     for (const text of texts) {
       for (const { term, matched } of matchTerms(normalizeWords(text), TERM_INDEX)) {
-        const factor = (term.strength ?? 1) * (term.ambiguous && source !== 'venue_category' && source !== 'place_type' ? AMBIGUOUS_FACTOR : 1);
+        const halved =
+          term.ambiguous === 'context'
+            ? source === 'list_title' || source === 'notes'
+            : !!term.ambiguous && source !== 'venue_category' && source !== 'place_type';
+        const factor = (term.strength ?? 1) * (halved ? AMBIGUOUS_FACTOR : 1);
         for (const category of term.categories) {
           evidence.push({ source, category, term: matched, text, weight: Math.round(SOURCE_WEIGHT[source] * factor) });
         }
@@ -499,21 +525,6 @@ export function classifyPlace(input: ClassificationInput): PlaceClassification {
 
   let categories = PLACE_CATEGORY_IDS.filter((c) => scores[c] >= QUALIFY_SCORE);
 
-  // My Restaurants fallback: no category at all, nothing else qualified.
-  if (categories.length === 0 && input.collection === 'restaurants' && !venueCategory) {
-    const e: Evidence = {
-      source: 'collection',
-      category: 'food',
-      term: 'my restaurants',
-      text: 'My Restaurants',
-      weight: SOURCE_WEIGHT.collection,
-    };
-    evidence.push(e);
-    scores.food += e.weight;
-    strongest.food = e;
-    categories = ['food'];
-  }
-
   const tier: Partial<Record<PlaceCategoryId, number>> = {};
   for (const c of categories) tier[c] = SOURCE_TIER[strongest[c]!.source];
 
@@ -533,9 +544,7 @@ export function classifyPlace(input: ClassificationInput): PlaceClassification {
       : categories
           .map((c) => {
             const e = strongest[c]!;
-            return e.source === 'collection'
-              ? `${c}: ${SOURCE_LABEL.collection} (${scores[c]})`
-              : `${c}: ${SOURCE_LABEL[e.source]} '${e.text}' matched "${e.term}" (score ${scores[c]})`;
+            return `${c}: ${SOURCE_LABEL[e.source]} '${e.text}' matched "${e.term}" (score ${scores[c]})`;
           })
           .join('; ');
 
