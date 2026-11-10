@@ -95,7 +95,10 @@ export default function MyList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<RestaurantSortBy>('name');
   const [viewMode, setViewMode] = useViewMode('mylist');
-  const [detailRestaurant, setDetailRestaurant] = useState<Restaurant | null>(null);
+  // The open detail sheet tracks the place by id and reads it from the live
+  // query below, so photos (or anything else) saved while it's open show up
+  // without closing and reopening it.
+  const [detailRestaurantSnapshot, setDetailRestaurant] = useState<Restaurant | null>(null);
   const [focusedRestaurantId, setFocusedRestaurantId] = useState<string | null>(null);
   const [modifyMode, setModifyMode] = useState(false);
   const [manageTypesOpen, setManageTypesOpen] = useState(false);
@@ -148,6 +151,14 @@ export default function MyList() {
         folders: folders.filter((f) => (r.folder_ids || []).includes(f.id)),
       })),
     [restaurants, folders],
+  );
+
+  const detailRestaurant = useMemo(
+    () =>
+      detailRestaurantSnapshot
+        ? restaurantsWithFolders.find((r) => r.id === detailRestaurantSnapshot.id) ?? detailRestaurantSnapshot
+        : null,
+    [detailRestaurantSnapshot, restaurantsWithFolders],
   );
 
   // Memoized so the map below (which keys its GPS/marker effects off this

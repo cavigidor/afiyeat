@@ -3,12 +3,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MapPin, Star, DollarSign, Check, Clock, Edit, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useSignedImageUrls } from '@/hooks/useSignedImageUrl';
+import { StorageImage } from '@/components/shared/StorageImage';
 import { getFolderIcon } from '@/lib/folderIcons';
 import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
 import { ShareButton } from '@/components/sharing/ShareButton';
 import { SITE_URL } from '@/lib/site';
-import { Spinner } from '@/components/ui/spinner';
 
 export interface DetailRestaurant {
   id: string;
@@ -40,8 +39,9 @@ export function RestaurantDetailDialog({
   onMarkVisited,
 }: RestaurantDetailDialogProps) {
   const [imgIndex, setImgIndex] = useState(0);
-  const imageUrls = restaurant?.images?.map((i) => i.image_url) || [];
-  const { signedUrls, loading: imagesLoading } = useSignedImageUrls(imageUrls);
+  // Every stored photo keeps its slot: one that can't load shows a fallback
+  // with Retry rather than silently vanishing (or a broken-image icon).
+  const imageUrls = (restaurant?.images ?? []).map((i) => i.image_url).filter(Boolean);
   const FallbackIcon = getFolderIcon(restaurant?.folders?.[0]?.name);
 
   // Reset the carousel position each time a different place is opened.
@@ -49,10 +49,14 @@ export function RestaurantDetailDialog({
     setImgIndex(0);
   }, [restaurant?.id]);
 
+  // Keep the position valid if the photo list shrinks while open.
+  useEffect(() => {
+    if (imgIndex >= imageUrls.length && imageUrls.length > 0) setImgIndex(0);
+  }, [imgIndex, imageUrls.length]);
+
   if (!restaurant) return null;
 
-  const validUrls = signedUrls.filter((u): u is string => !!u);
-  const currentImage = validUrls[imgIndex];
+  const currentImage = imageUrls[Math.min(imgIndex, imageUrls.length - 1)];
 
   return (
     <Dialog open={!!restaurant} onOpenChange={onOpenChange}>
@@ -75,14 +79,10 @@ export function RestaurantDetailDialog({
         </DialogHeader>
 
         <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
-          {imagesLoading ? (
-            <div className="w-full h-full flex items-center justify-center">
-              <Spinner className="h-8 w-8 animate-spin text-muted-foreground/40" />
-            </div>
-          ) : currentImage ? (
+          {currentImage ? (
             <>
-              <img src={currentImage} alt={restaurant.name} className="w-full h-full object-cover" />
-              {validUrls.length > 1 && (
+              <StorageImage key={currentImage} value={currentImage} bucket="restaurant-images" alt={restaurant.name} />
+              {imageUrls.length > 1 && (
                 <>
                   <Button
                     type="button"
@@ -90,7 +90,7 @@ export function RestaurantDetailDialog({
                     size="icon"
                     className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8"
                     aria-label="Previous photo"
-                    onClick={() => setImgIndex((i) => (i - 1 + validUrls.length) % validUrls.length)}
+                    onClick={() => setImgIndex((i) => (i - 1 + imageUrls.length) % imageUrls.length)}
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
@@ -100,12 +100,12 @@ export function RestaurantDetailDialog({
                     size="icon"
                     className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
                     aria-label="Next photo"
-                    onClick={() => setImgIndex((i) => (i + 1) % validUrls.length)}
+                    onClick={() => setImgIndex((i) => (i + 1) % imageUrls.length)}
                   >
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                   <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-                    {validUrls.map((_, i) => (
+                    {imageUrls.map((_, i) => (
                       <div
                         key={i}
                         className={`h-1.5 w-1.5 rounded-full ${i === imgIndex ? 'bg-white' : 'bg-white/40'}`}
