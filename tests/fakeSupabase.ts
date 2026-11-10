@@ -55,6 +55,8 @@ export function createFakeSupabase() {
     lookupPlan: [] as LookupMode[],
     /** For insert 'hang': commit this long after the call (simulates a slow server). */
     lateCommitMs: null as number | null,
+    /** Answer "already exists" the older way: HTTP 400 with statusCode "409" in the body. */
+    duplicateAs400: false,
     failSign: null as null | { status: number; message: string },
     signCount: 0,
     seq: 0,
@@ -88,7 +90,9 @@ export function createFakeSupabase() {
           return { data: null, error: { message: 'new row violates row-level security policy', status: 403, statusCode: '403' } };
         }
         if (objects.has(key)) {
-          return { data: null, error: { message: 'The resource already exists', status: 409, statusCode: '409' } };
+          return state.duplicateAs400
+            ? { data: null, error: { message: 'The resource already exists', error: 'Duplicate', status: 400, statusCode: '409' } }
+            : { data: null, error: { message: 'The resource already exists', status: 409, statusCode: '409' } };
         }
         objects.set(key, file);
         if (mode === 'lost') return { data: null, error: { name: 'StorageUnknownError', message: 'Failed to fetch' } };

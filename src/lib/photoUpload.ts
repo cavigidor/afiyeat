@@ -230,6 +230,17 @@ interface AttachTarget {
 
 type UploadOutcome = { kind: 'stored' } | { kind: 'failed'; error: unknown; maybeStored: boolean };
 
+/**
+ * "This path already exists". Storage has reported it both as HTTP 409 and as
+ * HTTP 400 with `statusCode: "409"` / `error: "Duplicate"` in the body, so
+ * check every form rather than the HTTP status alone.
+ */
+function isDuplicateObject(err: ApiError & { error?: string }): boolean {
+  if (!err) return false;
+  if (Number(err.status) === 409 || String(err.statusCode) === '409') return true;
+  return /duplicate|already exists/i.test(`${err.error ?? ''} ${err.message ?? ''}`);
+}
+
 async function uploadObject(bucket: ImageBucket, path: string, file: File, ms: number): Promise<UploadOutcome> {
   const attempt = async () => {
     try {
@@ -239,8 +250,8 @@ async function uploadObject(bucket: ImageBucket, path: string, file: File, ms: n
         'Uploading the photo',
       );
       if (!error) return { kind: 'stored' as const };
+      if (isDuplicateObject(error as ApiError)) return { kind: 'duplicate' as const };
       const status = httpStatus(error as ApiError);
-      if (status === 409) return { kind: 'duplicate' as const };
       const definite = status >= 400 && status < 500 && status !== 408 && status !== 429;
       return { kind: definite ? ('rejected' as const) : ('unclear' as const), error };
     } catch (error) {
