@@ -192,7 +192,14 @@ export function AddCustomListItemDialog({
       return true;
     });
     const toAdd = validated.slice(0, remainingSlots);
-    const compressed = await Promise.all(toAdd.map((file) => compressImage(file)));
+    let compressed: File[];
+    try {
+      compressed = await Promise.all(toAdd.map((file) => compressImage(file)));
+    } catch (err) {
+      console.error('Photo preparation failed:', err);
+      toast.error("Couldn't prepare that photo. Try a different one.");
+      return;
+    }
     setImages((prev) => [...prev, ...compressed]);
     compressed.forEach((file) => {
       const reader = new FileReader();

@@ -128,7 +128,12 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
       if (summary.kind === 'success') toast.success(summary.message);
       else toast.error(summary.message);
 
-      if (result.uploaded > 0) refresh();
+      // Refetch for unconfirmed photos too: if their record did land, they show.
+      if (result.uploaded > 0 || (result.unconfirmed ?? 0) > 0) refresh();
+    } catch (err) {
+      // Preparing the photos (decode/compress) failed - nothing was uploaded.
+      console.error('Photo preparation failed:', err);
+      toast.error("Couldn't prepare that photo. Try a different one.");
     } finally {
       setPendingCount(0);
       clearInput();

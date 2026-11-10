@@ -234,7 +234,14 @@ export function AddRestaurantDialog({
     // Downscale/re-encode before it ever touches state or gets uploaded, so
     // normal multi-megabyte phone photos don't trip size limits or bloat
     // storage - see compressImage() for details.
-    const compressed = await Promise.all(toAdd.map((file) => compressImage(file)));
+    let compressed: File[];
+    try {
+      compressed = await Promise.all(toAdd.map((file) => compressImage(file)));
+    } catch (err) {
+      console.error('Photo preparation failed:', err);
+      toast.error("Couldn't prepare that photo. Try a different one.");
+      return;
+    }
 
     setImages((prev) => [...prev, ...compressed]);
 
