@@ -242,8 +242,8 @@ describe('15. Home shortcuts and Explore filters agree', () => {
       expect(screen.getByRole('tab', { name: new RegExp(label), selected: true })).toBeTruthy();
 
       // List view: the same places, in the same order.
-      fireEvent.mouseDown(screen.getByRole('tab', { name: /List/ }));
-      fireEvent.click(screen.getByRole('tab', { name: /List/ }));
+      fireEvent.mouseDown(screen.getByRole('tab', { name: /^List$/ }));
+      fireEvent.click(screen.getByRole('tab', { name: /^List$/ }));
       await waitFor(() => expect(screen.getAllByRole('heading', { level: 3 }).length).toBe(expected.length));
       expect(screen.getAllByRole('heading', { level: 3 }).map((el) => el.textContent)).toEqual(expected.map((p) => p.name));
     },
@@ -251,8 +251,8 @@ describe('15. Home shortcuts and Explore filters agree', () => {
 
   it('splits Been there from Saved to visit in the list', async () => {
     renderApp('/explore?c=drinks');
-    fireEvent.mouseDown(await screen.findByRole('tab', { name: /List/ }));
-    fireEvent.click(screen.getByRole('tab', { name: /List/ }));
+    fireEvent.mouseDown(await screen.findByRole('tab', { name: /^List$/ }));
+    fireEvent.click(screen.getByRole('tab', { name: /^List$/ }));
     const been = await screen.findByRole('region', { name: 'Been there' });
     const saved = screen.getByRole('region', { name: 'Saved to visit' });
     expect(within(been).getByText('The Violet Hour')).toBeTruthy();
@@ -278,7 +278,9 @@ describe('15. Home shortcuts and Explore filters agree', () => {
 describe('chips', () => {
   it('Explore chips list All then every enabled category', () => {
     render(<CategoryChips value="coffee" onChange={() => {}} />);
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual([
+    // CP2 (PR #8) adds a Lists chip; CP4 only owns All + the categories.
+    const chips = screen.getAllByRole('tab').map((t) => t.textContent);
+    expect(chips.filter((c) => c !== '📋Lists')).toEqual([
       '✨All',
       ...ENABLED_CATEGORIES.map((c) => `${c.emoji}${c.label}`),
     ]);
