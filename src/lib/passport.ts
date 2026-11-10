@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { SITE_URL } from '@/lib/site';
+import { HOME_PATH } from '@/lib/navigation';
 
 /**
  * Afiyeat Passport - referral codes, milestones and invite links.
@@ -286,7 +287,7 @@ export function clearReturnTo(): void {
  * navigate from more than one place in quick succession and both must
  * agree; ReferralCapture clears it once the user actually arrives.
  */
-export function postAuthDestination(fallback = '/foodie'): string {
+export function postAuthDestination(fallback = HOME_PATH): string {
   return peekReturnTo() ?? fallback;
 }
 

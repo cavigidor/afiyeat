@@ -1,20 +1,25 @@
 import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { useLocation } from 'react-router-dom';
-import Foodie from '@/pages/Foodie';
+import Home from '@/pages/Home';
 import MyLists from '@/pages/MyLists';
 import Friends from '@/pages/Friends';
 import Explore from '@/pages/Explore';
+import Activity from '@/pages/Activity';
 
-// The four bottom-tab destinations (see BottomTabBar.tsx/Navbar.tsx). These
-// are exactly the routes App.tsx renders as `element={null}` - this
-// component is what actually renders their content, as siblings kept
-// mounted in the DOM rather than as normal <Route> elements that get torn
-// down and rebuilt on every switch.
+// The bottom-tab destinations (see lib/navigation.ts), plus Friends, which
+// is no longer a tab but is reached from Activity ("Find people") and from
+// shared-list links, and keeps its search/selected-friend state between
+// visits. These are exactly the routes App.tsx renders as `element={null}`
+// - this component is what actually renders their content, as siblings
+// kept mounted in the DOM rather than as normal <Route> elements that get
+// torn down and rebuilt on every switch. You (/profile) is a normal route:
+// it holds an edit form that should start fresh each visit.
 const TAB_PAGES: Record<string, ComponentType> = {
-  '/foodie': Foodie,
-  '/my-lists': MyLists,
-  '/friends': Friends,
+  '/home': Home,
   '/explore': Explore,
+  '/my-lists': MyLists,
+  '/activity': Activity,
+  '/friends': Friends,
 };
 const TAB_PATHS = Object.keys(TAB_PAGES);
 
@@ -26,7 +31,7 @@ const TAB_PATHS = Object.keys(TAB_PAGES);
  * filters, in-flight/cached queries, etc. exactly as the user left them.
  *
  * A tab is only added to the DOM the first time the user actually visits
- * it (not all four eagerly on app load) - so first paint and initial data
+ * it (not all of them eagerly on app load) - so first paint and initial data
  * fetching stay limited to whichever tab the user actually opens.
  */
 export function PersistentTabs() {

@@ -1,128 +1,86 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/layout/Navbar';
 import { CardGridSkeleton } from '@/components/shared/CardGridSkeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { withApplePlaceDetails } from '@/lib/appleMaps';
-import { Map as MapIcon, List as ListIcon, Compass, LocateFixed, Users2, CalendarDays, MapPinOff, Search } from 'lucide-react';
+import {
+  categoryById,
+  exploreKeys,
+  fetchExplorePlaces,
+  isEnabledCategory,
+  placeCategoryOf,
+  rankPopularPlaces,
+  type DiscoveryCategoryId,
+  type ExploreMode,
+  type ExploreSelection,
+  type PlaceCategoryId,
+} from '@/lib/discovery';
+import { Map as MapIcon, List as ListIcon, Compass, LocateFixed, Search, ChevronRight } from 'lucide-react';
 import { ExploreMapComponent } from '@/components/explore/ExploreMapComponent';
 import { ExplorePlaceCard, type ExplorePlace } from '@/components/explore/ExplorePlaceCard';
 import { PlaceDetailSheet } from '@/components/explore/PlaceDetailSheet';
-import { ExploreListCard, type ExploreList } from '@/components/explore/ExploreListCard';
-import { EventCard, type TicketmasterEvent } from '@/components/explore/EventCard';
-import { EventsMapComponent } from '@/components/explore/EventsMapComponent';
+import { ExploreEvents } from '@/components/explore/ExploreEvents';
 import { LocationDeniedDialog } from '@/components/shared/LocationDeniedDialog';
-import { useLocationPermission } from '@/hooks/useLocationPermission';
 import { AddExplorePlaceDialog } from '@/components/explore/AddExplorePlaceDialog';
+import { CategoryChips } from '@/components/discovery/CategoryRail';
+import { DiscoverySection, Rail } from '@/components/discovery/DiscoverySection';
+import { PlaceTile } from '@/components/discovery/DiscoveryTiles';
 import { Spinner } from '@/components/ui/spinner';
+import Recipes from './Recipes';
 
-type ExploreMode = 'friends' | 'all';
 type ExploreView = 'map' | 'list';
-type ExploreContentType = 'restaurants' | 'lists' | 'events';
-type EventsDateFilter = 'all' | 'today' | 'week' | 'month';
+type FoodView = 'places' | 'recipes';
 
+const EMPTY_COPY: Record<PlaceCategoryId | 'all', { all: string; friends: string }> = {
+  all: {
+    all: 'Places people on Afiyeat have been to will show up here.',
+    friends: 'Places you and people you follow have been to will show up here.',
+  },
+  food: {
+    all: 'Restaurants people on Afiyeat have been to will show up here.',
+    friends: 'Restaurants you and people you follow have been to will show up here.',
+  },
+  coffee: {
+    all: 'Cafés people on Afiyeat have been to will show up here.',
+    friends: 'Cafés you and people you follow have been to will show up here.',
+  },
+  drinks: {
+    all: 'Bars, breweries and wineries people have been to will show up here.',
+    friends: 'Bars you and people you follow have been to will show up here.',
+  },
+};
 
-async function fetchExplorePlaces(mode: ExploreMode): Promise<ExplorePlace[]> {
-  const { data, error } = await supabase.rpc('get_explore_places', { p_mode: mode });
-  if (error) throw error;
-  const places = (data || []) as ExplorePlace[];
-  // Apple-saved places whose short-lived details have expired come back
-  // without an address or pin; look those up again (batched, cached).
-  const filled = await withApplePlaceDetails(
-    places.map((p) => (p.latitude == null || !p.address ? p : { ...p, apple_place_id: null })),
-  );
-  return filled.map((p, i) => ({
-    ...p,
-    apple_place_id: places[i].apple_place_id ?? null,
-    name: p.name || places[i].name,
-  }));
-}
-
-async function fetchExploreLists(mode: ExploreMode): Promise<ExploreList[]> {
-  const { data, error } = await supabase.rpc('get_explore_lists', { p_mode: mode });
-  if (error) throw error;
-  return (data || []) as ExploreList[];
-}
-
-// Ticketmaster wants a UTC window, not a filter keyword - so "Today" /
-// "This Week" / "This Month" are translated into startDateTime/endDateTime
-// here and sent to the edge function, rather than filtered client-side out
-// of the (size-capped) results already fetched.
-function getEventsDateRange(filter: EventsDateFilter): { startDateTime?: string; endDateTime?: string } {
-  if (filter === 'all') return {};
-  const now = new Date();
-  const end = new Date(now);
-  if (filter === 'today') {
-    end.setHours(23, 59, 59, 999);
-  } else if (filter === 'week') {
-    end.setDate(end.getDate() + 7);
-  } else {
-    end.setDate(end.getDate() + 30);
-  }
-  return { startDateTime: now.toISOString(), endDateTime: end.toISOString() };
-}
-
-async function fetchNearbyEvents(
-  latitude: number,
-  longitude: number,
-  keyword: string,
-  dateFilter: EventsDateFilter,
-  radiusMiles: number,
-): Promise<TicketmasterEvent[]> {
-  const { startDateTime, endDateTime } = getEventsDateRange(dateFilter);
-  const { data, error } = await supabase.functions.invoke('search-events', {
-    body: {
-      latitude,
-      longitude,
-      keyword: keyword || undefined,
-      startDateTime,
-      endDateTime,
-      radiusMiles,
-    },
-  });
-  if (error) throw error;
-  return (data?.events || []) as TicketmasterEvent[];
-}
-
+/**
+ * Explore: "I want to find something." Chips across the top - All, then
+ * the categories (Food, Coffee, Drinks, Events - see DISCOVERY_CATEGORIES):
+ *   - All / Food / Coffee / Drinks: the most-visited places (in that
+ *     category, or of every kind for All),
+ *     then every place on a map or list (Everyone / Friends). Food also
+ *     has Recipes - the screen that used to be the Foodie tab.
+ *   - Events: Ticketmaster events near you.
+ *
+ * Deep-linkable: /explore?c=all, /explore?c=coffee, /explore?c=food&tab=recipes,
+ * /explore?c=events&q=jazz. Opening /explore with no parameters (the tab
+ * bar) keeps whatever was open last, since this tab stays mounted.
+ */
 export default function Explore() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [contentType, setContentType] = useState<ExploreContentType>('restaurants');
+  const location = useLocation();
+  // Opens on All - every place - so Explore's first view isn't food-only.
+  const [category, setCategory] = useState<ExploreSelection>('all');
+  const [foodView, setFoodView] = useState<FoodView>('places');
+  const [eventsKeyword, setEventsKeyword] = useState<string | undefined>(undefined);
   const [mode, setMode] = useState<ExploreMode>('all');
   const [view, setView] = useState<ExploreView>('map');
   const [selectedPlace, setSelectedPlace] = useState<ExplorePlace | null>(null);
   const [addPlaceTarget, setAddPlaceTarget] = useState<ExplorePlace | null>(null);
   const flyToMeRef = useRef<(() => void) | null>(null);
-  const eventsFlyToMeRef = useRef<(() => void) | null>(null);
   const [locationDeniedOpen, setLocationDeniedOpen] = useState(false);
-  const { requestLocation } = useLocationPermission();
-
-  const [eventsLocation, setEventsLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [eventsLocationDenied, setEventsLocationDenied] = useState(false);
-  // Defaults to a 25mi radius around the device's own location, but
-  // "Search this area" on the map overrides both to whatever's currently
-  // in view - so events are then found by wherever the user last searched,
-  // not always by device GPS.
-  const [eventsRadiusMiles, setEventsRadiusMiles] = useState(25);
-  const [eventsView, setEventsView] = useState<ExploreView>('map');
-  const [eventsDateFilter, setEventsDateFilter] = useState<EventsDateFilter>('all');
-  const [eventsCategory, setEventsCategory] = useState<string | null>(null);
-  const [eventsKeywordInput, setEventsKeywordInput] = useState('');
-  const [eventsKeyword, setEventsKeyword] = useState('');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -130,77 +88,57 @@ export default function Explore() {
     }
   }, [user, authLoading, navigate]);
 
-  // Events are found by device location (not stored user data like
-  // restaurants/lists are), so it's only requested once the Events tab is
-  // actually opened rather than eagerly on page load. Uses getCurrentPosition()
-  // (via requestLocation) rather than raw navigator.geolocation so this
-  // correctly routes through the native Capacitor plugin on iOS/Android.
+  // Follow the URL while this screen is the one showing. This page stays
+  // mounted under other routes (PersistentTabs), so it only reads the URL
+  // when the URL is actually its own.
   useEffect(() => {
-    if (contentType !== 'events' || eventsLocation || eventsLocationDenied) return;
-    requestLocation().then(({ coords }) => {
-      if (coords) {
-        setEventsLocation({ lat: coords.latitude, lng: coords.longitude });
-      } else {
-        setEventsLocationDenied(true);
-      }
-    });
-  }, [contentType, eventsLocation, eventsLocationDenied]);
+    if (location.pathname !== '/explore') return;
+    const params = new URLSearchParams(location.search);
+    const c = params.get('c');
+    if (c === 'all') {
+      setCategory('all');
+      return;
+    }
+    if (!isEnabledCategory(c)) return;
+    setCategory(c);
+    if (c === 'food') setFoodView(params.get('tab') === 'recipes' ? 'recipes' : 'places');
+    if (c === 'events') setEventsKeyword(params.get('q') ?? undefined);
+  }, [location.pathname, location.search]);
 
-  // Debounced so every keystroke doesn't trigger a Ticketmaster call.
-  useEffect(() => {
-    const timeoutId = setTimeout(() => setEventsKeyword(eventsKeywordInput.trim()), 400);
-    return () => clearTimeout(timeoutId);
-  }, [eventsKeywordInput]);
-
-
-  const { data: places = [], isLoading: placesLoading } = useQuery({
-    queryKey: ['explore-places', mode],
-    queryFn: () => fetchExplorePlaces(mode),
-    enabled: !!user && contentType === 'restaurants',
-  });
-
-  const { data: lists = [], isLoading: listsLoading } = useQuery({
-    queryKey: ['explore-lists', mode],
-    queryFn: () => fetchExploreLists(mode),
-    enabled: !!user && contentType === 'lists',
-  });
-
-  // Rounded to ~1km precision for the cache key so small GPS jitter between
-  // renders doesn't trigger a refetch every time.
-  const eventsLocationKey = eventsLocation
-    ? `${eventsLocation.lat.toFixed(2)},${eventsLocation.lng.toFixed(2)}`
-    : null;
-  const { data: events = [], isLoading: eventsLoading, isError: eventsErrored } = useQuery({
-    queryKey: ['explore-events', eventsLocationKey, eventsRadiusMiles, eventsKeyword, eventsDateFilter],
-    queryFn: () =>
-      fetchNearbyEvents(eventsLocation!.lat, eventsLocation!.lng, eventsKeyword, eventsDateFilter, eventsRadiusMiles),
-    enabled: !!user && contentType === 'events' && !!eventsLocation,
-    staleTime: 10 * 60 * 1000,
-  });
-
-  const handleSearchThisArea = (newCenter: { lat: number; lng: number }, radiusMiles: number) => {
-    setEventsLocation(newCenter);
-    setEventsRadiusMiles(radiusMiles);
+  const goTo = (c: ExploreSelection, tab?: FoodView) => {
+    navigate(`/explore?c=${c}${tab === 'recipes' ? '&tab=recipes' : ''}`, { replace: true });
   };
 
-  // Category options are derived from whatever Ticketmaster actually
-  // returned (Music/Sports/Arts & Theatre/etc), so the pills never offer a
-  // category with zero results - filtered client-side since we already
-  // have the full batch in hand.
-  const availableEventCategories = useMemo(
-    () => Array.from(new Set(events.map((e) => e.category).filter((c): c is string => !!c))).sort(),
-    [events],
+  // Which places to show: one place category, every place ('all'), or
+  // none (Events).
+  const placeCategory: PlaceCategoryId | 'all' | null =
+    category === 'food' || category === 'coffee' || category === 'drinks' || category === 'all' ? category : null;
+  const showingPlaces = !!placeCategory && !(category === 'food' && foodView === 'recipes');
+
+  const { data: allPlaces = [], isLoading: placesLoading } = useQuery({
+    queryKey: exploreKeys.places(mode),
+    queryFn: () => fetchExplorePlaces(mode),
+    enabled: !!user && showingPlaces,
+  });
+
+  const places = useMemo(
+    () =>
+      placeCategory === 'all'
+        ? allPlaces
+        : placeCategory
+          ? allPlaces.filter((p) => placeCategoryOf(p.category) === placeCategory)
+          : [],
+    [allPlaces, placeCategory],
   );
 
-  useEffect(() => {
-    if (eventsCategory && !availableEventCategories.includes(eventsCategory)) {
-      setEventsCategory(null);
-    }
-  }, [availableEventCategories, eventsCategory]);
-
-  const filteredEvents = useMemo(
-    () => (eventsCategory ? events.filter((e) => e.category === eventsCategory) : events),
-    [events, eventsCategory],
+  // "Most visited" rail above the map: the same ranking as Home's Popular
+  // section, within this category and audience.
+  const popular = useMemo(
+    () =>
+      rankPopularPlaces(places, { origin: null, excludeAppleIds: new Set(), excludeNames: new Set(), limit: 8 }).places.filter(
+        (p) => Number(p.contributor_count) > 1,
+      ),
+    [places],
   );
 
   if (authLoading) {
@@ -211,234 +149,97 @@ export default function Explore() {
     );
   }
 
+  const placesNoun = category === 'all' ? 'Places' : `${categoryById(category as DiscoveryCategoryId).label} spots`;
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <main className="container py-4 sm:py-8 px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-3 mb-4 sm:mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <main className="container py-4 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-4 sm:space-y-6">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
             <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
               <Compass className="h-6 w-6 sm:h-7 sm:w-7" />
               Explore
             </h1>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              {contentType !== 'events' && (
-                <Tabs value={mode} onValueChange={(v) => setMode(v as ExploreMode)}>
-                  <TabsList>
-                    <TabsTrigger value="all">
-                      {contentType === 'restaurants' ? 'All around the world' : 'Everyone'}
-                    </TabsTrigger>
-                    <TabsTrigger value="friends">Friends</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              )}
-
-              {contentType === 'restaurants' && (
-                <Tabs value={view} onValueChange={(v) => setView(v as ExploreView)}>
-                  <TabsList>
-                    <TabsTrigger value="map" className="gap-1.5">
-                      <MapIcon className="h-3.5 w-3.5" />
-                      Map
-                    </TabsTrigger>
-                    <TabsTrigger value="list" className="gap-1.5">
-                      <ListIcon className="h-3.5 w-3.5" />
-                      List
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              )}
-
-              {contentType === 'events' && (
-                <Tabs value={eventsView} onValueChange={(v) => setEventsView(v as ExploreView)}>
-                  <TabsList>
-                    <TabsTrigger value="map" className="gap-1.5">
-                      <MapIcon className="h-3.5 w-3.5" />
-                      Map
-                    </TabsTrigger>
-                    <TabsTrigger value="list" className="gap-1.5">
-                      <ListIcon className="h-3.5 w-3.5" />
-                      List
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              )}
-            </div>
+            <Button asChild variant="outline" size="sm" className="rounded-full gap-1.5">
+              <Link to="/search">
+                <Search className="h-4 w-4" />
+                Search
+              </Link>
+            </Button>
           </div>
-
-          <Tabs value={contentType} onValueChange={(v) => setContentType(v as ExploreContentType)}>
-            <TabsList>
-              <TabsTrigger value="restaurants">Restaurants</TabsTrigger>
-              <TabsTrigger value="lists">Other Lists</TabsTrigger>
-              <TabsTrigger value="events" className="gap-1.5">
-                <CalendarDays className="h-3.5 w-3.5" />
-                Events
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <CategoryChips value={category} onChange={(c) => goTo(c)} />
         </div>
 
-        {contentType === 'lists' ? (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-              <Users2 className="h-4 w-4 shrink-0" />
-              {mode === 'friends'
-                ? 'See what people you follow are up to - browse the lists they\'re building.'
-                : "See what people are up to - browse lists other Afiyeat users are building, beyond just restaurants."}
-            </p>
+        {category === 'food' && (
+          <Tabs value={foodView} onValueChange={(v) => goTo('food', v as FoodView)}>
+            <TabsList>
+              <TabsTrigger value="places">Places</TabsTrigger>
+              <TabsTrigger value="recipes">Recipes</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
 
-            {listsLoading ? (
-              <CardGridSkeleton />
-            ) : lists.length === 0 ? (
-              <div className="text-center py-24 bg-card rounded-xl">
-                <Compass className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-                <h3 className="text-lg font-medium mb-2">Nothing to explore yet</h3>
-                <p className="text-muted-foreground">
-                  {mode === 'friends'
-                    ? 'Lists made by people you follow will show up here.'
-                    : 'Lists made by you and public profiles will show up here.'}
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {lists.map((list) => (
-                  <ExploreListCard key={list.list_id} list={list} />
-                ))}
-              </div>
-            )}
-          </div>
-        ) : contentType === 'events' ? (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-              <CalendarDays className="h-4 w-4 shrink-0" />
-              Concerts, shows, and things happening near you - powered by Ticketmaster.
-            </p>
-
-            {eventsLocationDenied && !eventsLocation ? (
-              <div className="text-center py-24 bg-card rounded-xl">
-                <MapPinOff className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-                <h3 className="text-lg font-medium mb-2">Location access needed</h3>
-                <p className="text-muted-foreground">
-                  Turn on location for Afiyeat to see events happening near you.
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search events (artist, team, venue...)"
-                      value={eventsKeywordInput}
-                      onChange={(e) => setEventsKeywordInput(e.target.value)}
-                      className="pl-9"
+        {category === 'events' ? (
+          <ExploreEvents keyword={eventsKeyword} onLocationDenied={() => setLocationDeniedOpen(true)} />
+        ) : category === 'food' && foodView === 'recipes' ? (
+          <Recipes embedded />
+        ) : placeCategory ? (
+          <>
+            {!placesLoading && popular.length >= 2 && (
+              <DiscoverySection
+                title={mode === 'friends' ? 'Most visited by your circle' : 'Most visited'}
+                subtitle={`${placesNoun} the most people have been to`}
+              >
+                <Rail>
+                  {popular.map((place) => (
+                    <PlaceTile
+                      key={place.place_id}
+                      place={place}
+                      onOpen={() => setSelectedPlace(place)}
+                      onSave={() => setAddPlaceTarget(place)}
                     />
-                  </div>
-                  <Select value={eventsDateFilter} onValueChange={(v) => setEventsDateFilter(v as EventsDateFilter)}>
-                    <SelectTrigger className="w-full sm:w-[160px] h-9 shrink-0">
-                      <SelectValue placeholder="When" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Any time</SelectItem>
-                      <SelectItem value="today">Today</SelectItem>
-                      <SelectItem value="week">This week</SelectItem>
-                      <SelectItem value="month">This month</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {availableEventCategories.length > 1 && (
-                  <div className="flex flex-wrap gap-2">
-                    <Badge
-                      interactive
-                      variant={eventsCategory === null ? 'default' : 'outline'}
-                      onClick={() => setEventsCategory(null)}
-                    >
-                      All
-                    </Badge>
-                    {availableEventCategories.map((category) => (
-                      <Badge
-                        key={category}
-                        interactive
-                        variant={eventsCategory === category ? 'default' : 'outline'}
-                        onClick={() => setEventsCategory(eventsCategory === category ? null : category)}
-                      >
-                        {category}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-
-                {!eventsLocation || eventsLoading ? (
-                  <CardGridSkeleton />
-                ) : eventsErrored ? (
-                  <div className="text-center py-24 bg-card rounded-xl">
-                    <CalendarDays className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-                    <h3 className="text-lg font-medium mb-2">Couldn't load events</h3>
-                    <p className="text-muted-foreground">Give it another try in a moment.</p>
-                  </div>
-                ) : filteredEvents.length === 0 ? (
-                  <div className="text-center py-24 bg-card rounded-xl">
-                    <CalendarDays className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-                    <h3 className="text-lg font-medium mb-2">Nothing found</h3>
-                    <p className="text-muted-foreground">
-                      Try a different search, date range, or category.
-                    </p>
-                  </div>
-                ) : eventsView === 'map' ? (
-                  <Card className="overflow-hidden">
-                    <CardContent className="p-0">
-                      <div className="h-[60vh] sm:h-[65vh] relative">
-                        <>
-                            <EventsMapComponent
-                              events={filteredEvents}
-                              center={eventsLocation}
-                              flyToMeRef={eventsFlyToMeRef}
-                              onSearchThisArea={handleSearchThisArea}
-                              onLocationDenied={() => setLocationDeniedOpen(true)}
-                            />
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="sm"
-                              className="absolute bottom-4 left-4 shadow-md gap-1.5 z-10"
-                              onClick={() => eventsFlyToMeRef.current?.()}
-                            >
-                              <LocateFixed className="h-4 w-4" />
-                              Near Me
-                            </Button>
-                          </>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {filteredEvents.map((event) => (
-                      <EventCard key={event.id} event={event} />
-                    ))}
-                  </div>
-                )}
-              </>
+                  ))}
+                </Rail>
+              </DiscoverySection>
             )}
-          </div>
-        ) : placesLoading ? (
-          <CardGridSkeleton />
-        ) : places.length === 0 ? (
-          <div className="text-center py-24 bg-card rounded-xl">
-            <Compass className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-            <h3 className="text-lg font-medium mb-2">Nothing to explore yet</h3>
-            <p className="text-muted-foreground">
-              {mode === 'friends'
-                ? "Places you and people you follow have visited will show up here."
-                : 'Places added by you and public profiles will show up here.'}
-            </p>
-          </div>
-        ) : view === 'map' ? (
-          <Card className="overflow-hidden">
-            <CardContent className="p-0">
-              <div className="h-[60vh] sm:h-[65vh] relative">
-                <>
+
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <Tabs value={mode} onValueChange={(v) => setMode(v as ExploreMode)}>
+                <TabsList>
+                  <TabsTrigger value="all">Everyone</TabsTrigger>
+                  <TabsTrigger value="friends">Friends</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <Tabs value={view} onValueChange={(v) => setView(v as ExploreView)}>
+                <TabsList>
+                  <TabsTrigger value="map" className="gap-1.5">
+                    <MapIcon className="h-3.5 w-3.5" />
+                    Map
+                  </TabsTrigger>
+                  <TabsTrigger value="list" className="gap-1.5">
+                    <ListIcon className="h-3.5 w-3.5" />
+                    List
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+
+            {placesLoading ? (
+              <CardGridSkeleton />
+            ) : places.length === 0 ? (
+              <div className="text-center py-16 sm:py-24 bg-card rounded-xl px-6">
+                <div className="text-4xl mb-3" aria-hidden>
+                  {placeCategory === 'all' ? '🧭' : categoryById(placeCategory).emoji}
+                </div>
+                <h3 className="text-lg font-medium mb-2">Nothing here yet</h3>
+                <p className="text-muted-foreground">{EMPTY_COPY[placeCategory][mode]}</p>
+              </div>
+            ) : view === 'map' ? (
+              <Card className="overflow-hidden">
+                <CardContent className="p-0">
+                  <div className="h-[60vh] sm:h-[65vh] relative">
                     <ExploreMapComponent
                       places={places}
                       onSelectPlace={setSelectedPlace}
@@ -455,22 +256,36 @@ export default function Explore() {
                       <LocateFixed className="h-4 w-4" />
                       Near Me
                     </Button>
-                  </>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {places.map((place) => (
+                  <ExplorePlaceCard
+                    key={place.place_id}
+                    place={place}
+                    onClick={() => setSelectedPlace(place)}
+                    onAdd={() => setAddPlaceTarget(place)}
+                  />
+                ))}
               </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {places.map((place) => (
-              <ExplorePlaceCard
-                key={place.place_id}
-                place={place}
-                onClick={() => setSelectedPlace(place)}
-                onAdd={() => setAddPlaceTarget(place)}
-              />
-            ))}
-          </div>
-        )}
+            )}
+
+            {/* Lists moved to Lists -> Discover; keep a way there from here. */}
+            <Link
+              to="/my-lists?tab=discover"
+              className="active-press flex items-center gap-3 rounded-xl border bg-card p-4 transition-[background-color,transform] duration-150 ease-out active:bg-muted/60"
+            >
+              <span aria-hidden className="text-xl">📋</span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium">Browse lists people are building</span>
+                <span className="block text-sm text-muted-foreground">Wines, books, coffee shops and more</span>
+              </span>
+              <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+            </Link>
+          </>
+        ) : null}
       </main>
 
       <PlaceDetailSheet

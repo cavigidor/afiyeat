@@ -105,7 +105,7 @@ Use the demo account, not your real one, so no real names or private notes appea
 1. **My Restaurants** with a few places, split view of list and map
 2. **The map** with coloured type pins
 3. **A restaurant's detail** with rating, notes and a photo
-4. **My Lists** showing several lists (coffee, books, movies)
+4. **Lists** showing several lists (coffee, books, movies)
 5. **A recipe**, plus the Scan Recipe button
 6. **Explore** or a **friend's profile**
 

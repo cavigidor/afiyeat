@@ -1,3 +1,10 @@
+// News & Recs - switched off for the first release (it only covered three
+// cities, cost money to refresh and republished other sites' articles), and
+// not mounted anywhere since the Foodie tab became Explore -> Food. Kept so
+// it can return, or be replaced by a feed built from Afiyeat's own activity
+// (see Home's "From your circle"). To bring it back, render it as a view in
+// Explore -> Food next to Places and Recipes. generate-news is separately
+// gated by its NEWS_ENABLED secret.
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
