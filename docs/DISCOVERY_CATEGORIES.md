@@ -64,3 +64,24 @@ Add to `TERMS`, then add a fixture to `tests/fixtures/discoveryPlaces.ts`. The f
 
 - **Curated fixtures** (`tests/fixtures/discoveryPlaces.ts`): every case must pass; 0 false positives / 0 false negatives by construction. Known limitations are listed there with the actual result.
 - **Holdout** (`tests/fixtures/holdoutPlaces.ts`): 55 real venue names written down before the stabilization changes and not tuned against; results are snapshotted in `tests/__snapshots__/placeClassification.test.ts.snap`. At CP4 stabilization: 23 exact, 1 false positive (Trader Joe's with Apple's FoodMarket category → Food), 1 partial (a bakery-café → Food, not Coffee), 30 unknown (hand-typed names like "Scofflaw" or "Monteverde" with nothing to go on → All only). The unknowns are the honest outcome without a fallback; Apple categories on new saves and types fix them.
+
+## Integrating with CP2 (PR #8)
+
+Both PRs are stacked on #1 and touch `src/lib/discovery.ts`, `src/pages/Explore.tsx`, `CategoryRail.tsx` and `DiscoveryTiles.tsx` (plus identical test tooling). A trial merge of #8 into #10 auto-merges everything except two hunks in `Explore.tsx`. Resolution, keeping CP2's Lists selection:
+
+```tsx
+// URL -> selection (before selectionFromSearch)
+if (params.get('c') === 'lists') {
+  setCategory('lists');
+  setListsQuery(params.get('q') ?? '');
+  return;
+}
+const c = selectionFromSearch(location.search);
+if (!c) return;
+
+// heading noun
+const placesNoun =
+  category === 'all' || category === 'lists' ? 'Places' : categoryById(category as DiscoveryCategoryId).noun;
+```
+
+With that, the combined tree passes typecheck, build and all tests of both PRs (202), including CP2's visibility and Explore → Lists tests. `placesForSelection('lists')` returns no places, so Lists never shows place cards. Either order works; merging #8 first then rebasing #10 (resolving as above) keeps CP2's privacy work reviewable on its own.
