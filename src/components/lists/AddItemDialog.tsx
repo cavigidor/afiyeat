@@ -271,7 +271,14 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null 
       if (issue) toast.error(`${file.name}: ${issue}`);
       return !issue;
     });
-    const compressed = await Promise.all(valid.slice(0, remaining).map((f) => compressImage(f)));
+    let compressed: File[];
+    try {
+      compressed = await Promise.all(valid.slice(0, remaining).map((f) => compressImage(f)));
+    } catch (err) {
+      console.error('Photo preparation failed:', err);
+      toast.error("Couldn't prepare that photo. Try a different one.");
+      return;
+    }
     setPhotos((prev) => [...prev, ...compressed]);
     compressed.forEach((file) => {
       const reader = new FileReader();

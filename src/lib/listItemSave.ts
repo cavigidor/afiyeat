@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { uploadCustomListPhotos, uploadRestaurantPhotos, type PhotoUploadResult } from '@/lib/photoUpload';
 import {
   isDuplicateCustomListItem,
   isDuplicateRestaurant,
@@ -39,66 +40,15 @@ export interface ItemBasics {
 // Photos
 // ---------------------------------------------------------------------------
 
-export interface PhotoUploadResult {
-  uploaded: number;
-  failed: number;
-}
-
-export function photoUploadWarning(result: PhotoUploadResult): string | null {
-  if (!result.failed) return null;
-  return `Your item was saved, but ${result.failed} ${result.failed === 1 ? 'photo' : 'photos'} couldn't be attached. Open the item to add ${result.failed === 1 ? 'it' : 'them'} again.`;
-}
-
-// Once the item exists, attachment failures must never turn into an item-save
-// error: retrying the whole save would either duplicate it or hit its duplicate
-// check. Count both storage and attachment-record failures, including rejected
-// requests, and keep trying the other files.
-async function uploadPhotos(files: File[], attach: (file: File) => Promise<void>): Promise<PhotoUploadResult> {
-  const result = { uploaded: 0, failed: 0 };
-  for (const image of files) {
-    try {
-      await attach(image);
-      result.uploaded++;
-    } catch (error) {
-      console.error('Photo attachment failed:', error);
-      result.failed++;
-    }
-  }
-  return result;
-}
-
-export async function uploadRestaurantPhotos(userId: string, restaurantId: string, files: File[]): Promise<PhotoUploadResult> {
-  return uploadPhotos(files, async (image) => {
-    const fileExt = image.name.split('.').pop();
-    const fileName = `${userId}/${restaurantId}/${crypto.randomUUID()}.${fileExt}`;
-    const { error: uploadError } = await supabase.storage.from('restaurant-images').upload(fileName, image);
-    if (uploadError) throw uploadError;
-    const storagePath = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/restaurant-images/${fileName}`;
-    const { error } = await supabase.from('restaurant_images').insert({
-      restaurant_id: restaurantId,
-      user_id: userId,
-      image_url: storagePath,
-    });
-    if (error) throw error;
-  });
-}
-
-/** Attach photos without losing the already-saved custom-list item. */
-export async function uploadCustomListPhotos(userId: string, itemId: string, files: File[]): Promise<PhotoUploadResult> {
-  return uploadPhotos(files, async (image) => {
-    const fileExt = image.name.split('.').pop();
-    const fileName = `${userId}/${itemId}/${crypto.randomUUID()}.${fileExt}`;
-    const { error: uploadError } = await supabase.storage.from('custom-list-images').upload(fileName, image);
-    if (uploadError) throw uploadError;
-    const storagePath = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/custom-list-images/${fileName}`;
-    const { error } = await supabase.from('custom_list_item_images').insert({
-      item_id: itemId,
-      user_id: userId,
-      image_url: storagePath,
-    });
-    if (error) throw error;
-  });
-}
+// One implementation for every add/edit flow: lib/photoUpload.ts (PR #12).
+// It also settles unclear network outcomes without deleting files a record
+// may point at. Re-exported so existing imports from here keep working.
+export {
+  photoUploadWarning,
+  uploadCustomListPhotos,
+  uploadRestaurantPhotos,
+  type PhotoUploadResult,
+} from '@/lib/photoUpload';
 
 // ---------------------------------------------------------------------------
 // My Restaurants
