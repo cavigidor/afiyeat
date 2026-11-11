@@ -1,20 +1,32 @@
 import { useState, useRef } from 'react';
 import { ImagePlus, X } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { validateImageFile, compressImage, MAX_IMAGES_PER_RESTAURANT } from '@/lib/imageValidation';
-import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
+import { uploadRestaurantPhotos, photoUploadSummary } from '@/lib/photoUpload';
+import { StorageImage } from '@/components/shared/StorageImage';
 import { Spinner } from '@/components/ui/spinner';
-import { errorMessage } from '@/lib/utils';
 
 interface ExistingImage {
   id: string;
   image_url: string;
 }
 
+const restaurantImagesKey = (restaurantId: string) => ['restaurant-images', restaurantId] as const;
+
+async function fetchRestaurantImages(restaurantId: string): Promise<ExistingImage[]> {
+  const { data, error } = await supabase
+    .from('restaurant_images')
+    .select('id, image_url')
+    .eq('restaurant_id', restaurantId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
 function ImageThumbnail({ image, onDelete }: { image: ExistingImage; onDelete: (id: string) => void }) {
-  const { signedUrl, loading } = useSignedImageUrl(image.image_url);
   const [deleting, setDeleting] = useState(false);
 
   const handleDelete = async () => {
@@ -24,17 +36,12 @@ function ImageThumbnail({ image, onDelete }: { image: ExistingImage; onDelete: (
 
   return (
     <div className="relative group aspect-square rounded-lg overflow-hidden bg-muted">
-      {loading ? (
-        <div className="w-full h-full flex items-center justify-center">
-          <Spinner className="h-4 w-4 animate-spin text-muted-foreground" />
-        </div>
-      ) : (
-        <img src={signedUrl || ''} alt="" className="w-full h-full object-cover" />
-      )}
+      <StorageImage value={image.image_url} bucket="restaurant-images" alt="" compact />
       <button
         type="button"
         onClick={handleDelete}
         disabled={deleting}
+        aria-label="Remove photo"
         className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 reveal-on-hover"
       >
         {deleting ? <Spinner className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
@@ -45,23 +52,43 @@ function ImageThumbnail({ image, onDelete }: { image: ExistingImage; onDelete: (
 
 interface ImageUploadSectionProps {
   restaurantId: string;
+  /** The photos the place had when the dialog opened - shown until the live list loads. */
   existingImages: ExistingImage[];
   onImagesChange: () => void;
 }
 
 export function ImageUploadSection({ restaurantId, existingImages, onImagesChange }: ImageUploadSectionProps) {
   const { user } = useAuth();
-  const [uploading, setUploading] = useState(false);
+  const queryClient = useQueryClient();
+  const [pendingCount, setPendingCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploading = pendingCount > 0;
+
+  // The dialog's `existingImages` prop is a snapshot taken when it opened, so
+  // photos added here would never show up in it. This section keeps its own
+  // live list instead (seeded with the snapshot so nothing flickers).
+  const { data: images = existingImages } = useQuery({
+    queryKey: restaurantImagesKey(restaurantId),
+    queryFn: () => fetchRestaurantImages(restaurantId),
+    placeholderData: existingImages,
+  });
+
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: restaurantImagesKey(restaurantId) });
+    onImagesChange();
+  };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || !user) return;
+    const clearInput = () => {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
 
-    const remainingSlots = MAX_IMAGES_PER_RESTAURANT - existingImages.length;
+    const remainingSlots = MAX_IMAGES_PER_RESTAURANT - images.length;
     if (remainingSlots <= 0) {
       toast.error(`You can add up to ${MAX_IMAGES_PER_RESTAURANT} photos per place.`);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      clearInput();
       return;
     }
 
@@ -70,6 +97,7 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
       const error = validateImageFile(file);
       if (error) {
         toast.error(error);
+        clearInput();
         return;
       }
     }
@@ -81,38 +109,34 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
     }
     const toUpload = fileArray.slice(0, remainingSlots);
 
-    setUploading(true);
+    setPendingCount(toUpload.length);
     try {
       // Downscale/re-encode before upload - see compressImage() for why.
       const compressedFiles = await Promise.all(toUpload.map((file) => compressImage(file)));
-      for (const file of compressedFiles) {
-        const ext = file.name.split('.').pop();
-        const path = `${user.id}/${restaurantId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const result = await uploadRestaurantPhotos(user.id, restaurantId, compressedFiles);
 
-        const { error: uploadError } = await supabase.storage
-          .from('restaurant-images')
-          .upload(path, file);
-
-        if (uploadError) throw uploadError;
-
-        const { error: dbError } = await supabase
-          .from('restaurant_images')
-          .insert({
-            restaurant_id: restaurantId,
-            user_id: user.id,
-            image_url: path,
-          });
-
-        if (dbError) throw dbError;
+      // Show what was saved straight away, from the rows the insert returned,
+      // then let the refetch confirm it.
+      if (result.added?.length) {
+        queryClient.setQueryData<ExistingImage[]>(restaurantImagesKey(restaurantId), (prev) => [
+          ...(prev ?? images),
+          ...result.added!.filter((a) => !(prev ?? images).some((p) => p.id === a.id)),
+        ]);
       }
 
-      toast.success(`${toUpload.length} image${toUpload.length > 1 ? 's' : ''} uploaded!`);
-      onImagesChange();
+      const summary = photoUploadSummary(result);
+      if (summary.kind === 'success') toast.success(summary.message);
+      else toast.error(summary.message);
+
+      // Refetch for unconfirmed photos too: if their record did land, they show.
+      if (result.uploaded > 0 || (result.unconfirmed ?? 0) > 0) refresh();
     } catch (err) {
-      toast.error(errorMessage(err, 'Failed to upload image'));
+      // Preparing the photos (decode/compress) failed - nothing was uploaded.
+      console.error('Photo preparation failed:', err);
+      toast.error("Couldn't prepare that photo. Try a different one.");
     } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      setPendingCount(0);
+      clearInput();
     }
   };
 
@@ -125,25 +149,40 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
     if (error) {
       toast.error('Failed to delete image');
     } else {
+      queryClient.setQueryData<ExistingImage[]>(restaurantImagesKey(restaurantId), (prev) =>
+        (prev ?? images).filter((img) => img.id !== imageId),
+      );
       toast.success('Image deleted');
-      onImagesChange();
+      refresh();
     }
   };
+
+  const shown = images.length + pendingCount;
 
   return (
     <div className="space-y-3">
       <label className="text-sm font-medium">
-        Photos ({existingImages.length}/{MAX_IMAGES_PER_RESTAURANT})
+        Photos ({images.length}/{MAX_IMAGES_PER_RESTAURANT})
       </label>
       <div className="grid grid-cols-4 gap-2">
-        {existingImages.map((img) => (
+        {images.map((img) => (
           <ImageThumbnail key={img.id} image={img} onDelete={handleDeleteImage} />
         ))}
-        {existingImages.length < MAX_IMAGES_PER_RESTAURANT && (
+        {Array.from({ length: pendingCount }, (_, i) => (
+          <div
+            key={`pending-${i}`}
+            className="aspect-square rounded-lg bg-muted flex items-center justify-center"
+            data-testid="photo-uploading"
+          >
+            <Spinner className="h-4 w-4 animate-spin text-muted-foreground" label="Uploading photo" />
+          </div>
+        ))}
+        {shown < MAX_IMAGES_PER_RESTAURANT && (
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
+            aria-label="Add photos"
             className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center hover:border-primary/50 transition-colors"
           >
             {uploading ? (
@@ -161,6 +200,7 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
         multiple
         onChange={handleUpload}
         className="hidden"
+        data-testid="photo-input"
       />
     </div>
   );
