@@ -73,11 +73,13 @@ beforeAll(async () => {
     END $$;
     CREATE TABLE storage.objects(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), bucket_id text, name text);
     CREATE TABLE public.follows(follower_id uuid, following_id uuid, status text);
+    -- Parent table: photo policies may check the place's owner.
+    CREATE TABLE public.restaurants(id uuid PRIMARY KEY, user_id uuid NOT NULL);
     CREATE TABLE public.restaurant_images(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       restaurant_id uuid, user_id uuid NOT NULL, image_url text NOT NULL);
     GRANT USAGE ON SCHEMA auth, storage TO authenticated, anon;
     GRANT SELECT, INSERT, DELETE ON storage.objects, public.restaurant_images TO authenticated, anon;
-    GRANT SELECT ON public.follows TO authenticated, anon;
+    GRANT SELECT ON public.follows, public.restaurants TO authenticated, anon;
     ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
     ALTER TABLE public.restaurant_images ENABLE ROW LEVEL SECURITY;
   `);
@@ -86,6 +88,7 @@ beforeAll(async () => {
   await db.exec(policies.join('\n'));
   await db.exec(`
     INSERT INTO public.follows VALUES ('${FOLLOWER}', '${OWNER}', 'accepted'), ('${PENDING}', '${OWNER}', 'pending');
+    INSERT INTO public.restaurants VALUES ('${RESTAURANT}', '${OWNER}');
     INSERT INTO storage.objects(bucket_id, name) VALUES
       ('restaurant-images', '${OWNER}/${RESTAURANT}/a.jpg'),
       ('custom-list-images', '${OWNER}/item/b.jpg');
