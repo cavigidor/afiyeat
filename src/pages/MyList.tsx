@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { withApplePlaceDetails } from '@/lib/appleMaps';
-import { Plus, Check, Clock, Search, FileDown, Pencil } from 'lucide-react';
+import { Plus, Check, Clock, Search, FileDown, Pencil, ArrowLeft } from 'lucide-react';
 import { exportListAsPdf } from '@/lib/exportPdf';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
@@ -254,6 +254,10 @@ export default function MyList() {
       <Navbar />
 
       <main className="container pt-4 sm:pt-8 pb-24 md:pb-8 px-4 sm:px-6 lg:px-8 space-y-4 sm:space-y-6">
+        <Button variant="ghost" size="sm" className="-ml-2 -mb-2 sm:-mb-4" onClick={() => navigate('/my-lists')}>
+          <ArrowLeft className="h-4 w-4 mr-1.5" />
+          Lists
+        </Button>
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-2xl sm:text-3xl font-bold">My Restaurants</h1>
           <div className="flex items-center gap-2">

@@ -33,6 +33,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { withApplePlaceDetails } from '@/lib/appleMaps';
 import { Plus, Search, Pencil, Settings, ArrowLeft, Share2, Link2, Users } from 'lucide-react';
+import { sharedListPath } from '@/lib/navigation';
 import { toast } from 'sonner';
 import { useViewMode } from '@/hooks/useViewMode';
 import { useMapCenter } from '@/hooks/useMapCenter';
@@ -287,7 +288,7 @@ export default function CustomListDetail() {
       <main className="container py-4 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-4 sm:space-y-6">
         <Button variant="ghost" size="sm" className="-ml-2" onClick={() => navigate('/my-lists')}>
           <ArrowLeft className="h-4 w-4 mr-1.5" />
-          My Lists
+          Lists
         </Button>
 
         <div className="flex items-center justify-between gap-2">
@@ -513,7 +514,7 @@ export default function CustomListDetail() {
         items={items}
         statuses={sortedStatuses}
         following={following}
-        onSuccess={(newListId) => navigate('/friends', { state: { tab: 'shared', listId: newListId } })}
+        onSuccess={(newListId) => navigate(sharedListPath(newListId))}
       />
 
       <AlertDialog open={!!deleteItemId} onOpenChange={(o) => !o && setDeleteItemId(null)}>

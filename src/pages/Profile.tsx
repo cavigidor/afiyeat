@@ -46,6 +46,7 @@ import { PassportBadge } from '@/components/passport/PassportBadge';
 import { toast } from 'sonner';
 import { blockedByContentFilter } from '@/lib/contentFilter';
 import { Spinner } from '@/components/ui/spinner';
+import { usePendingRequests } from '@/lib/followRequests';
 
 const profileSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters').max(20),
@@ -75,12 +76,6 @@ interface FollowUser {
   avatar_color: string;
 }
 
-interface PendingRequest {
-  id: string;
-  follower_id: string;
-  profile: FollowUser;
-}
-
 async function fetchProfileFor(userId: string): Promise<ProfileData> {
   const { data, error } = await supabase.from('profiles').select('*').eq('user_id', userId).single();
   if (error) throw error;
@@ -101,31 +96,6 @@ async function fetchStatsFor(userId: string) {
     followers: followersRes.count || 0,
     pending: pendingRes.count || 0,
   };
-}
-
-async function fetchPendingRequestsFor(userId: string): Promise<PendingRequest[]> {
-  const { data, error } = await supabase
-    .from('follows')
-    .select('id, follower_id')
-    .eq('following_id', userId)
-    .eq('status', 'pending');
-
-  if (error) throw error;
-  if (!data || data.length === 0) return [];
-
-  const followerIds = data.map((f) => f.follower_id);
-  const { data: profiles } = await supabase
-    .from('profiles')
-    .select('id, user_id, username, display_name, avatar_emoji, avatar_color')
-    .in('user_id', followerIds);
-
-  return data
-    .map((follow) => ({
-      id: follow.id,
-      follower_id: follow.follower_id,
-      profile: profiles?.find((p) => p.user_id === follow.follower_id) as FollowUser,
-    }))
-    .filter((r) => r.profile);
 }
 
 async function fetchFollowersFor(userId: string): Promise<FollowUser[]> {
@@ -221,11 +191,7 @@ export default function Profile() {
     enabled: !!user,
   });
 
-  const { data: pendingRequests = [] } = useQuery({
-    queryKey: ['pending-requests', user?.id],
-    queryFn: () => fetchPendingRequestsFor(user!.id),
-    enabled: !!user && stats.pending > 0,
-  });
+  const { data: pendingRequests = [] } = usePendingRequests(user?.id, stats.pending > 0);
 
   const { data: followers = [], isLoading: followersLoading } = useQuery({
     queryKey: ['followers', user?.id],
