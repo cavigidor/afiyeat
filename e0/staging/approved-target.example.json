@@ -1,0 +1,9 @@
+{
+  "project_ref": "<20 lower-case letters: the ISOLATED project's ref>",
+  "project_url": "https://<the same ref>.supabase.co",
+  "approved_by": "<PM name>",
+  "approved_on": "YYYY-MM-DD",
+  "expires_on": "YYYY-MM-DD (at most 60 days later)",
+  "purpose": "Afiyeat Lists V2 E0 isolated backend",
+  "operations": ["load-baseline", "apply-pending", "check", "security-tests", "concurrency-tests"]
+}

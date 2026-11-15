@@ -50,9 +50,10 @@ export const NOT_COVERED = [
 ];
 
 // Categories whose definition is short and useful to read: exported in full (d) as well as hashed.
+// cron_job is safe in full: its definition holds the command only as an md5.
 export const FULL_TEXT = new Set(['table', 'column', 'column_acl', 'constraint', 'index', 'policy', 'effective_policy',
   'function_acl', 'trigger', 'table_acl', 'sequence_acl', 'schema_acl', 'default_acl', 'role', 'extension',
-  'publication', 'publication_table', 'bucket']);
+  'publication', 'publication_table', 'bucket', 'cron_job']);
 
 const ACL_GRANTEES = `('PUBLIC', 'anon', 'authenticated', 'service_role')`;
 const POLICY_SCHEMAS = `('public', 'storage', 'realtime')`;

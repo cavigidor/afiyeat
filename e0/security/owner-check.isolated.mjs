@@ -7,12 +7,10 @@
 //   node security/owner-check.isolated.mjs --expect fixed   # after
 //
 // Uses only the public (anon) key and two ordinary test accounts, exactly like the app.
-// It refuses to run against production. It deletes only lists it created in this run, as their owner.
+// It runs only against the approved isolated project (lib/approved-target.mjs). It deletes only lists it created in this run, as their owner.
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
+import { assertApprovedTarget } from '../lib/approved-target.mjs';
 
-const PRODUCTION_REF = 'dmlkjpjubneqhbqoxlct';
 const env = (k) => { const v = process.env[k]; if (!v) { console.error(`Missing ${k}`); process.exit(2); } return v; };
 const URL_ = env('ISOLATED_SUPABASE_URL');
 const KEY = env('ISOLATED_SUPABASE_ANON_KEY');
@@ -20,12 +18,8 @@ const expectIdx = process.argv.indexOf('--expect');
 const EXPECT = process.argv[expectIdx + 1];
 if (!['gap', 'fixed'].includes(EXPECT)) { console.error('Use --expect gap or --expect fixed'); process.exit(2); }
 
-// Guard: never production.
-const repoEnv = (() => { try { return readFileSync(path.resolve(new URL('.', import.meta.url).pathname, '../../.env'), 'utf8'); } catch { return ''; } })();
-const prodUrl = (repoEnv.match(/^VITE_SUPABASE_URL\s*=\s*"?([^"\n]+)"?/m) ?? [])[1];
-if (URL_.includes(PRODUCTION_REF) || (prodUrl && URL_.replace(/\/$/, '') === prodUrl.replace(/\/$/, ''))) {
-  console.error('Refusing to run: this is the production backend.'); process.exit(3);
-}
+// Guard: the exact approved isolated project, or nothing (lib/approved-target.mjs).
+try { assertApprovedTarget({ operation: 'security-tests', apiUrl: URL_ }); } catch (e) { console.error(e.message); process.exit(3); }
 
 const client = () => createClient(URL_, KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 async function signIn(email, password) {

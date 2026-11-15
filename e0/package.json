@@ -6,9 +6,11 @@
   "scripts": {
     "test": "node --test schema/tests/*.test.mjs",
     "test:concurrency": "./concurrency/start-local-pg.sh && node --test concurrency/*.local.test.mjs",
-    "baseline:check": "node baseline/build-baseline.mjs --check",
+    "baseline:check": "node baseline/build-baseline.mjs --check --main $(git rev-parse origin/main) --stack $(git rev-parse origin/stack/14-photo-records-owner-check)",
     "security:isolated": "node security/owner-check.isolated.mjs",
-    "test:baseline": "node --test baseline/tests/*.test.mjs"
+    "test:baseline": "node --test baseline/tests/detect-stack.test.mjs baseline/tests/guard.test.mjs",
+    "test:rehearsal": "./concurrency/start-local-pg.sh && node --test baseline/tests/rehearsal.local.test.mjs",
+    "concurrency:isolated": "node concurrency/two-connection.isolated.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.13",
