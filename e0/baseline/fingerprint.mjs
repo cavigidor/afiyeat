@@ -1,0 +1,72 @@
+// One definition of the schema fingerprint, used three ways:
+//   - written out as read-only SQL to run in production (through Lovable) and in the isolated backend;
+//   - run in-process against the reconstructed baseline while developing;
+//   - compared, category by category, by compare.mjs.
+// Every row is (category, key, md5 of the definition). Data is never read: only catalog definitions,
+// plus row COUNTS of a few config tables. No user identifiers or content leave the database.
+
+export const FINGERPRINT_CTE = `
+WITH objs(category, key, def) AS (
+  SELECT 'table', c.relname, 'rls=' || c.relrowsecurity || ' force=' || c.relforcerowsecurity
+    FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+   WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')
+  UNION ALL
+  SELECT 'column', table_name || '.' || column_name,
+         data_type || '|' || coalesce(udt_name, '') || '|' || is_nullable || '|' || coalesce(column_default, '')
+    FROM information_schema.columns WHERE table_schema = 'public'
+  UNION ALL
+  SELECT 'constraint', conrelid::regclass::text || '.' || conname, pg_get_constraintdef(oid)
+    FROM pg_constraint WHERE connamespace = 'public'::regnamespace AND conrelid <> 0 AND contype <> 'n'
+  UNION ALL
+  SELECT 'index', indexname, indexdef FROM pg_indexes WHERE schemaname = 'public'
+  UNION ALL
+  SELECT 'policy', schemaname || '.' || tablename || '.' || policyname,
+         permissive || '|' || cmd || '|' || array_to_string(roles, ',') || '|' || coalesce(qual, '') || '|' || coalesce(with_check, '')
+    FROM pg_policies WHERE schemaname IN ('public', 'storage')
+  UNION ALL
+  SELECT 'function', p.oid::regprocedure::text,
+         pg_get_function_result(p.oid) || '|secdef=' || p.prosecdef || '|' || p.provolatile::text || '|' ||
+         coalesce(array_to_string(p.proconfig, ','), '') || '|' || md5(p.prosrc)
+    FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace
+  UNION ALL
+  SELECT 'trigger', t.tgrelid::regclass::text || '.' || t.tgname, pg_get_triggerdef(t.oid)
+    FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+   WHERE NOT t.tgisinternal AND (c.relnamespace = 'public'::regnamespace OR t.tgrelid = 'auth.users'::regclass)
+  UNION ALL
+  SELECT 'view', viewname, md5(definition) FROM pg_views WHERE schemaname = 'public'
+  UNION ALL
+  SELECT 'table_grant', table_name || '.' || grantee, string_agg(privilege_type, ',' ORDER BY privilege_type)
+    FROM information_schema.role_table_grants
+   WHERE table_schema = 'public' AND grantee IN ('anon', 'authenticated', 'service_role', 'PUBLIC')
+   GROUP BY table_name, grantee
+  UNION ALL
+  SELECT 'function_grant', p.oid::regprocedure::text || '.' || r.rolname,
+         CASE WHEN has_function_privilege(r.oid, p.oid, 'EXECUTE') THEN 'execute' ELSE 'none' END
+    FROM pg_proc p CROSS JOIN pg_roles r
+   WHERE p.pronamespace = 'public'::regnamespace AND r.rolname IN ('anon', 'authenticated')
+  UNION ALL
+  SELECT 'bucket', id, public::text || '|' || coalesce(file_size_limit::text, '') || '|' || coalesce(array_to_string(allowed_mime_types, ','), '')
+    FROM storage.buckets
+  UNION ALL
+  SELECT 'cron_job', jobname, schedule || '|' || md5(command) FROM cron.job
+)`;
+
+/** Q1: one row per category. Run this first; if every row matches, the schemas match. */
+export const SUMMARY_SQL = `-- READ ONLY
+${FINGERPRINT_CTE}
+SELECT category, count(*) AS objects, md5(string_agg(key || '=' || md5(def), E'\\n' ORDER BY key)) AS category_hash
+  FROM objs GROUP BY category ORDER BY category;`;
+
+/** Q2: one row per object in ONE category. Change the category on the last line. */
+export const DETAIL_SQL = `-- READ ONLY
+${FINGERPRINT_CTE}
+SELECT category, key, md5(def) AS def_hash
+  FROM objs WHERE category = 'policy'   -- change to the category whose hash differed
+ ORDER BY key;`;
+
+/** Q3: full definitions for named keys, to read the actual difference. */
+export const DEFINITION_SQL = `-- READ ONLY
+${FINGERPRINT_CTE}
+SELECT category, key, def
+  FROM objs WHERE category = 'policy' AND key IN ('public.custom_list_types.Users can insert their own list types')   -- edit
+ ORDER BY key;`;

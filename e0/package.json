@@ -4,9 +4,12 @@
   "type": "module",
   "description": "Lists V2 checkpoint E0: schema proposals under test and isolated-backend tooling. Not part of the app build.",
   "scripts": {
-    "test": "node --test schema/tests/*.test.mjs"
+    "test": "node --test schema/tests/*.test.mjs",
+    "baseline:check": "node baseline/build-baseline.mjs --check",
+    "security:isolated": "node security/owner-check.isolated.mjs"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.13"
+    "@electric-sql/pglite": "0.5.13",
+    "@supabase/supabase-js": "^2.86.2"
   }
 }
