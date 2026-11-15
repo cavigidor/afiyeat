@@ -58,6 +58,7 @@ import { hapticWarning } from '@/lib/haptics';
 import { LocationDeniedDialog } from '@/components/shared/LocationDeniedDialog';
 import { NearMeButton } from '@/components/shared/NearMeButton';
 import { Spinner } from '@/components/ui/spinner';
+import { endAfterPaint, startSpan, type PerfOutcome } from '@/lib/perf';
 
 type SortBy = 'name' | 'price_asc' | 'price_desc' | 'rating_desc';
 
@@ -145,6 +146,17 @@ export default function CustomListDetail() {
     queryFn: () => fetchItems(listId!),
     enabled: !!listId && !!list,
   });
+
+  // E0-c (draft): screen opened -> items painted. A no-op unless perf measurement is switched on.
+  const listSpan = useRef<((outcome?: PerfOutcome) => void) | null>(null);
+  useEffect(() => {
+    listSpan.current = startSpan('list_content', 'custom');
+    return () => { listSpan.current?.('abandoned'); listSpan.current = null; };
+  }, [listId]);
+  useEffect(() => {
+    const end = listSpan.current;
+    if (end && list && !loadingItems) { listSpan.current = null; endAfterPaint(end); }
+  }, [list, loadingItems]);
 
   const { data: types = [] } = useQuery({
     queryKey: ['custom_list_types', listId],

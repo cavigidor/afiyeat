@@ -30,6 +30,7 @@ import { toast } from 'sonner';
 import { LocationDeniedDialog } from '@/components/shared/LocationDeniedDialog';
 import { NearMeButton } from '@/components/shared/NearMeButton';
 import { Spinner } from '@/components/ui/spinner';
+import { endAfterPaint, startSpan, type PerfOutcome } from '@/lib/perf';
 
 interface Restaurant {
   id: string;
@@ -118,6 +119,17 @@ export default function MyList() {
     queryFn: () => fetchMyRestaurants(user!.id),
     enabled: !!user,
   });
+
+  // E0-c (draft): screen opened -> My Restaurants painted. A no-op unless perf measurement is switched on.
+  const listSpan = useRef<((outcome?: PerfOutcome) => void) | null>(null);
+  useEffect(() => {
+    listSpan.current = startSpan('list_content', 'restaurants');
+    return () => { listSpan.current?.('abandoned'); listSpan.current = null; };
+  }, []);
+  useEffect(() => {
+    const end = listSpan.current;
+    if (end && user && !loading) { listSpan.current = null; endAfterPaint(end); }
+  }, [user, loading]);
 
   const { data: folders = [] } = useQuery({
     queryKey: ['folders', user?.id],
