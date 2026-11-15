@@ -1,3 +1,6 @@
+-- WITHDRAWN 2026-11-15. Do not run. Kept only as the regression target of baseline/tests/detect-stack.test.mjs.
+-- It decides by policy names and substrings, so it reports "present" for states that are not (see tests D4-D6).
+-- Replaced by queries/fingerprint-export.sql + baseline/detect-stack.mjs.
 -- READ ONLY
 -- Which of the five pending integration-stack migrations does production ALREADY contain?
 -- Decided by the objects each one creates, not by migration history (hand-pasted files are not recorded).

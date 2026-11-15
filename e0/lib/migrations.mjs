@@ -51,6 +51,19 @@ export function pendingFiles({ ref, mainRef = 'origin/main' }) {
   return loadMigrations({ ref }).filter((m) => !onMain.has(m.name));
 }
 
+/** Resolve a git ref to its full 40-character commit SHA (pins every input to an exact commit). */
+export function resolveRef(ref) {
+  const sha = execFileSync('git', ['-C', REPO, 'rev-parse', '--verify', `${ref}^{commit}`], { encoding: 'utf8' }).trim();
+  if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error(`cannot resolve ${ref} to a commit`);
+  return sha;
+}
+
+/** Apply one migration's SQL in-process. pg_cron / pg_net are stubbed, so their CREATE EXTENSION lines are dropped here only. */
+export async function applyInProcess(db, name, sql) {
+  const cleaned = sql.replace(/CREATE EXTENSION IF NOT EXISTS pg_(cron|net)[^;]*;/gi, '');
+  try { await db.exec(cleaned); } catch (e) { throw new Error(`${name}: ${e.message}`); }
+}
+
 /** Build an in-process Postgres: Supabase stand-ins, then baseline, then `extra` files in order. Throws on the first error. */
 export async function buildDatabase({ mainRef = 'origin/main', stackRef, extra = [], include } = {}) {
   const { PGlite } = await import('@electric-sql/pglite');
@@ -60,10 +73,7 @@ export async function buildDatabase({ mainRef = 'origin/main', stackRef, extra =
   const { unaccent } = await import('@electric-sql/pglite/contrib/unaccent');
   const db = new PGlite({ extensions: { pgcrypto, pg_trgm, uuid_ossp, unaccent } });
   await db.exec(STUBS);
-  const apply = async (name, sql) => {
-    const cleaned = sql.replace(/CREATE EXTENSION IF NOT EXISTS pg_(cron|net)[^;]*;/gi, '');
-    try { await db.exec(cleaned); } catch (e) { throw new Error(`${name}: ${e.message}`); }
-  };
+  const apply = (name, sql) => applyInProcess(db, name, sql);
   for (const f of baselineFiles({ ref: mainRef })) await apply(f.name, f.sql);
   if (stackRef) for (const f of pendingFiles({ ref: stackRef, mainRef })) if (!include || include.includes(f.name)) await apply(f.name, f.sql);
   for (const f of extra) await apply(path.basename(f), readFileSync(f, 'utf8'));

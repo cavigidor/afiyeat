@@ -12,7 +12,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { baselineFiles, pendingFiles, buildDatabase } from '../lib/migrations.mjs';
-import { SUMMARY_SQL, DETAIL_SQL, DEFINITION_SQL } from './fingerprint.mjs';
+import { exportSql, DEFINITION_SQL } from './fingerprint.mjs';
 
 const args = process.argv.slice(2);
 const opt = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
@@ -29,9 +29,9 @@ const toApplyLater = pending.filter((p) => !already.includes(p));
 if (args.includes('--write-queries')) {
   const dir = path.join(here, 'queries');
   mkdirSync(dir, { recursive: true });
-  writeFileSync(path.join(dir, 'fingerprint-1-summary.sql'), SUMMARY_SQL + '\n');
-  writeFileSync(path.join(dir, 'fingerprint-2-detail.sql'), DETAIL_SQL + '\n');
-  writeFileSync(path.join(dir, 'fingerprint-3-definitions.sql'), DEFINITION_SQL + '\n');
+  writeFileSync(path.join(dir, 'fingerprint-export.sql'), exportSql() + '\n');
+  for (let i = 1; i <= 4; i++) writeFileSync(path.join(dir, `fingerprint-export-part-${i}-of-4.sql`), exportSql({ part: i, parts: 4 }) + '\n');
+  writeFileSync(path.join(dir, 'fingerprint-definitions.sql'), DEFINITION_SQL + '\n');
   console.log('wrote', dir);
 }
 

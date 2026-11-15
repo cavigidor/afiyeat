@@ -7,7 +7,8 @@
     "test": "node --test schema/tests/*.test.mjs",
     "test:concurrency": "./concurrency/start-local-pg.sh && node --test concurrency/*.local.test.mjs",
     "baseline:check": "node baseline/build-baseline.mjs --check",
-    "security:isolated": "node security/owner-check.isolated.mjs"
+    "security:isolated": "node security/owner-check.isolated.mjs",
+    "test:baseline": "node --test baseline/tests/*.test.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.13",
