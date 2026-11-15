@@ -20,6 +20,18 @@
 --     the private table accepts nothing else.
 --   * A value is accepted only for a key the owner has defined.
 --
+-- PM decisions 2026-11-15 built in:
+--   O1 Hiding a field (custom_fields.<key>.hidden = true) keeps its values.
+--      Deleting a field is permanent and only possible through
+--      delete_restaurant_custom_field(key, expected_count): the caller must
+--      pass the number of places that currently hold a value (shown to the
+--      person by count_restaurant_custom_field_values first). Values and
+--      definition go in one transaction. A definition cannot be removed any
+--      other way while values exist (trigger on user_list_settings).
+--   O2 Definitions and values stay owner-only in V2; no sharing path exists.
+--   O3 export_my_restaurant_private_fields() returns them to their owner
+--      only. No public, shared, discovery or anonymous path reads them.
+--
 -- Unchanged by design:
 --   * Preset detail fields of My Restaurants (restaurants.details) keep the
 --     row's existing audience - the same readers as notes and rating today.
@@ -132,7 +144,7 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'place not found, or not yours' USING ERRCODE = '42501';
   END IF;
-  SELECT restaurants_config -> 'custom_fields' INTO v_defs FROM public.user_list_settings WHERE user_id = v_uid;
+  SELECT restaurants_config -> 'custom_fields' INTO v_defs FROM public.user_list_settings WHERE user_id = v_uid FOR SHARE;
   FOR k IN SELECT jsonb_object_keys(p_set) LOOP
     IF NOT public.lists_v2_is_custom_key(k) OR v_defs IS NULL OR NOT (v_defs ? k) THEN
       RAISE EXCEPTION 'no custom field % is defined', k USING ERRCODE = '22023';
@@ -152,10 +164,105 @@ $$;
 REVOKE ALL ON FUNCTION public.patch_restaurant_private_details(uuid, jsonb, text[]) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.patch_restaurant_private_details(uuid, jsonb, text[]) TO authenticated;
 
--- Owner decisions left open (see the correction-checkpoint report):
---   O1 when a definition is deleted, keep its values (current: kept, owner-only,
---      not shown) or purge them in the same call;
---   O2 whether a custom field may later be "promoted" to the row's audience
---      (current: impossible by construction - it would need a new key);
---   O3 whether the owner's data export includes these values (export code
---      does not exist yet).
+-- Reads by patch_restaurant_private_details wait for a field deletion in progress (FOR SHARE on the
+-- settings row), so a value can never be written for a field while it is being deleted.
+
+-- 5. Definitions cannot disappear while values exist ------------------------
+CREATE OR REPLACE FUNCTION public.lists_v2_guard_custom_field_removal()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE k text;
+BEGIN
+  FOR k IN SELECT jsonb_object_keys(COALESCE(OLD.restaurants_config -> 'custom_fields', '{}'::jsonb)) LOOP
+    IF NOT (COALESCE(NEW.restaurants_config -> 'custom_fields', '{}'::jsonb) ? k)
+       AND EXISTS (SELECT 1 FROM public.restaurant_private_details d WHERE d.user_id = OLD.user_id AND d."values" ? k) THEN
+      RAISE EXCEPTION 'custom field % still has values; hide it, or delete it with delete_restaurant_custom_field', k
+        USING ERRCODE = '23503';
+    END IF;
+  END LOOP;
+  RETURN NEW;
+END
+$$;
+DROP TRIGGER IF EXISTS lists_v2_guard_custom_field_removal ON public.user_list_settings;
+CREATE TRIGGER lists_v2_guard_custom_field_removal
+  BEFORE UPDATE OF restaurants_config ON public.user_list_settings
+  FOR EACH ROW EXECUTE FUNCTION public.lists_v2_guard_custom_field_removal();
+
+-- 6. Count, then confirmed permanent delete ----------------------------------
+CREATE OR REPLACE FUNCTION public.count_restaurant_custom_field_values(p_key text)
+RETURNS integer
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path = public
+AS $$
+  SELECT count(*)::integer FROM public.restaurant_private_details
+   WHERE user_id = auth.uid() AND "values" ? p_key AND "values" -> p_key <> 'null'::jsonb
+$$;
+
+CREATE OR REPLACE FUNCTION public.delete_restaurant_custom_field(p_key text, p_expected_count integer)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public
+AS $$
+DECLARE v_uid uuid := auth.uid(); v_now integer; v_removed integer;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'not signed in' USING ERRCODE = '42501';
+  END IF;
+  IF NOT public.lists_v2_is_custom_key(p_key) THEN
+    RAISE EXCEPTION 'only custom fields can be deleted' USING ERRCODE = '22023';
+  END IF;
+  IF p_expected_count IS NULL OR p_expected_count < 0 THEN
+    RAISE EXCEPTION 'confirm with the number of places that hold a value' USING ERRCODE = '22023';
+  END IF;
+  -- Serialise against value writes and other deletions of this owner's fields.
+  PERFORM 1 FROM public.user_list_settings WHERE user_id = v_uid AND restaurants_config -> 'custom_fields' ? p_key FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'no custom field % is defined', p_key USING ERRCODE = '22023';
+  END IF;
+  v_now := public.count_restaurant_custom_field_values(p_key);
+  IF v_now <> p_expected_count THEN
+    RAISE EXCEPTION 'the number of places with a value is now %, not %: show it and confirm again', v_now, p_expected_count
+      USING ERRCODE = '40001';
+  END IF;
+  UPDATE public.restaurant_private_details SET "values" = "values" - p_key, updated_at = now()
+   WHERE user_id = v_uid AND "values" ? p_key;
+  GET DIAGNOSTICS v_removed = ROW_COUNT;
+  DELETE FROM public.restaurant_private_details WHERE user_id = v_uid AND "values" = '{}'::jsonb;
+  UPDATE public.user_list_settings
+     SET restaurants_config = restaurants_config #- ARRAY['custom_fields', p_key], updated_at = now()
+   WHERE user_id = v_uid;
+  RETURN v_removed;
+END
+$$;
+
+-- 7. The owner's own export --------------------------------------------------
+-- Definitions (hidden ones included, marked) and every value, for the caller only. Read through
+-- row-level security as the caller (SECURITY INVOKER): it cannot return another person's data.
+CREATE OR REPLACE FUNCTION public.export_my_restaurant_private_fields()
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path = public
+AS $$
+  SELECT CASE WHEN auth.uid() IS NULL THEN NULL ELSE jsonb_build_object(
+    'definitions', COALESCE((SELECT restaurants_config -> 'custom_fields' FROM public.user_list_settings WHERE user_id = auth.uid()), '{}'::jsonb),
+    'values', COALESCE((SELECT jsonb_agg(jsonb_build_object('restaurant_id', d.restaurant_id, 'place', r.name, 'values', d."values") ORDER BY r.name, d.restaurant_id)
+                          FROM public.restaurant_private_details d JOIN public.restaurants r ON r.id = d.restaurant_id
+                         WHERE d.user_id = auth.uid()), '[]'::jsonb)) END
+$$;
+
+REVOKE ALL ON FUNCTION public.count_restaurant_custom_field_values(text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.delete_restaurant_custom_field(text, integer) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.export_my_restaurant_private_fields() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.count_restaurant_custom_field_values(text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.delete_restaurant_custom_field(text, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.export_my_restaurant_private_fields() TO authenticated;
+-- No SECURITY DEFINER function may read restaurant_private_details (definer functions owned by a
+-- BYPASSRLS role would skip its policies). tests/my_restaurants_private_fields.test.mjs P1-15 is a
+-- tripwire for this; code review remains the control.
