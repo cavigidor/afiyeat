@@ -1,0 +1,8 @@
+{
+  "name": "afiyeat-owner-policy-draft",
+  "private": true,
+  "type": "module",
+  "description": "Security draft: list-ownership check on status and category writes. Proposal and tests only.",
+  "scripts": { "test": "node --test tests/*.test.mjs" },
+  "devDependencies": { "@electric-sql/pglite": "0.5.13" }
+}
