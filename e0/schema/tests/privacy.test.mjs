@@ -101,5 +101,6 @@ test('Functions that read restaurants or list items return fixed columns: no det
   await tryCall(STRANGER, `SELECT public.get_shared_preview('list', $1) v`, [L_PUB]);
   await tryCall(STRANGER, `SELECT public.get_shared_preview('restaurant', $1) v`, [R_PUB]);
   await tryCall(STRANGER, `SELECT * FROM public.get_explore_lists('all', NULL, 50, 0)`);
+  for (const o of outputs) assert.ok(!o.startsWith('ERR '), `call failed, so it proves nothing: ${o.slice(0, 160)}`);
   for (const o of outputs) assert.ok(!o.includes('SECRET-') && !o.includes('custom_x9') && !o.includes('PRIVATE-LABEL'), o.slice(0, 200));
 });
