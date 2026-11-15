@@ -7,9 +7,9 @@ and nothing here is applied to any database automatically.
 | --- | --- | --- |
 | `schema/` | E0-a | Schema A and the owner-check addendum, **as proposals for review**, with their tests |
 | `lib/` | E0-a | Reads migration files from git or a folder; builds an in-process Postgres for tests |
-| `baseline/` (added by E0-b) | E0-b | Reconstructs production's schema baseline for an isolated backend, and compares schemas |
-| `security/` (added by E0-b) | E0-b | Read-only production verification for the owner-check gap; two-account test for the isolated backend |
-| `staging/` (added by E0-b) | E0-b | Settings and a safety check for a non-production app build |
+| `baseline/` | E0-b | Reconstructs production's schema baseline for an isolated backend, and compares schemas |
+| `security/` | E0-b | Read-only production verification for the owner-check gap; two-account test for the isolated backend |
+| `staging/` | E0-b | Settings and a safety check for a non-production app build |
 
 **Never** copy a file from `schema/` into `supabase/migrations/`. Lovable and the Supabase CLI apply that folder.
 

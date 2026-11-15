@@ -30,8 +30,7 @@ export async function buildLocalDatabase({ name, mainRef = 'origin/main', stackR
   // Roles are cluster-wide: create them once, tolerate existing ones.
   const stubs = STUBS.replace(/CREATE ROLE (\w+)([^;]*);/g, (m, r, rest) =>
     `DO $$ BEGIN CREATE ROLE ${r}${rest}; EXCEPTION WHEN duplicate_object THEN NULL; END $$;`);
-  await db.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE EXTENSION IF NOT EXISTS pg_trgm;
-                  CREATE EXTENSION IF NOT EXISTS "uuid-ossp"; CREATE EXTENSION IF NOT EXISTS unaccent;`);
+  // No contrib extension is installed: no migration uses one (checked 2026-11-15).
   await db.query(stubs);
   const apply = async (n, sql) => {
     const cleaned = sql.replace(/CREATE EXTENSION IF NOT EXISTS pg_(cron|net)[^;]*;/gi, '');
