@@ -31,7 +31,7 @@ async function waitUntilBlocked(pid) {
 const pid = async (c) => (await c.query(`SELECT pg_backend_pid() AS p`)).rows[0].p;
 
 before(async () => {
-  await buildLocalDatabase({ name: DB, stackRef: STACK, extra: [process.env.E0_SCHEMA_A ?? 'schema/schema_a_proposal.sql', 'schema/schema_a_addendum_owner_check.sql'] });
+  await buildLocalDatabase({ name: DB, stackRef: STACK, extra: [process.env.E0_SCHEMA_A ?? 'schema/schema_a_proposal.sql', 'schema/schema_a_addendum_owner_check.sql', 'schema/schema_a_my_restaurants_private_fields.sql'] });
   admin = client(DB); await admin.connect();
   for (const u of [A, B]) {
     await admin.query(`INSERT INTO auth.users (id, email) VALUES ($1, $2)`, [u, `${u}@example.test`]);
@@ -196,4 +196,30 @@ test('C10 an item insert retried with the same client id on a second connection:
   assert.equal((await admin.query(`SELECT count(*)::int AS n FROM custom_list_items WHERE id = $1`, [I])).rows[0].n, 1);
   // Client contract: a 23505 on an id this device generated means "already saved", confirmed by re-reading the row.
   assert.equal((await c2.query(`SELECT count(*)::int AS n FROM custom_list_items WHERE id = $1`, [I])).rows[0].n, 1);
+});
+
+test('C11 a custom-field delete and a value write for that field at the same moment: never a value without a definition', async () => {
+  const R = id(40);
+  await c1.query(`INSERT INTO restaurants (id, user_id, name) VALUES ($1, $2, 'Race place')`, [R, A]);
+  await c1.query(`SELECT patch_restaurants_config('[{"path":["custom_fields","c_race","label"],"value":"Race"}]')`);
+  await c1.query(`SELECT patch_restaurant_private_details($1, '{"c_race":"first"}')`, [R]);
+  // Delete holds the settings row; the write must wait for it, then find the field gone.
+  await c1.query('BEGIN');
+  await c1.query(`SELECT delete_restaurant_custom_field('c_race', 1)`);
+  const p2 = await pid(c2);
+  const write = c2.query(`SELECT patch_restaurant_private_details($1, '{"c_race":"second"}')`, [R]).then(() => null, (e) => e);
+  await waitUntilBlocked(p2);
+  await c1.query('COMMIT');
+  assert.equal((await write)?.code, '22023');
+  const { rows } = await admin.query(`SELECT count(*)::int n FROM restaurant_private_details WHERE user_id = $1 AND "values" ? 'c_race'`, [A]);
+  assert.equal(rows[0].n, 0);
+  // And the other order: a write in progress makes the delete wait, then the count it was given is stale.
+  await c1.query(`SELECT patch_restaurants_config('[{"path":["custom_fields","c_race2","label"],"value":"Race 2"}]')`);
+  await c1.query('BEGIN');
+  await c1.query(`SELECT patch_restaurant_private_details($1, '{"c_race2":"x"}')`, [R]);
+  const del = c2.query(`SELECT delete_restaurant_custom_field('c_race2', 0)`).then(() => null, (e) => e);
+  await waitUntilBlocked(p2);
+  await c1.query('COMMIT');
+  assert.equal((await del)?.code, '40001', 'the person confirmed 0 places but 1 now has a value: refused, nothing deleted');
+  assert.equal((await admin.query(`SELECT count(*)::int n FROM restaurant_private_details WHERE "values" ? 'c_race2'`)).rows[0].n, 1);
 });

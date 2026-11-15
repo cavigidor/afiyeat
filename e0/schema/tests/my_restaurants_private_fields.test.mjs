@@ -143,3 +143,68 @@ test('P1-11 not published to Realtime; anon holds no privilege; functions return
   }
   for (const o of outs) assert.ok(!o.includes('PRIVATE-'), o.slice(0, 200));
 });
+
+// ---------------------------------------------------------------- PM decisions O1-O3 (2026-11-15)
+const config = async (who) => (await as(who, () => q(`SELECT restaurants_config c FROM user_list_settings WHERE user_id = $1`, [who])))[0]?.c;
+const setup2 = async () => {
+  const R2 = id(15);
+  await as(PUB, async () => {
+    await q(`INSERT INTO restaurants (id, user_id, name) VALUES ($1, $2, 'Second') ON CONFLICT DO NOTHING`, [R2, PUB]);
+    await q(`SELECT patch_restaurants_config('[{"path":["custom_fields","c_budget","label"],"value":"Budget"}]')`);
+    await q(`SELECT patch_restaurant_private_details($1, '{"c_budget":"40"}')`, [R_PUB]);
+    await q(`SELECT patch_restaurant_private_details($1, '{"c_budget":"25"}')`, [R2]);
+  });
+  return R2;
+};
+
+test('P1-12 O1 hiding a field keeps every value; unhiding shows them again', async () => {
+  await setup2();
+  await as(PUB, () => q(`SELECT patch_restaurants_config('[{"path":["custom_fields","c_budget","hidden"],"value":true}]')`));
+  assert.equal((await config(PUB)).custom_fields.c_budget.hidden, true);
+  assert.equal(await as(PUB, async () => (await q(`SELECT count_restaurant_custom_field_values('c_budget') n`))[0].n), 2);
+  await as(PUB, () => q(`SELECT patch_restaurants_config('[{"path":["custom_fields","c_budget","hidden"],"value":false}]')`));
+  assert.equal(await as(PUB, async () => (await q(`SELECT count_restaurant_custom_field_values('c_budget') n`))[0].n), 2);
+});
+
+test('P1-13 O1 a definition with values cannot be removed by a config patch or a direct update', async () => {
+  await rejects(as(PUB, () => q(`SELECT patch_restaurants_config('[{"path":["custom_fields","c_budget"]}]')`)), /still has values|23503/);
+  await rejects(as(PUB, () => q(`UPDATE user_list_settings SET restaurants_config = restaurants_config #- '{custom_fields,c_budget}' WHERE user_id = $1`, [PUB])), /still has values|23503/);
+  assert.ok((await config(PUB)).custom_fields.c_budget);
+  // A field without values can be removed by a plain patch.
+  await as(PUB, () => q(`SELECT patch_restaurants_config('[{"path":["custom_fields","c_unused","label"],"value":"Unused"}]')`));
+  await as(PUB, () => q(`SELECT patch_restaurants_config('[{"path":["custom_fields","c_unused"]}]')`));
+  assert.equal((await config(PUB)).custom_fields.c_unused, undefined);
+});
+
+test('P1-14 O1 permanent delete needs the current count, then removes values and definition together', async () => {
+  const n = await as(PUB, async () => (await q(`SELECT count_restaurant_custom_field_values('c_budget') n`))[0].n);
+  assert.equal(n, 2);
+  await rejects(as(PUB, () => q(`SELECT delete_restaurant_custom_field('c_budget', NULL)`)), /22023/);
+  await rejects(as(PUB, () => q(`SELECT delete_restaurant_custom_field('c_budget', 1)`)), /now 2, not 1|40001/);
+  assert.equal(await as(PUB, async () => (await q(`SELECT count_restaurant_custom_field_values('c_budget') n`))[0].n), 2, 'a refused delete changes nothing');
+  await rejects(as(STRANGER, () => q(`SELECT delete_restaurant_custom_field('c_went_with', 0)`)), /no custom field|22023/);
+  await rejects(as(PUB, () => q(`SELECT delete_restaurant_custom_field('dishes', 0)`)), /22023/);
+  const removed = await as(PUB, async () => (await q(`SELECT delete_restaurant_custom_field('c_budget', 2) n`))[0].n);
+  assert.equal(removed, 2);
+  assert.equal((await config(PUB)).custom_fields.c_budget, undefined);
+  const left = await q(`SELECT "values" FROM restaurant_private_details WHERE user_id = $1`, [PUB]);
+  assert.ok(left.every((r) => !('c_budget' in r.values)));
+  assert.deepEqual((await privateValues(PUB, R_PUB))[0].values, { c_went_with: 'PRIVATE-Alex' }, 'other fields untouched');
+  assert.equal((await q(`SELECT count(*)::int n FROM restaurant_private_details WHERE restaurant_id = $1`, [id(15)]))[0].n, 0, 'emptied rows removed');
+  // Another owner's same-named field is untouched.
+  assert.ok((await config(PRIV)).custom_fields.c_went_with);
+});
+
+test('P1-15 O3 owner export holds definitions and values; nobody else gets any; no definer function reads the table', async () => {
+  const mine = await as(PUB, async () => (await q(`SELECT export_my_restaurant_private_fields() e`))[0].e);
+  assert.ok(mine.definitions.c_went_with);
+  assert.deepEqual(mine.values.map((v) => v.values), [{ c_went_with: 'PRIVATE-Alex' }]);
+  const other = await as(STRANGER, async () => (await q(`SELECT export_my_restaurant_private_fields() e`))[0].e);
+  assert.ok(!JSON.stringify(other).includes('PRIVATE-'));
+  assert.equal(await read(null, `SELECT export_my_restaurant_private_fields()`), 'refused');
+  const definers = await q(`SELECT p.oid::regprocedure::text f FROM pg_proc p WHERE p.prosecdef AND p.prosrc ILIKE '%restaurant_private_details%'`);
+  assert.deepEqual(definers, [], 'tripwire: a SECURITY DEFINER function reads private values');
+  const grants = await q(`SELECT p.proname, has_function_privilege('anon', p.oid, 'EXECUTE') a FROM pg_proc p
+    WHERE p.proname IN ('count_restaurant_custom_field_values','delete_restaurant_custom_field','export_my_restaurant_private_fields','patch_restaurant_private_details')`);
+  assert.ok(grants.length === 4 && grants.every((g) => g.a === false), JSON.stringify(grants));
+});

@@ -11,10 +11,10 @@ Nothing in this folder belongs in `supabase/migrations/`, and none of it may be 
 | `schema_a_checks.sql` | Read-only pre-check and post-check queries for Schema A |
 | `tests/schema_a.test.mjs` | 17 behaviour and security tests for Schema A |
 | `tests/schema_a_regressions.test.mjs` | 17 regression tests for the three cases the PM reproduced (R1 Travel audience, R2 preset version, R3 checklist identity) |
-| `tests/my_restaurants_private_fields.test.mjs` | 11 tests for addendum P1 |
+| `tests/my_restaurants_private_fields.test.mjs` | 15 tests for addendum P1, including hide, confirmed delete and owner export |
 | `tests/schema_a_addendum.test.mjs` | 6 tests for the owner-check addendum, including the gap before it |
 | `tests/privacy.test.mjs` | 7 tests: who can read stored detail values (owner, follower, stranger, signed out, blocked, hidden) |
-| `../concurrency/two-connection.local.test.mjs` | 10 genuine two-connection tests on a local Postgres 16 server |
+| `../concurrency/two-connection.local.test.mjs` | 11 genuine two-connection tests on a local Postgres 16 server |
 
 Run: `npm test` (PGlite suites) and `npm run test:concurrency` (starts a socket-only local server under `/tmp`).
 
@@ -45,8 +45,25 @@ What P1 leaves unchanged: preset detail fields of My Restaurants keep the row's 
 notes and rating today); custom-list details keep their explicit audience (`custom_lists.visibility` through
 `can_view_custom_list()`).
 
-Open owner decisions: O1 keep or purge values when a definition is deleted (P1 keeps them, owner-only, not shown);
-O2 whether a custom field may ever be shared with the row's audience; O3 whether the owner's export includes them.
+PM decisions (2026-11-15), now built into P1 and tested (`P1-12` to `P1-15`, `C11`):
+
+| Decision | How P1 meets it |
+| --- | --- |
+| O1 hiding keeps values | `custom_fields.<key>.hidden = true` through `patch_restaurants_config`; values untouched |
+| O1 permanent delete: confirmed, count disclosed, atomic | `count_restaurant_custom_field_values(key)` gives the number to show; `delete_restaurant_custom_field(key, expected_count)` refuses unless the count still matches, then removes the values and the definition in one transaction. A trigger refuses removing a definition any other way while values exist. A concurrent value write waits and then fails; a stale count is refused (two-connection test C11). |
+| O2 owner-only in V2 | No policy, function, publication or grant gives anyone else access |
+| O3 owner export only | `export_my_restaurant_private_fields()` (SECURITY INVOKER, authenticated only) returns the caller's definitions and values; strangers get none, signed-out callers are refused. The existing PDF export reads no details. |
+
+### Review of P1 (RLS, function permissions, export, deletion)
+
+* **RLS:** enabled and forced; every policy requires both `user_id = auth.uid()` and that the caller owns the place,
+  so re-pointing a row at another place fails. Not in Realtime. No anon or PUBLIC grant.
+* **Functions:** all four writers/readers are SECURITY INVOKER with `search_path = public` and EXECUTE for
+  `authenticated` only; the helpers are pure. Residual risk: a future SECURITY DEFINER function owned by a role that
+  bypasses RLS could read the table. Test P1-15 is a tripwire for that, not a proof; code review remains the control.
+* **Cascade:** deleting a place or an account deletes its private values.
+* **Not covered locally:** behaviour through PostgREST and real Auth, old app builds (they never send `c_` keys),
+  and the UI that shows the count before the delete. These are isolated-project and device gates.
 
 ## What the tests run on
 
