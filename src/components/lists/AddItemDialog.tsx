@@ -46,6 +46,7 @@ import {
   type AddDestination,
 } from '@/lib/addDestinations';
 import { photoUploadWarning, saveCustomListItem, saveRestaurant, saveSharedListItem, type SaveResult } from '@/lib/listItemSave';
+import { endAfterPaint, startSpan, type PerfOutcome } from '@/lib/perf';
 
 const PRICE_LABELS = ['<$30', '<$50', '<$100', '$100+'];
 
@@ -160,6 +161,19 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null,
   // arrived. Background refetch failures also block saving stale settings.
   const statusesMissing = statusesQuery.isSuccess && !statusesQuery.isFetching && sortedStatuses.length === 0;
   const statusesReady = dest.kind !== 'custom' || (statusesQuery.isSuccess && !statusesQuery.isFetching && sortedStatuses.length > 0);
+
+  // E0-c (draft): open -> sheet usable and painted. A no-op unless perf measurement is switched on.
+  const sheetSpan = useRef<((outcome?: PerfOutcome) => void) | null>(null);
+  useEffect(() => {
+    if (open) sheetSpan.current = startSpan('add_sheet_ready');
+    else if (sheetSpan.current) { sheetSpan.current('abandoned'); sheetSpan.current = null; }
+  }, [open]);
+  useEffect(() => {
+    const end = sheetSpan.current;
+    if (!open || !end) return;
+    if (destinationsFailed) { sheetSpan.current = null; end('error'); return; }
+    if (!loadingDestinations && statusesReady) { sheetSpan.current = null; endAfterPaint(end); }
+  }, [open, loadingDestinations, statusesReady, destinationsFailed]);
 
   // -- What the destination uses -------------------------------------------
   const hasLocation = destinationHasLocation(dest);
@@ -359,6 +373,7 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null,
 
     setSaving(true);
     setProblem(null);
+    const endSave = startSpan('save_confirmed', target.kind);
     let result: SaveResult;
     if (target.kind === 'restaurants') {
       result = await saveRestaurant(user.id, item, {
@@ -389,6 +404,7 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null,
       });
     }
     setSaving(false);
+    endSave(result.status === 'saved' ? 'ok' : result.status);
 
     // On either failure everything entered is kept, so the fix is one tap.
     if (result.status === 'duplicate') {
