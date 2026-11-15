@@ -178,7 +178,7 @@ test('wishlist: operations from two devices both survive; retries do not duplica
   await op({ op: 'add', entry: { id: 'phone-0002', text: 'Ink' } });
   await op({ op: 'move', id: 'phone-0002', before: 'phone-0001' });
   let [row] = await q(`SELECT details FROM custom_list_items WHERE id = $1`, [item]);
-  assert.deepEqual(row.details.wishlist.map((e) => [e.id, e.done ?? null]), [['phone-0002', null], ['phone-0001', false], ['laptop-001', true]]);
+  assert.deepEqual(row.details.wishlist.map((e) => [e.id, e.done ?? null]), [['phone-0002', false], ['phone-0001', false], ['laptop-001', true]]); // entries are stored normalized: done defaults to false
   assert.deepEqual(row.details.brands, ['Lamy'], 'other detail keys are untouched');
   await op({ op: 'remove', id: 'phone-0001' });
   [row] = await q(`SELECT details FROM custom_list_items WHERE id = $1`, [item]);
