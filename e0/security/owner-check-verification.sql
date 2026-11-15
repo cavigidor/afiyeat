@@ -18,8 +18,11 @@ SELECT current_user, session_user, current_setting('server_version') AS postgres
 
 -- V1  Every policy on the two tables (and their parent table, for context), all commands including ALL,
 --     with permissive/restrictive, roles, USING and WITH CHECK exactly as stored.
---     The gap is confirmed if no PERMISSIVE INSERT or ALL policy's with_check mentions custom_lists,
---     i.e. inserts are allowed on user_id = auth.uid() alone.
+--     Read the complete text of every PERMISSIVE INSERT/UPDATE/ALL policy; do not search it for words.
+--     Postgres ORs permissive policies, so the gap is open if ANY one of them admits a row whose list belongs to
+--     someone else. Whether it does is confirmed by the two-account test on the isolated project
+--     (owner-check.isolated.mjs), not by reading alone. (Correction 2026-11-15: an earlier note here suggested
+--     looking for the word custom_lists in with_check; a substring proves nothing.)
 -- READ ONLY
 SELECT tablename, policyname, cmd, permissive, roles, qual AS using_expression, with_check AS with_check_expression
   FROM pg_policies
@@ -45,8 +48,12 @@ SELECT t.table_name, r.role_name,
  ORDER BY 1, 2;
 
 -- V4  Existing rows whose owner differs from their parent list's owner. COUNTS ONLY.
---     Any non-zero row means the gap was used (deliberately or by a bug). Do not delete anything:
---     the clean-up, if any, is a separate decision.
+--     A non-zero count is an INTEGRITY ANOMALY, not proof that anyone exploited the gap. Rows like these can
+--     also come from an old app bug, a data repair, an account merge, a list whose owner changed, or a
+--     legitimate flow not yet identified. Interpreting them needs the row-level history, which this query
+--     deliberately does not read. Zero is also not proof that the gap was never used: a row can have been
+--     written and later deleted. Do not delete or change anything; any clean-up is a separate decision.
+--     (Correction 2026-11-15: an earlier note here said a non-zero row "means the gap was used".)
 -- READ ONLY
 SELECT 'custom_list_statuses' AS table_name,
        count(*)                                  AS rows_total,
