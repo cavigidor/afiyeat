@@ -35,10 +35,17 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  // "demo" (npm run build:demo) is a click-through preview with an in-browser fake backend
+  // (src/demo/): the Supabase client is swapped for the demo one and nothing reaches any server.
+  // Every other mode resolves exactly as before.
+  base: mode === "demo" ? "./" : undefined,
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
+    alias: [
+      ...(mode === "demo"
+        ? [{ find: /^@\/integrations\/supabase\/client$/, replacement: path.resolve(__dirname, "./src/demo/demoClient.ts") }]
+        : []),
+      { find: "@", replacement: path.resolve(__dirname, "./src") },
+    ],
   },
   define: {
     __BUILD_COMMIT__: JSON.stringify(gitShortHash()),

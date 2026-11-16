@@ -31,3 +31,5 @@ ios/App/DerivedData
 **/xcuserdata/
 *.xcuserstate
 lovable-sql/
+dist-demo
+preview-shots
