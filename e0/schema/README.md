@@ -8,6 +8,8 @@ Nothing in this folder belongs in `supabase/migrations/`, and none of it may be 
 | `schema_a_proposal.sql` | Schema A: additive columns, one owner-only table, one index, functions, one insert trigger (Travel). Changes no existing policy. |
 | `schema_a_my_restaurants_private_fields.sql` | Addendum P1 (recommended): My Restaurants custom-field values in an owner-only table. |
 | `schema_a_addendum_owner_check.sql` | Separate security fix: list-ownership check on status and category writes. Replaces four policies. Also carried, with its own plan, on the independent security draft (see `../security/owner-policy/`). |
+| `lists_v2_owner_fields_and_brews.sql` | **LV2-DB-1/2 (2026-11-16):** the smallest change for Lists V2 custom fields, layout across devices and coffee brew records. Three new owner-only tables; independent of Schema A. Rollback: `lists_v2_owner_fields_and_brews_rollback.sql`. |
+| `tests/lists_v2_owner_fields_and_brews.test.mjs` | 16 tests for LV2-DB-1/2: owner-only reads and writes, typed values, hide keeps values, guarded and counted delete, export, cascades, existing tables and policies unchanged, rollback |
 | `schema_a_checks.sql` | Read-only pre-check and post-check queries for Schema A |
 | `tests/schema_a.test.mjs` | 17 behaviour and security tests for Schema A |
 | `tests/schema_a_regressions.test.mjs` | 17 regression tests for the three cases the PM reproduced (R1 Travel audience, R2 preset version, R3 checklist identity) |
@@ -17,6 +19,25 @@ Nothing in this folder belongs in `supabase/migrations/`, and none of it may be 
 | `../concurrency/two-connection.local.test.mjs` | 11 genuine two-connection tests on a local Postgres 16 server |
 
 Run: `npm test` (PGlite suites) and `npm run test:concurrency` (starts a socket-only local server under `/tmp`).
+
+## LV2-DB-1/2: owner fields and brew records (2026-11-16)
+
+Why: Lists V2 is being built on the existing database. Two features cannot be saved there without
+misusing a column: user-defined fields (text, number, date, tags, choice) and several brewing records per Coffee Beans
+item. The app keeps both behind "needs approval"; nothing is faked in local state.
+
+| Part | What | Who can read or write |
+| --- | --- | --- |
+| `custom_list_owner_settings` | One row per list: field definitions (`fields`, max 30) and `layout` (field order, view, sort) | The list owner only |
+| `custom_list_item_owner_values` | One row per item: `{c_key: value}`, each checked against its definition's type | The list owner only |
+| `custom_list_item_brews` | Any number of brews per item: date, method, dose, water, grind, temperature, time, rating, notes | The list owner only |
+| `count_custom_list_field_values`, `delete_custom_list_field` | O1: the count to show, then an atomic delete refused if the count changed | Invoker rights |
+| `export_my_list_owner_data` | O3: the caller's own rows, without user ids | Signed-in callers, own rows |
+
+Does not change any existing table, column, policy, function, grant, bucket, Edge Function or Realtime publication
+(tests DB-2, DB-14, DB-16). Old app builds never read the new tables. Converting a custom list into a shared list
+does not copy these rows (shared lists stay as they are). Rollback drops the three tables and the functions; their
+data is lost unless exported first.
 
 ## Corrections in this checkpoint (2026-11-15)
 
