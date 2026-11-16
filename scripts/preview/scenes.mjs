@@ -36,6 +36,7 @@ export const SCENES = [
   { name: 'new-list-drinks', path: '/my-lists', steps: all(tap('New list'), tap('Drinks')) },
   { name: 'new-list-travel', path: '/my-lists', steps: all(tap('New list'), tap('Travel')) },
   { name: 'created-drinks', path: '/my-lists', steps: all(tap('New list'), tap('Drinks'), tap('Create list')), settle: 1500 },
+  { name: 'home', path: '/' },
   { name: 'lists', path: '/my-lists' },
   { name: 'lists-full', path: '/my-lists', fullPage: true },
   { name: 'my-restaurants', path: '/my-list' },
