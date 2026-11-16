@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "build:demo": "vite build --mode demo --outDir dist-demo",
-    "preview:shots": "node scripts/preview/shoot.mjs"
+    "preview:shots": "node scripts/preview/shoot.mjs",
+    "preview:flows": "node scripts/preview/flows.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",

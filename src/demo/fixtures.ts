@@ -159,6 +159,67 @@ export function demoFixtures(): DemoDb {
     items: [{ name: 'Pour-over kettle for Alex', status: 0, priceManual: 55 }, { name: 'Cookbook stand', status: 1, priceManual: 28 }],
   }, db);
 
+  // Lists as the V2 presets create them (same columns, same seeded statuses and categories).
+  const drinkTypes = [
+    { name: 'Beer', color: '#C9962B', icon: '🍺' }, { name: 'Wine', color: '#8E2430', icon: '🍷' },
+    { name: 'Cocktails', color: '#2E86AB', icon: '🍸' }, { name: 'Spirits', color: '#9A5B2E', icon: '🥃' }, { name: 'Non-alcoholic', color: '#4C9A5B', icon: '🧃' },
+  ];
+  list({
+    name: 'Drinks', icon: '🍸', color: '#7B4FA0', daysAgo: 25,
+    config: { show_price: true, price_mode: 'manual', show_rating: true, rating_mode: 'scale_10' },
+    statuses: ['Want to Try', 'Tried'], types: drinkTypes,
+    items: [
+      { name: 'Barolo Ravera 2019', status: 1, types: [1], rating: 9, priceManual: 58, photo: 'wine-ravera', notes: 'Roses and tar. Decant.' },
+      { name: 'Paper Plane', status: 1, types: [2], rating: 8, photo: 'cocktail-paper' },
+      { name: 'That orange wine from the market', status: 1, types: [1] },
+      { name: 'Night Shift Pale Ale', status: 1, types: [0], priceManual: 7 },
+      { name: 'Islay 12 Year', status: 1, types: [3], rating: 8, photo: 'cocktail-islay' },
+      { name: 'Negroni Sbagliato', status: 0, types: [2] },
+      { name: 'Hazy IPA from Ferment & Co.', status: 0, types: [0] },
+      { name: 'Yuzu soda', status: 0, types: [4] },
+      { name: 'Something sparkling for Saturday', status: 0 },
+    ],
+  }, db);
+  list({
+    name: 'Coffee Beans', icon: '🫘', color: '#7A4E2D', daysAgo: 20,
+    config: { show_price: true, price_mode: 'manual', show_rating: true, rating_mode: 'scale_10' },
+    statuses: ['Want to Try', 'Tried'],
+    types: [{ name: 'Light roast', color: '#C99A62' }, { name: 'Medium roast', color: '#9A5B2E' }, { name: 'Dark roast', color: '#4E342E' }],
+    items: [
+      { name: 'Ethiopia Guji Natural', status: 1, types: [0], rating: 9, priceManual: 22, photo: 'bean-guji', notes: 'Blueberry, jasmine. 1:16 V60.' },
+      { name: 'Colombia El Paraíso', status: 1, types: [1], rating: 7, priceManual: 19, photo: 'bean-paraiso' },
+      { name: 'House espresso blend', status: 1, types: [2], rating: 6 },
+      { name: 'Kenya AA Kiambu', status: 0, types: [0], priceManual: 24 },
+    ],
+  }, db);
+  list({
+    name: 'Shops I love', icon: '🛍️', color: '#1F7A80', daysAgo: 15,
+    config: { show_location: true, show_price: true, price_mode: 'dollar', show_rating: false },
+    statuses: ['Want to Visit', 'Visited'],
+    types: [{ name: 'Clothing', color: '#5C6BC0', icon: '👕' }, { name: 'Home', color: '#8D6E63', icon: '🏠' }, { name: 'Books', color: '#455A64', icon: '📚' }, { name: 'Food & drink', color: '#C0763A', icon: '🧺' }, { name: 'Gifts', color: '#D2457A', icon: '🎁' }],
+    items: [
+      { name: 'Field & Thread', status: 1, types: [0], price: 3, place: [1, 2, '41 E Oak St'], photo: 'store-field' },
+      { name: 'Paper Lantern Books', status: 1, types: [2], price: 2, place: [-1, 4, '1012 N State St'] },
+      { name: 'Hearth Supply', status: 1, types: [1], price: 3, place: [2, -1, '215 W Ohio St'] },
+      { name: 'Larder & Co.', status: 0, types: [3], price: 2, place: [-3, 1, '600 N Wells St'] },
+      { name: 'Kiln Studio', status: 0, types: [1, 4], place: [0, -2, '130 E Grand Ave'] },
+    ],
+  }, db);
+  list({
+    name: 'Travel', icon: '🌍', color: '#2A5C9A', visibility: 'private', daysAgo: 10,
+    config: { show_location: true, show_price: false, show_rating: true, rating_mode: 'stars_5' },
+    statuses: ['Planned', 'Visited'],
+    types: [{ name: 'Kyoto, Japan', color: '#2A5C9A' }, { name: 'Lisbon, Portugal', color: '#2A5C9A' }, { name: 'Mexico City, Mexico', color: '#2A5C9A' }],
+    items: [
+      { name: 'Fushimi Inari Shrine', status: 1, types: [0], rating: 5, photo: 'city-kyoto', notes: 'Go at 7am.' },
+      { name: 'Nishiki Market', status: 1, types: [0], rating: 4 },
+      { name: 'Time Out Market', status: 1, types: [1], rating: 4, photo: 'city-lisbon' },
+      { name: 'Belém Tower', status: 0, types: [1] },
+      { name: 'Museo Frida Kahlo', status: 0, types: [2] },
+      { name: 'Grandma’s village', status: 1 },
+    ],
+  }, db);
+
   // A two-person shared list with the friend.
   const sl = id('sl');
   db.shared_lists.push({ id: sl, name: 'Date nights', user_a: U, user_b: FRIEND, created_at: t(60), updated_at: t(60) });

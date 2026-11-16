@@ -62,6 +62,7 @@ export interface CustomListItem {
   type_ids: string[];
   type?: { name: string; color: string; icon: string | null } | null;
   images?: { id: string; image_url: string }[];
+  created_at?: string;
 }
 
 interface AddCustomListItemDialogProps {

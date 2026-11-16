@@ -3,16 +3,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Navbar } from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,26 +17,20 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { withApplePlaceDetails } from '@/lib/appleMaps';
-import { Plus, Search, Pencil, Settings, ArrowLeft, Share2, Link2, Users } from 'lucide-react';
+import { ChevronLeft, Search, MoreHorizontal, Link2, Users, Lock, Globe, EyeOff, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import { sharedListPath } from '@/lib/navigation';
-import { visibilityChip } from '@/lib/listVisibility';
 import { toast } from 'sonner';
-import { useViewMode } from '@/hooks/useViewMode';
 import { useMapCenter } from '@/hooks/useMapCenter';
 import { PlaceMap, type MapPoint } from '@/components/maps/PlaceMap';
 import { useFollowing } from '@/hooks/useFollowing';
-import { ListViewToggle } from '@/components/shared/ListViewToggle';
 import { CreateListDialog, type CustomList } from '@/components/lists/CreateListDialog';
 import { AddCustomListItemDialog, type CustomListItem } from '@/components/lists/AddCustomListItemDialog';
-import { CustomListItemRow } from '@/components/lists/CustomListItemRow';
-import { CustomListItemCard } from '@/components/lists/CustomListItemCard';
-import { ListTypesManager } from '@/components/lists/ListTypesManager';
-import { ListStatusesManager } from '@/components/lists/ListStatusesManager';
 import { ConvertToSharedListDialog } from '@/components/lists/ConvertToSharedListDialog';
 import type { ManagedListType } from '@/hooks/useListTypeManagement';
 import type { ManagedListStatus } from '@/hooks/useListStatusManagement';
@@ -58,8 +42,17 @@ import { hapticWarning } from '@/lib/haptics';
 import { LocationDeniedDialog } from '@/components/shared/LocationDeniedDialog';
 import { NearMeButton } from '@/components/shared/NearMeButton';
 import { Spinner } from '@/components/ui/spinner';
+import { useDeviceSetting } from '@/hooks/useDeviceSetting';
+import { defaultViewOf, layoutOf, nounOf, presetForIcon, viewsFor, type ListView } from '@/lib/listPresets';
+import { ListGlyph } from '@/components/lists/v2/ListGlyph';
+import { CategoryChips, SortChip, StatusSegments, ViewMenu, type SortKey } from '@/components/lists/v2/ListControls';
+import { ItemCard, ItemRow } from '@/components/lists/v2/ListItems';
+import { categoriesOf, groupByCategory } from '@/lib/listItemDisplay';
+import { QuickAddBar, QuickAddSheet } from '@/components/lists/v2/QuickAdd';
+import { ItemSheet } from '@/components/lists/v2/ItemSheet';
+import { CustomizeSheet } from '@/components/lists/v2/CustomizeSheet';
+import { cn } from '@/lib/utils';
 
-type SortBy = 'name' | 'price_asc' | 'price_desc' | 'rating_desc';
 
 
 async function fetchList(listId: string, userId: string): Promise<CustomList | null> {
@@ -107,28 +100,34 @@ async function fetchStatuses(listId: string): Promise<ManagedListStatus[]> {
   return data || [];
 }
 
+const isView = (v: string): v is ListView => v === 'list' || v === 'cards' || v === 'grouped' || v === 'map';
+const isSort = (v: string): v is SortKey => ['recent', 'name', 'rating', 'price_asc', 'price_desc'].includes(v);
+const NO_CATEGORY = '__none__';
+
 export default function CustomListDetail() {
   const { listId } = useParams<{ listId: string }>();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const [addOpen, setAddOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [editItem, setEditItem] = useState<CustomListItem | null>(null);
+  const [pendingEditId, setPendingEditId] = useState<string | null>(null);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [sheetItemId, setSheetItemId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
-  const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
+  const [deleteItem, setDeleteItem] = useState<CustomListItem | null>(null);
+  const [deleteListOpen, setDeleteListOpen] = useState(false);
   const [activeStatusId, setActiveStatusId] = useState<string | null>(null);
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<SortBy>('name');
-  const [modifyMode, setModifyMode] = useState(false);
-  const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useViewMode(`custom-list-${listId}`);
   const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
   const mapFlyToRef = useRef<((lat: number, lng: number, itemId: string) => void) | null>(null);
   const mapFlyToMeRef = useRef<(() => void) | null>(null);
   const [locationDeniedOpen, setLocationDeniedOpen] = useState(false);
-  const mapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/auth');
@@ -176,16 +175,21 @@ export default function CustomListDetail() {
     }
   }, [sortedStatuses, activeStatusId]);
 
+  // A category that was deleted (or renamed away) shouldn't leave the list filtered to nothing.
+  useEffect(() => {
+    if (categoryId && categoryId !== NO_CATEGORY && !types.some((t) => t.id === categoryId)) setCategoryId(null);
+  }, [types, categoryId]);
+
+  // View and sort are remembered per list, on this device.
+  const isV2Preset = !!list && !!presetForIcon(list.icon) && ['🍽️', '🍸', '🫘', '☕', '🛍️', '🌍'].includes(list.icon);
+  const [storedView, setView] = useDeviceSetting<ListView>(`list-view-${listId}`, list ? defaultViewOf(list) : 'list', isView);
+  const [sortBy, setSortBy] = useDeviceSetting<SortKey>(`list-sort-${listId}`, isV2Preset ? 'recent' : 'name', isSort);
 
   const { data: following = [] } = useFollowing(user?.id);
-
   const shareIdentity = useMyShareIdentity();
-  const visibility = visibilityChip(list?.visibility, shareIdentity.isPrivate);
+
   const handleShareLink = async () => {
     if (!user || !list) return;
-    // Carries this user's referral code, so a friend who joins from the
-    // list is credited to them - and warns if a private profile means the
-    // link only opens for followers.
     const result = await shareListLink(user.id, list.id, list.name, shareIdentity.referralCode);
     announceShareResult(result, { privateProfile: shareIdentity.isPrivate });
   };
@@ -194,7 +198,10 @@ export default function CustomListDetail() {
     queryClient.invalidateQueries({ queryKey: ['custom_list_items', listId] });
     queryClient.invalidateQueries({ queryKey: ['custom_list_item_counts', user?.id] });
   };
-  const invalidateList = () => queryClient.invalidateQueries({ queryKey: ['custom_list', listId, user?.id] });
+  const invalidateList = () => {
+    queryClient.invalidateQueries({ queryKey: ['custom_list', listId, user?.id] });
+    queryClient.invalidateQueries({ queryKey: ['custom_lists', user?.id] });
+  };
   const invalidateTypes = () => {
     queryClient.invalidateQueries({ queryKey: ['custom_list_types', listId] });
     invalidateItems();
@@ -204,59 +211,76 @@ export default function CustomListDetail() {
     invalidateItems();
   };
 
-  const filteredItems = useMemo(
-    () =>
-      items
-        .filter((i) => !selectedTypeId || (i.type_ids || []).includes(selectedTypeId))
-        .filter((i) => {
-          if (!searchQuery.trim()) return true;
-          const q = searchQuery.toLowerCase();
-          return i.name.toLowerCase().includes(q) || i.address?.toLowerCase().includes(q);
-        })
-        .sort((a, b) => {
-          if (!list) return 0;
-          switch (sortBy) {
-            case 'price_asc':
-              return (getPriceSortValue(a, list) ?? 99) - (getPriceSortValue(b, list) ?? 99);
-            case 'price_desc':
-              return (getPriceSortValue(b, list) ?? -1) - (getPriceSortValue(a, list) ?? -1);
-            case 'rating_desc':
-              return (getRatingSortValue(b, list) ?? -1) - (getRatingSortValue(a, list) ?? -1);
-            default:
-              return a.name.localeCompare(b.name);
-          }
-        }),
-    [items, searchQuery, sortBy, selectedTypeId, list],
-  );
-  const currentItems = useMemo(
-    () => filteredItems.filter((i) => i.status_id === activeStatusId),
-    [filteredItems, activeStatusId],
-  );
+  // "Save and add details": open the editor once the new item is in the refetched items.
+  useEffect(() => {
+    if (!pendingEditId) return;
+    const found = items.find((i) => i.id === pendingEditId);
+    if (found) { setEditItem(found); setEditOpen(true); setPendingEditId(null); }
+  }, [items, pendingEditId]);
 
-  const handleChangeStatus = async (item: CustomListItem, statusId: string) => {
-    const { error } = await supabase
-      .from('custom_list_items')
-      .update({ status_id: statusId })
-      .eq('id', item.id);
+  // Search and category apply to every status; the status tabs show what's left in each.
+  const filteredItems = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const result = items
+      .filter((i) => {
+        if (!categoryId) return true;
+        const cats = categoriesOf(i, types);
+        return categoryId === NO_CATEGORY ? cats.length === 0 : cats.some((c) => c.id === categoryId);
+      })
+      .filter((i) => !q || i.name.toLowerCase().includes(q) || i.address?.toLowerCase().includes(q) || i.notes?.toLowerCase().includes(q));
+    if (!list) return result;
+    const byName = (a: CustomListItem, b: CustomListItem) => a.name.localeCompare(b.name);
+    return [...result].sort((a, b) => {
+      switch (sortBy) {
+        case 'recent': return (b.created_at ?? '').localeCompare(a.created_at ?? '') || byName(a, b);
+        // Unrated and unpriced items go last, not first, whichever way the list is sorted.
+        case 'rating': return (getRatingSortValue(b, list) ?? -Infinity) - (getRatingSortValue(a, list) ?? -Infinity) || byName(a, b);
+        case 'price_asc': return (getPriceSortValue(a, list) ?? Infinity) - (getPriceSortValue(b, list) ?? Infinity) || byName(a, b);
+        case 'price_desc': return (getPriceSortValue(b, list) ?? -Infinity) - (getPriceSortValue(a, list) ?? -Infinity) || byName(a, b);
+        default: return byName(a, b);
+      }
+    });
+  }, [items, types, categoryId, searchQuery, sortBy, list]);
+
+  const currentItems = useMemo(() => filteredItems.filter((i) => i.status_id === activeStatusId), [filteredItems, activeStatusId]);
+
+  const handleMove = async (item: CustomListItem, statusId: string) => {
+    const { error } = await supabase.from('custom_list_items').update({ status_id: statusId }).eq('id', item.id);
     if (error) {
-      toast.error('Failed to update');
-    } else {
-      const target = sortedStatuses.find((s) => s.id === statusId);
-      toast.success(target ? `Moved to ${target.name}` : 'Updated');
-      invalidateItems();
+      toast.error('Couldn’t move it. Check your connection and try again.');
+      return false;
     }
+    const target = sortedStatuses.find((s) => s.id === statusId);
+    toast.success(target ? `Moved to ${target.name}` : 'Updated');
+    invalidateItems();
+    return true;
   };
 
-  const handleDelete = async (itemId: string) => {
-    const { error } = await supabase.from('custom_list_items').delete().eq('id', itemId);
+  const handleDeleteItem = async () => {
+    if (!deleteItem) return;
+    const { error } = await supabase.from('custom_list_items').delete().eq('id', deleteItem.id);
     if (error) {
-      toast.error('Failed to delete');
+      toast.error('Couldn’t delete it. Check your connection and try again.');
     } else {
       void hapticWarning();
-      toast.success('Item deleted');
+      toast.success(`${deleteItem.name} deleted`);
+      setSheetItemId(null);
       invalidateItems();
     }
-    setDeleteItemId(null);
+    setDeleteItem(null);
+  };
+
+  const handleDeleteList = async () => {
+    if (!list) return;
+    const { error } = await supabase.from('custom_lists').delete().eq('id', list.id);
+    if (error) {
+      toast.error('Couldn’t delete the list. Check your connection and try again.');
+      return;
+    }
+    toast.success(`${list.name} deleted`);
+    queryClient.invalidateQueries({ queryKey: ['custom_lists', user?.id] });
+    queryClient.invalidateQueries({ queryKey: ['custom_list_item_counts', user?.id] });
+    navigate('/my-lists');
   };
 
   if (authLoading || loadingList) {
@@ -274,260 +298,240 @@ export default function CustomListDetail() {
         <main className="container py-8 px-4 text-center">
           <p className="text-muted-foreground mb-4">List not found.</p>
           <Button asChild>
-            <Link to="/my-lists">Back to My Lists</Link>
+            <Link to="/my-lists">Back to Lists</Link>
           </Button>
         </main>
       </div>
     );
   }
 
-  const hasValueSort = list.show_price || list.show_rating;
+  const layout = layoutOf(list);
+  const noun = nounOf(list);
+  const viewOptions = viewsFor(list, {
+    categories: types.length,
+    withPhotos: items.filter((i) => (i.images?.length ?? 0) > 0).length,
+    withCoords: items.filter((i) => i.latitude != null && i.longitude != null).length,
+  });
+  // A remembered view that this list can't show right now (e.g. Map after Location was turned off) falls back to List.
+  const view: ListView = viewOptions.find((o) => o.view === storedView)?.available ? storedView : 'list';
+  const sheetItem = items.find((i) => i.id === sheetItemId) ?? null;
+
+  const segments = sortedStatuses.map((s) => ({ id: s.id, label: s.name, count: filteredItems.filter((i) => i.status_id === s.id).length }));
+  const summary = items.length === 0
+    ? `No ${noun.many} yet`
+    : sortedStatuses.map((s) => `${items.filter((i) => i.status_id === s.id).length} ${s.name.toLowerCase()}`).join(' · ');
+  const uncategorized = items.some((i) => categoriesOf(i, types).length === 0);
+  const chips = [
+    ...types.map((t) => ({ id: t.id, label: t.name, icon: t.icon })),
+    ...(types.length > 0 && uncategorized ? [{ id: NO_CATEGORY, label: layout === 'travel' ? 'Not grouped yet' : 'No category' }] : []),
+  ];
+  const sortOptions: { key: SortKey; label: string }[] = [
+    { key: 'recent', label: 'Recently added' },
+    { key: 'name', label: 'Name A–Z' },
+    ...(list.show_rating ? [{ key: 'rating' as const, label: 'Highest rated' }] : []),
+    ...(list.show_price ? [{ key: 'price_asc' as const, label: 'Price: low to high' }, { key: 'price_desc' as const, label: 'Price: high to low' }] : []),
+  ];
+  const audience = list.visibility === 'private'
+    ? { Icon: Lock, label: 'Only me' }
+    : list.visibility === 'anonymous'
+      ? { Icon: EyeOff, label: 'Anonymous' }
+      : shareIdentity.isPrivate ? { Icon: Users, label: 'Followers' } : { Icon: Globe, label: 'Everyone' };
+  const activeStatus = sortedStatuses.find((s) => s.id === activeStatusId);
+  const openItem = (item: CustomListItem) => setSheetItemId(item.id);
+  const emptyText = searchQuery.trim()
+    ? `Nothing matches “${searchQuery.trim()}”`
+    : categoryId
+      ? `Nothing ${activeStatus ? activeStatus.name.toLowerCase() : ''} in this category`
+      : items.length === 0
+        ? `Add your first ${noun.one} below`
+        : `Nothing ${activeStatus ? activeStatus.name.toLowerCase() : ''} yet`;
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <main className="container py-4 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-4 sm:space-y-6">
-        <Button variant="ghost" size="sm" className="-ml-2" onClick={() => navigate('/my-lists')}>
-          <ArrowLeft className="h-4 w-4 mr-1.5" />
-          Lists
-        </Button>
-
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3 min-w-0">
-            <div
-              className="w-11 h-11 rounded-lg flex items-center justify-center text-xl shrink-0"
-              style={{ backgroundColor: `${list.color}22` }}
-            >
-              {list.icon}
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-xl sm:text-2xl font-bold truncate">{list.name}</h1>
-              <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
-                <span>{items.length} item{items.length === 1 ? '' : 's'}</span>
-                <span aria-hidden>·</span>
-                {/* Who can see it, at a glance; tapping opens the setting. */}
-                <button
-                  type="button"
-                  onClick={() => setSettingsOpen(true)}
-                  className="underline-offset-2 hover:underline"
-                  aria-label={`Who can see this list: ${visibility.label}. Change`}
-                >
-                  {visibility.icon} {visibility.label}
-                </button>
-                {list.visibility === 'anonymous' && list.discovery_token && (
-                  <>
-                    <span aria-hidden>·</span>
-                    <Link to={`/lists/discover/${list.discovery_token}`} className="text-primary underline-offset-2 hover:underline">
-                      See what others see
-                    </Link>
-                  </>
-                )}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
+      <main className="container px-4 pt-2 sm:px-6 lg:px-8 pb-[calc(56px+env(safe-area-inset-bottom,0px)+96px)] md:pb-28">
+        <div className="flex items-center justify-between">
+          <Button variant="ghost" size="sm" className="-ml-2 gap-1 px-2" onClick={() => navigate('/my-lists')}>
+            <ChevronLeft className="h-5 w-5" />
+            Lists
+          </Button>
+          <div className="flex items-center">
+            <Button variant="ghost" size="icon" aria-label={searchOpen ? 'Close search' : `Search ${list.name}`} aria-pressed={searchOpen}
+              onClick={() => { setSearchOpen((o) => !o); if (searchOpen) setSearchQuery(''); }}>
+              {searchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Share list">
-                  <Share2 className="h-4 w-4" />
+                <Button variant="ghost" size="icon" aria-label="List options">
+                  <MoreHorizontal className="h-5 w-5" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {/* A link names you as the sender and opens the list on your
-                    profile, so it's only offered for lists shown there. */}
+              <DropdownMenuContent align="end" className="w-60">
+                <DropdownMenuItem onClick={() => setCustomizeOpen(true)}>
+                  <SlidersHorizontal className="mr-2 h-4 w-4" />Customize list
+                </DropdownMenuItem>
                 {(list.visibility ?? 'profile') === 'profile' ? (
                   <DropdownMenuItem onClick={handleShareLink}>
-                    <Link2 className="h-4 w-4 mr-2" />
-                    Share Link
+                    <Link2 className="mr-2 h-4 w-4" />Share link
                   </DropdownMenuItem>
                 ) : (
-                  <DropdownMenuItem disabled className="whitespace-normal text-xs">
-                    Links are only for lists shown on your profile.
-                  </DropdownMenuItem>
+                  <DropdownMenuItem disabled className="whitespace-normal text-xs">Links are only for lists shown on your profile.</DropdownMenuItem>
                 )}
                 <DropdownMenuItem onClick={() => setConvertOpen(true)}>
-                  <Users className="h-4 w-4 mr-2" />
-                  Make a Shared List with a Friend
+                  <Users className="mr-2 h-4 w-4" />Make a shared list with a friend
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setDeleteListOpen(true)} className="text-destructive focus:text-destructive">
+                  <Trash2 className="mr-2 h-4 w-4" />Delete list
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="ghost" size="icon" aria-label="List settings" onClick={() => setSettingsOpen(true)}>
-              <Settings className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={modifyMode ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setModifyMode((m) => !m)}
-            >
-              <Pencil className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">{modifyMode ? 'Done' : 'Modify'}</span>
-            </Button>
-            <Button onClick={() => { setEditItem(null); setAddOpen(true); }} size="sm">
-              <Plus className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Add Item</span>
-            </Button>
           </div>
         </div>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder={`Search ${list.name.toLowerCase()}...`}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            <div className="mb-4">
-              <ListTypesManager
-                listId={listId!}
-                types={types}
-                onTypesChange={invalidateTypes}
-                modifyMode={modifyMode}
-                selectedTypeId={selectedTypeId}
-                onSelectType={setSelectedTypeId}
-              />
-            </div>
-
-            {modifyMode && (
-              <div className="mb-4">
-                <ListStatusesManager
-                  listId={listId!}
-                  statuses={sortedStatuses}
-                  onStatusesChange={invalidateStatuses}
-                />
-              </div>
-            )}
-
-            <Tabs value={activeStatusId ?? undefined} onValueChange={(v) => setActiveStatusId(v)}>
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-                <TabsList>
-                  {sortedStatuses.map((s) => (
-                    <TabsTrigger key={s.id} value={s.id} className="flex items-center gap-2">
-                      {s.name} ({filteredItems.filter((i) => i.status_id === s.id).length})
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-
-                <div className="flex items-center gap-2">
-                  {hasValueSort && (
-                    <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
-                      <SelectTrigger className="w-[150px] h-9">
-                        <SelectValue placeholder="Sort" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="name">Name (A-Z)</SelectItem>
-                        {list.show_price && (
-                          <>
-                            <SelectItem value="price_asc">Price: Low to High</SelectItem>
-                            <SelectItem value="price_desc">Price: High to Low</SelectItem>
-                          </>
-                        )}
-                        {list.show_rating && (
-                          <SelectItem value="rating_desc">Rating: High to Low</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  <ListViewToggle value={viewMode} onChange={setViewMode} />
-                </div>
-              </div>
-
-              <TabsContent value={activeStatusId ?? ''}>
-                {loadingItems ? (
-                  <div className="flex justify-center py-8">
-                    <Spinner className="h-6 w-6 animate-spin text-primary" />
-                  </div>
-                ) : currentItems.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <span className="text-3xl mb-2 block opacity-50">{list.icon}</span>
-                    <p>
-                      Nothing {sortedStatuses.find((s) => s.id === activeStatusId)?.name.toLowerCase() ?? ''} yet
-                    </p>
-                  </div>
-                ) : viewMode === 'list' ? (
-                  <div className="space-y-2">
-                    {currentItems.map((item) => (
-                      <CustomListItemRow
-                        key={item.id}
-                        item={item}
-                        list={list}
-                        statuses={sortedStatuses}
-                        types={types}
-                        onOpenDetail={() => {
-                          if (modifyMode) return;
-                          setEditItem(item);
-                          setAddOpen(true);
-                        }}
-                        onEdit={() => { setEditItem(item); setAddOpen(true); }}
-                        onDelete={() => setDeleteItemId(item.id)}
-                        onChangeStatus={(statusId) => handleChangeStatus(item, statusId)}
-                        quickDelete={modifyMode}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="grid gap-3 sm:gap-4 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
-                    {currentItems.map((item) => (
-                      <div
-                        key={item.id}
-                        onClick={modifyMode ? undefined : () => { setEditItem(item); setAddOpen(true); }}
-                        className={modifyMode ? '' : 'cursor-pointer'}
-                      >
-                        <CustomListItemCard
-                          item={item}
-                          list={list}
-                          statuses={sortedStatuses}
-                          types={types}
-                          onEdit={() => { setEditItem(item); setAddOpen(true); }}
-                          onDelete={() => setDeleteItemId(item.id)}
-                          onChangeStatus={(statusId) => handleChangeStatus(item, statusId)}
-                          quickDelete={modifyMode}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-
-        {list.show_location && (
-          <Card className="overflow-hidden" ref={mapRef}>
-            <CardContent className="p-0">
-              <div className="h-[250px] sm:h-[400px] relative">
-                <>
-                    <CustomListMapComponent
-                      items={currentItems}
-                      types={types}
-                      focusedItemId={focusedItemId}
-                      onFocusItem={setFocusedItemId}
-                      flyToRef={mapFlyToRef}
-                      flyToMeRef={mapFlyToMeRef}
-                      onLocationDenied={() => setLocationDeniedOpen(true)}
-                    />
-                    <NearMeButton onClick={() => mapFlyToMeRef.current?.()} />
-                  </>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="mt-1 flex items-center gap-3">
+          <ListGlyph icon={list.icon} color={list.color} size="lg" />
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl font-bold leading-tight tracking-tight line-clamp-2 [overflow-wrap:anywhere]">{list.name}</h1>
+            <p className="truncate text-sm text-muted-foreground">{summary}</p>
+          </div>
+          <button type="button" onClick={() => setCustomizeOpen(true)} aria-label={`Who can see this list: ${audience.label}. Change`}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-semibold active-press">
+            <audience.Icon className="h-3.5 w-3.5" />
+            <span className="hidden min-[360px]:inline">{audience.label}</span>
+          </button>
+        </div>
+        {list.visibility === 'anonymous' && list.discovery_token && (
+          <Link to={`/lists/discover/${list.discovery_token}`} className="mt-1 inline-block text-xs text-primary underline-offset-2 hover:underline">
+            See what others see
+          </Link>
         )}
+
+        {searchOpen && (
+          <div className="mt-3 flex h-11 items-center gap-2 rounded-xl border bg-card px-3 animate-in fade-in-0 slide-in-from-top-1 duration-150">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <input autoFocus value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={`Search ${list.name}`}
+              aria-label={`Search ${list.name}`} className="h-full min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground" />
+          </div>
+        )}
+
+        <div className="mt-4 space-y-3">
+          {segments.length > 0 && <StatusSegments segments={segments} value={activeStatusId} onChange={setActiveStatusId} />}
+          {chips.length > 0 ? (
+            <CategoryChips chips={chips} value={categoryId} onChange={setCategoryId}
+              trailing={sortOptions.length > 1 ? <SortChip value={sortBy} onChange={setSortBy} options={sortOptions} /> : undefined} />
+          ) : sortOptions.length > 1 ? (
+            <div className="flex justify-end"><SortChip value={sortBy} onChange={setSortBy} options={sortOptions} /></div>
+          ) : null}
+        </div>
+
+        <div className="mt-3">
+          {loadingItems ? (
+            <div className="flex justify-center py-12"><Spinner className="h-6 w-6 animate-spin text-primary" /></div>
+          ) : view === 'map' ? (
+            <div className="space-y-3">
+              <div className="relative h-[52vh] min-h-[280px] overflow-hidden rounded-2xl border">
+                <CustomListMapComponent
+                  items={currentItems}
+                  types={types}
+                  focusedItemId={focusedItemId}
+                  onFocusItem={setFocusedItemId}
+                  flyToRef={mapFlyToRef}
+                  flyToMeRef={mapFlyToMeRef}
+                  onLocationDenied={() => setLocationDeniedOpen(true)}
+                />
+                <NearMeButton onClick={() => mapFlyToMeRef.current?.()} />
+              </div>
+              <div className="divide-y">
+                {currentItems.map((item) => (
+                  <div key={item.id} className={cn(item.id === focusedItemId && 'bg-primary/5')}>
+                    <ItemRow item={item} list={list} types={types} onOpen={() => openItem(item)} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : currentItems.length === 0 ? (
+            <div className="flex flex-col items-center py-14 text-center text-muted-foreground animate-in fade-in-0 duration-300">
+              <ListGlyph icon={list.icon} color={list.color} size="lg" className="mb-3 opacity-80" />
+              <p>{emptyText}</p>
+            </div>
+          ) : view === 'cards' ? (
+            <div key={`cards-${activeStatusId}-${categoryId}`} className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 animate-in fade-in-0 duration-200">
+              {currentItems.map((item) => <ItemCard key={item.id} item={item} list={list} types={types} onOpen={() => openItem(item)} />)}
+            </div>
+          ) : view === 'grouped' ? (
+            <div key={`grouped-${activeStatusId}`} className="space-y-4 animate-in fade-in-0 duration-200">
+              {groupByCategory(currentItems, types, layout === 'travel' ? 'Not grouped yet' : 'No category').map((g) => (
+                <section key={g.key} aria-label={g.title}>
+                  <h2 className="sticky top-0 z-10 -mx-4 flex items-center justify-between bg-background/95 px-4 py-2 text-sm font-semibold backdrop-blur">
+                    <span className="truncate">{g.title}</span>
+                    <span className="tabular-nums text-muted-foreground">{g.items.length}</span>
+                  </h2>
+                  <div className="divide-y">
+                    {g.items.map((item) => <ItemRow key={item.id} item={item} list={list} types={types} onOpen={() => openItem(item)} />)}
+                  </div>
+                </section>
+              ))}
+            </div>
+          ) : (
+            <div key={`list-${activeStatusId}-${categoryId}`} className="divide-y animate-in fade-in-0 duration-200">
+              {currentItems.map((item) => <ItemRow key={item.id} item={item} list={list} types={types} onOpen={() => openItem(item)} />)}
+            </div>
+          )}
+        </div>
       </main>
 
+      <QuickAddBar list={list} onOpen={() => setQuickAddOpen(true)}>
+        <ViewMenu options={viewOptions} value={view} onChange={setView} />
+      </QuickAddBar>
+
+      <QuickAddSheet
+        open={quickAddOpen}
+        onOpenChange={setQuickAddOpen}
+        list={list}
+        types={types}
+        statuses={sortedStatuses}
+        statusId={activeStatusId}
+        categoryId={categoryId && categoryId !== NO_CATEGORY ? categoryId : null}
+        onSaved={() => invalidateItems()}
+        onSavedOpenDetails={(id) => setPendingEditId(id)}
+      />
+
+      <ItemSheet
+        item={sheetItem}
+        list={list}
+        types={types}
+        statuses={sortedStatuses}
+        onClose={() => setSheetItemId(null)}
+        onEdit={(item) => { setSheetItemId(null); setEditItem(item); setEditOpen(true); }}
+        onDelete={(item) => setDeleteItem(item)}
+        onMove={handleMove}
+      />
+
       <AddCustomListItemDialog
-        open={addOpen}
-        onOpenChange={setAddOpen}
+        open={editOpen}
+        onOpenChange={setEditOpen}
         list={list}
         types={types}
         statuses={sortedStatuses}
         onSuccess={invalidateItems}
         editItem={editItem}
+      />
+
+      <CustomizeSheet
+        open={customizeOpen}
+        onOpenChange={setCustomizeOpen}
+        list={list}
+        types={types}
+        statuses={sortedStatuses}
+        view={view}
+        viewOptions={viewOptions}
+        onViewChange={setView}
+        onListChanged={invalidateList}
+        onTypesChanged={invalidateTypes}
+        onStatusesChanged={invalidateStatuses}
+        onOpenAllSettings={() => { setCustomizeOpen(false); setSettingsOpen(true); }}
       />
 
       <CreateListDialog
@@ -547,15 +551,30 @@ export default function CustomListDetail() {
         onSuccess={(newListId) => navigate(sharedListPath(newListId))}
       />
 
-      <AlertDialog open={!!deleteItemId} onOpenChange={(o) => !o && setDeleteItemId(null)}>
+      <AlertDialog open={!!deleteItem} onOpenChange={(o) => !o && setDeleteItem(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this item?</AlertDialogTitle>
-            <AlertDialogDescription>This can't be undone.</AlertDialogDescription>
+            <AlertDialogTitle>Delete {deleteItem?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>This removes it and its photos from {list.name}. This can’t be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deleteItemId && handleDelete(deleteItemId)}>Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteItem} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteListOpen} onOpenChange={setDeleteListOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {list.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes the list and its {items.length} {items.length === 1 ? noun.one : noun.many}, with their photos. This can’t be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteList} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete list</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

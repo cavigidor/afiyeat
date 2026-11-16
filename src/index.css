@@ -413,3 +413,13 @@ All colors MUST be HSL.
   from { transform: translateX(-100%); }
   to { transform: translateX(300%); }
 }
+
+@layer utilities {
+  /* Sideways-scrolling chip rows: scrollable by touch, no visible bar. */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
