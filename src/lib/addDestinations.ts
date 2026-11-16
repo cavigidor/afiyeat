@@ -128,10 +128,41 @@ export function readLastDestination(): string | null {
   }
 }
 
+// The few destinations used most recently, newest first, shown as one-tap
+// shortcuts. Same rules as above: device-local, optional, never authoritative.
+const RECENT_DESTINATIONS_KEY = 'afiyeat:add-item:recent-destinations';
+export const RECENT_DESTINATIONS_MAX = 4;
+
+export function readRecentDestinations(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(RECENT_DESTINATIONS_KEY) ?? '[]');
+    const keys = Array.isArray(raw) ? raw.filter((k): k is string => typeof k === 'string') : [];
+    const last = readLastDestination();
+    // Older installs only remembered the last destination.
+    return (last && !keys.includes(last) ? [last, ...keys] : keys).slice(0, RECENT_DESTINATIONS_MAX);
+  } catch {
+    return [];
+  }
+}
+
 export function rememberDestination(key: string): void {
   try {
     localStorage.setItem(LAST_DESTINATION_KEY, key);
+    const next = [key, ...readRecentDestinations().filter((k) => k !== key)].slice(0, RECENT_DESTINATIONS_MAX);
+    localStorage.setItem(RECENT_DESTINATIONS_KEY, JSON.stringify(next));
   } catch {
     // Storage unavailable (private mode etc.) - nothing to remember.
   }
+}
+
+/**
+ * The shortcuts to offer: recent destinations that still exist, then My
+ * Restaurants, so there's always somewhere one tap away. Only worth showing
+ * when there are at least two to choose between.
+ */
+export function shortcutDestinations(all: AddDestination[], recent: string[]): AddDestination[] {
+  const byKey = new Map(all.map((d) => [d.key, d]));
+  const keys = [...recent, 'restaurants'].filter((k, i, a) => byKey.has(k) && a.indexOf(k) === i);
+  const picked = keys.slice(0, RECENT_DESTINATIONS_MAX).map((k) => byKey.get(k)!);
+  return picked.length >= 2 ? picked : [];
 }

@@ -109,7 +109,8 @@ function ribbon() {
   const reset = document.createElement('button');
   reset.textContent = 'Reset';
   reset.style.cssText = 'font:inherit;letter-spacing:0;color:#111;background:#fff;border:0;border-radius:999px;padding:2px 6px;';
-  reset.onclick = () => { try { localStorage.removeItem(DB_KEY); localStorage.removeItem(UPLOADS_KEY); } catch { /* ignore */ } location.reload(); };
+  // The demo has its own origin, so Reset clears everything it kept (data, uploads, remembered views and lists).
+  reset.onclick = () => { try { localStorage.clear(); } catch { /* ignore */ } location.reload(); };
   el.appendChild(reset);
   document.body.appendChild(el);
 }
