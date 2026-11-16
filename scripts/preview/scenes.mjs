@@ -51,6 +51,8 @@ export const SCENES = [
   { name: 'quick-add-drink', path: '/my-lists', steps: all(openList('Drinks'), tap('Add a drink'), typeInto('input[aria-label="Add a drink"]', 'Negroni')) },
   { name: 'quick-add-place', path: '/my-lists', steps: all(openList('Coffee Shops'), tap('Search a café'), typeInto('input[aria-label="Search a café"]', 'cafe')), settle: 1500 },
   { name: 'item-sheet', path: '/my-lists', steps: all(openList('Drinks'), tap('Tried, 5'), async (page) => { await page.evaluate(() => [...document.querySelectorAll('main button')].find((b) => b.textContent?.includes('Barolo Ravera'))?.click()); await new Promise((r) => setTimeout(r, 700)); }) },
+  // Seeds recent destinations the way two earlier adds would, then opens the universal Add item.
+  { name: 'add-item-recent', path: '/my-lists', steps: all(async (page) => { await page.evaluate(() => { const d = JSON.parse(localStorage.getItem('afiyeat-demo-db-v1')); const id = d.custom_lists.find((l) => l.name === 'Drinks').id; localStorage.setItem('afiyeat:add-item:recent-destinations', JSON.stringify([`custom:${id}`, 'restaurants'])); localStorage.setItem('afiyeat:add-item:last-destination', `custom:${id}`); }); }, tap('Add item')), settle: 900 },
   { name: 'customize', path: '/my-lists', steps: all(openList('Drinks'), tap('List options'), tap('Customize list')) },
   { name: 'customize-fields', path: '/my-lists', steps: all(openList('Drinks'), tap('List options'), tap('Customize list'), async (page) => { await page.evaluate(() => [...document.querySelectorAll('[role=dialog] button')].find((b) => b.textContent?.startsWith('Fields'))?.click()); await new Promise((r) => setTimeout(r, 400)); }) },
 ];

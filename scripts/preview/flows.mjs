@@ -88,6 +88,42 @@ const FLOWS = {
     assert.match(await page.evaluate(() => location.hash), new RegExp(created.id));
   },
 
+  async 'universal Add item: explicit Add to an assumed list, then a one-tap recent shortcut'(page) {
+    await tap('Add item')(page); await wait(700);
+    // The destination is assumed (My Restaurants), so nothing saves until Add is tapped.
+    await type(page, '#add-item-search', 'Golden'); await wait(900);
+    await tapContaining(page, '[role=dialog] button, [role=dialog] [role=option]', 'Golden Hour');
+    let d = await db(page);
+    assert.equal(d.restaurants.filter((r) => r.name === 'Golden Hour Café').length, 0, 'picking a result alone saves nothing');
+    await tap('Add to My Restaurants')(page); await wait(900);
+    d = await db(page);
+    const saved = d.restaurants.find((r) => r.name === 'Golden Hour Café');
+    assert.ok(saved, 'saved after Add');
+    assert.equal(saved.apple_place_id, 'demo-2');
+    assert.equal(saved.status, 'to_go');
+    // Choose Books once through the picker...
+    await tap('Add item')(page); await wait(700);
+    await page.click('#add-item-destination'); await wait(400);
+    await tapContaining(page, '[role=option]', 'Books'); await wait(500);
+    await type(page, '#add-item-name', 'Piranesi');
+    await tap('Add to Books')(page); await wait(900);
+    // ...then the next add offers My Restaurants and Books as one-tap shortcuts.
+    await tap('Add item')(page); await wait(700);
+    const chips = await page.$$eval('[role=group][aria-label="Recent lists"] button', (bs) => bs.map((b) => b.textContent.trim()));
+    assert.ok(chips.some((c) => c.includes('Books')) && chips.some((c) => c.includes('My Restaurants')), `shortcuts: ${chips}`);
+    await tapContaining(page, '[role=group][aria-label="Recent lists"] button', 'My Restaurants');
+    await tapContaining(page, '[role=group][aria-label="Recent lists"] button', 'Books');
+    await type(page, '#add-item-name', 'The Overstory');
+    await tap('Add to Books')(page); await wait(900);
+    d = await db(page);
+    const books = listByName(d, 'Books');
+    for (const n of ['Piranesi', 'The Overstory']) {
+      const item = d.custom_list_items.find((i) => i.name === n);
+      assert.equal(item?.list_id, books.id, `${n} is on Books`);
+      assert.ok(item.status_id, `${n} has a status`);
+    }
+  },
+
   async 'existing lists and My Restaurants are unchanged by visiting them'(page) {
     const before = await db(page);
     await openList(page, 'Books'); await page.goBack(); await wait(600);

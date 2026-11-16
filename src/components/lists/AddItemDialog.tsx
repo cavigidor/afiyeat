@@ -42,6 +42,8 @@ import {
   fetchListStatuses,
   fetchListTypes,
   readLastDestination,
+  readRecentDestinations,
+  shortcutDestinations,
   rememberDestination,
   type AddDestination,
 } from '@/lib/addDestinations';
@@ -115,6 +117,15 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null,
   );
   const [destKey, setDestKey] = useState<string>('restaurants');
   const dest = allDestinations.find((d) => d.key === destKey) ?? RESTAURANTS_DESTINATION;
+  // Read once per opening, so the row doesn't reshuffle while you use it.
+  const [recentKeys, setRecentKeys] = useState<string[]>([]);
+  useEffect(() => {
+    if (open) setRecentKeys(readRecentDestinations());
+  }, [open]);
+  const shortcuts = useMemo(
+    () => (destinations ? shortcutDestinations(allDestinations, recentKeys) : []),
+    [destinations, allDestinations, recentKeys],
+  );
 
   // Pick the starting destination each time the dialog opens: the one
   // asked for, else the last one used (if it still exists), else My
@@ -472,6 +483,25 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null,
                 )}
               </SelectContent>
             </Select>
+            {shortcuts.length > 0 && (
+              <div role="group" aria-label="Recent lists" className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1 py-0.5">
+                {shortcuts.map((d) => (
+                  <button
+                    key={d.key}
+                    type="button"
+                    aria-pressed={d.key === dest.key}
+                    disabled={saving}
+                    onClick={() => setDestKey(d.key)}
+                    className={`flex h-8 max-w-[11rem] shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors ${
+                      d.key === dest.key ? 'border-primary bg-primary text-primary-foreground' : 'bg-background hover:bg-muted'
+                    }`}
+                  >
+                    <span aria-hidden>{d.icon}</span>
+                    <span className="truncate">{d.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <p id="add-item-destination-hint" className="text-xs text-muted-foreground">
               {destinationsFailed ? "Couldn't load your lists - you can still add to My Restaurants." : destinationSummary}
             </p>
