@@ -25,6 +25,7 @@ function save(key: string, value: unknown) {
 }
 
 const db: DemoDb = load(DB_KEY, demoFixtures);
+save(DB_KEY, db); // so a fresh preview's data is readable (and survives reloads) before the first change
 const uploads: Record<string, string> = load(UPLOADS_KEY, () => ({}));
 
 const demoFetch = createDemoFetch({
