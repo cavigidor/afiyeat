@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, ListChecks, Settings, Trash2, UtensilsCrossed, ListPlus, Users, AlertTriangle } from 'lucide-react';
+import { Plus, Settings, Trash2, Users, AlertTriangle, MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreateListDialog, type CustomList } from '@/components/lists/CreateListDialog';
 import { AddItemDialog } from '@/components/lists/AddItemDialog';
@@ -34,6 +34,12 @@ import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CommunityListsBrowser } from '@/components/discovery/CommunityListsBrowser';
 import { sharedListPath } from '@/lib/navigation';
+import { NewListSheet } from '@/components/lists/v2/NewListSheet';
+import { ListGlyph, MY_RESTAURANTS_GLYPH } from '@/components/lists/v2/ListGlyph';
+import { nounOf } from '@/lib/listPresets';
+import { useMyShareIdentity } from '@/hooks/useMyShareIdentity';
+import type { ListVisibility } from '@/lib/listVisibility';
+import { cn } from '@/lib/utils';
 
 async function fetchMyLists(userId: string): Promise<CustomList[]> {
   const { data, error } = await supabase
@@ -145,6 +151,8 @@ export default function MyLists() {
   };
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
+  const [newListOpen, setNewListOpen] = useState(false);
+  const identity = useMyShareIdentity();
   const [createSharedOpen, setCreateSharedOpen] = useState(false);
   const [editList, setEditList] = useState<CustomList | null>(null);
   const [deleteListId, setDeleteListId] = useState<string | null>(null);
@@ -239,37 +247,22 @@ export default function MyLists() {
       {/* pb-24 on phones keeps the last card clear of the Add item button. */}
       <main className="container pt-4 sm:pt-8 pb-24 md:pb-8 px-4 sm:px-6 lg:px-8 space-y-4 sm:space-y-6">
         <div className="flex items-center justify-between gap-2">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Lists</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Remember, organise and share the things you love.
-            </p>
-          </div>
+          <h1 className="text-3xl font-bold tracking-tight">Lists</h1>
           <div className="flex shrink-0 items-center gap-2">
-          {/* Desktop: Add item sits next to New list. Phones get the
-              floating button below instead, like My Restaurants. */}
-          <Button className="hidden md:inline-flex" onClick={() => setAddItemOpen(true)}>
-            <Plus className="h-4 w-4 mr-1.5" />
-            Add item
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="outline" className="sm:size-default shrink-0">
-                <ListPlus className="h-4 w-4 min-[380px]:mr-1.5" />
-                <span className="hidden min-[380px]:inline">New list</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => { setEditList(null); setCreateOpen(true); }}>
-                <ListPlus className="h-4 w-4 mr-2" />
-                Personal List
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setCreateSharedOpen(true)}>
-                <Users className="h-4 w-4 mr-2" />
-                Shared List with a Friend
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            {/* Desktop: Add item sits next to New list. Phones get the
+                floating button below instead, like My Restaurants. */}
+            <Button className="hidden md:inline-flex" variant="outline" onClick={() => setAddItemOpen(true)}>
+              <Plus className="h-4 w-4 mr-1.5" />
+              Add item
+            </Button>
+            <Button
+              size="icon"
+              className="h-11 w-11 rounded-full shadow-md active-press"
+              aria-label="New list"
+              onClick={() => setNewListOpen(true)}
+            >
+              <Plus className="h-5 w-5" />
+            </Button>
           </div>
         </div>
 
@@ -289,111 +282,42 @@ export default function MyLists() {
         {tab === 'mine' && (loadingLists ? (
           <CardGridSkeleton />
         ) : (
-          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-            {/* Pinned - My Restaurants is the flagship list and always shows
-                first, ahead of any custom list. It isn't a custom_lists row
-                (predates that table) - manage restaurant types from within
-                that page, but it can be cleared out entirely from here. */}
-            <Card
-              interactive
-              className="hover:shadow-md transition-shadow overflow-hidden border-primary/30"
-              onClick={() => navigate('/my-list')}
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-3">
+            {/* Pinned: My Restaurants is the flagship list and always comes first. It isn't a
+                custom_lists row (it predates that table); it can still be cleared from its menu. */}
+            <ListTile
+              icon={MY_RESTAURANTS_GLYPH}
+              name="My Restaurants"
+              meta={`${restaurantCount} place${restaurantCount === 1 ? '' : 's'} · pinned`}
+              onOpen={() => navigate('/my-list')}
+              menu={restaurantCount > 0 ? [{ label: 'Delete all places', destructive: true, onSelect: () => setDeleteRestaurantsOpen(true) }] : []}
+            />
+            {lists.map((list) => {
+              const count = itemCounts[list.id] || 0;
+              const noun = nounOf(list);
+              return (
+                <ListTile
+                  key={list.id}
+                  icon={list.icon}
+                  color={list.color}
+                  name={list.name}
+                  meta={`${count} ${count === 1 ? noun.one : noun.many} · ${audienceWord(list.visibility, identity.isPrivate)}`}
+                  onOpen={() => navigate(`/my-lists/${list.id}`)}
+                  menu={[
+                    { label: 'List settings', onSelect: () => { setEditList(list); setCreateOpen(true); } },
+                    { label: 'Delete list', destructive: true, onSelect: () => setDeleteListId(list.id) },
+                  ]}
+                />
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setNewListOpen(true)}
+              className="flex min-h-[132px] flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-muted-foreground/40 text-primary transition-colors hover:bg-primary/5 active-press"
             >
-              <div className="h-1.5 bg-primary" />
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="w-11 h-11 rounded-lg flex items-center justify-center text-xl shrink-0 bg-primary/10 text-primary">
-                  <UtensilsCrossed className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium truncate">My Restaurants</p>
-                  <p className="text-xs text-muted-foreground">
-                    {restaurantCount} place{restaurantCount === 1 ? '' : 's'}
-                  </p>
-                </div>
-                {restaurantCount > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
-                    aria-label="Delete My Restaurants"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDeleteRestaurantsOpen(true);
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-
-            {lists.length === 0 ? (
-              <Card className="sm:col-span-2 lg:col-span-3">
-                <CardContent className="py-10 text-center">
-                  <ListChecks className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
-                  <h3 className="text-base font-medium mb-1">No custom lists yet</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Create a list for anything - movies to watch, beers to try, books to read.
-                  </p>
-                  <Button size="sm" onClick={() => { setEditList(null); setCreateOpen(true); }}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create New List
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-            lists.map((list) => (
-              <Card
-                key={list.id}
-                interactive
-                className="hover:shadow-md transition-shadow overflow-hidden"
-                onClick={() => navigate(`/my-lists/${list.id}`)}
-              >
-                <div className="h-1.5" style={{ backgroundColor: list.color }} />
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div
-                    className="w-11 h-11 rounded-lg flex items-center justify-center text-xl shrink-0"
-                    style={{ backgroundColor: `${list.color}22` }}
-                  >
-                    {list.icon}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium truncate">{list.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {itemCounts[list.id] || 0} item{itemCounts[list.id] === 1 ? '' : 's'}
-                    </p>
-                  </div>
-                  <div className="flex items-center shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      aria-label="List settings"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditList(list);
-                        setCreateOpen(true);
-                      }}
-                    >
-                      <Settings className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      aria-label="Delete list"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteListId(list.id);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-            )}
+              <Plus className="h-6 w-6" />
+              <span className="font-semibold">New list</span>
+            </button>
           </div>
         ))}
 
@@ -474,6 +398,14 @@ export default function MyLists() {
         preferredDestination={tab === 'shared' ? 'shared' : null}
       />
 
+      <NewListSheet
+        open={newListOpen}
+        onOpenChange={setNewListOpen}
+        existingNames={lists.map((l) => l.name)}
+        onBlankList={() => { setEditList(null); setCreateOpen(true); }}
+        onSharedList={() => setCreateSharedOpen(true)}
+      />
+
       <CreateListDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
@@ -531,6 +463,52 @@ export default function MyLists() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+/** "followers" / "everyone" / "only me" / "anonymous", for a list tile's second line. */
+function audienceWord(visibility: ListVisibility | undefined, privateAccount: boolean): string {
+  if (visibility === 'private') return 'only me';
+  if (visibility === 'anonymous') return 'anonymous';
+  return privateAccount ? 'followers' : 'everyone';
+}
+
+interface TileMenuItem { label: string; onSelect: () => void; destructive?: boolean }
+
+function ListTile({ icon, color, name, meta, onOpen, menu }: {
+  icon: string; color?: string; name: string; meta: string; onOpen: () => void; menu: TileMenuItem[];
+}) {
+  return (
+    <div className="group relative min-w-0 rounded-2xl border bg-card shadow-sm transition-shadow hover:shadow-md">
+      <button type="button" onClick={onOpen} className="flex h-full min-h-[132px] w-full flex-col items-start gap-3 rounded-2xl p-3.5 text-left active-press">
+        <ListGlyph icon={icon} color={color} />
+        <span className="min-w-0 w-full">
+          <span className="block font-semibold leading-snug line-clamp-2 [overflow-wrap:anywhere]">{name}</span>
+          <span className="mt-0.5 block truncate text-xs text-muted-foreground">{meta}</span>
+        </span>
+      </button>
+      {menu.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label={`${name} options`}
+              className="absolute right-1.5 top-1.5 rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted active-press"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {menu.map((m) => (
+              <DropdownMenuItem key={m.label} onClick={m.onSelect} className={cn(m.destructive && 'text-destructive focus:text-destructive')}>
+                {m.destructive ? <Trash2 className="mr-2 h-4 w-4" /> : <Settings className="mr-2 h-4 w-4" />}
+                {m.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </div>
   );
 }
