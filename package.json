@@ -10,7 +10,9 @@
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:demo": "vite build --mode demo --outDir dist-demo",
+    "preview:shots": "node scripts/preview/shoot.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",
@@ -77,6 +79,7 @@
     "lovable-tagger": "^1.1.11",
     "postcss": "^8.5.6",
     "postgres": "^3.4.9",
+    "puppeteer-core": "^24.43.1",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",

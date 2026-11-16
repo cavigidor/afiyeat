@@ -6,7 +6,7 @@ import { InvitedByDialog } from "@/components/passport/InvitedByDialog";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, HashRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PushNotificationManager } from "@/components/shared/PushNotificationManager";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
@@ -177,6 +177,9 @@ function NativeLaunchGate() {
   return null;
 }
 
+// The demo preview (vite --mode demo) is served as static files, so it routes on the URL hash.
+const Router = import.meta.env.VITE_DEMO === "1" ? HashRouter : BrowserRouter;
+
 const App = () => {
   // No permission requests here. Launch used to ask for location on every
   // cold start; each permission is now requested when its feature is used
@@ -193,7 +196,7 @@ const App = () => {
       <PushNotificationManager />
       <TooltipProvider>
         <Sonner />
-        <BrowserRouter>
+        <Router>
           <ReferralCapture />
           {/* Opens tapped afiyeat.com links on the right screen (iOS). */}
           <NativeLinkRouter />
@@ -209,7 +212,7 @@ const App = () => {
             <PersistentTabs />
             <AnimatedRoutes />
           </AccountBoundary>
-        </BrowserRouter>
+        </Router>
       </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
