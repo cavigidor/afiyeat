@@ -146,23 +146,22 @@ export function customListItemPayload(
   name: string,
   fields: CustomListFields,
 ) {
+  // Only fields the list currently shows are written. A hidden field - or the price/rating style not
+  // in use - is left out entirely rather than set to null, so hiding a field (or switching between $
+  // and an amount, or 1-10 and stars) never deletes what was saved there. On insert, a left-out column
+  // simply takes its default (null).
   const parsedPriceManual = fields.priceManual?.trim() ? parseFloat(fields.priceManual) : null;
   const parsedRatingManual = fields.ratingManual?.trim() ? parseFloat(fields.ratingManual) : null;
+  const number = (v: number | null) => (v != null && !Number.isNaN(v) ? v : null);
   return {
     name: name.trim(),
-    ...(list.show_location ? location : { apple_place_id: null, address: null, latitude: null, longitude: null }),
+    ...(list.show_location ? location : {}),
     type_ids: fields.typeIds,
-    price_level: list.show_price && list.price_mode === 'dollar' ? fields.priceLevel ?? null : null,
-    price_manual:
-      list.show_price && list.price_mode === 'manual' && parsedPriceManual != null && !Number.isNaN(parsedPriceManual)
-        ? parsedPriceManual
-        : null,
-    rating: list.show_rating && list.rating_mode !== 'manual' ? fields.rating ?? null : null,
-    rating_manual:
-      list.show_rating && list.rating_mode === 'manual' && parsedRatingManual != null && !Number.isNaN(parsedRatingManual)
-        ? parsedRatingManual
-        : null,
-    notes: list.show_notes ? fields.notes?.trim() || null : null,
+    ...(list.show_price && list.price_mode === 'dollar' ? { price_level: fields.priceLevel ?? null } : {}),
+    ...(list.show_price && list.price_mode === 'manual' ? { price_manual: number(parsedPriceManual) } : {}),
+    ...(list.show_rating && list.rating_mode !== 'manual' ? { rating: fields.rating ?? null } : {}),
+    ...(list.show_rating && list.rating_mode === 'manual' ? { rating_manual: number(parsedRatingManual) } : {}),
+    ...(list.show_notes ? { notes: fields.notes?.trim() || null } : {}),
     status_id: fields.statusId,
   };
 }
