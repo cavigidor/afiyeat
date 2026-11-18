@@ -43,8 +43,8 @@ export const ALL_DAILY_PUSH_KINDS: DailyPushKind[] = DAILY_PUSHES.map((p) => p.k
 /** Shown next to the opt-in switch. Change CONSENT_VERSION whenever this
  *  wording changes, so each stored consent records what the person saw. */
 export const DAILY_PUSH_CONSENT_TEXT =
-  'Yes, send me up to three Afiyeat notifications a day with a good-morning fun fact and ideas for ' +
-  'exploring my city, at the times below in my time zone. You can turn these off here at any time.';
+  'Yes, send me up to three Afiyeat notifications a day: a good-morning fun fact at 7 AM and ideas for ' +
+  'exploring my city at 8 AM and 5 PM, in my time zone. You can turn these off here at any time.';
 export const DAILY_PUSH_CONSENT_VERSION = '2026-11-18';
 
 export type DailyPushConsents =
