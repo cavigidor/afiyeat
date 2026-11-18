@@ -54,17 +54,54 @@ export function PushNotificationManager() {
   const { user } = useAuth();
   const userId = user?.id;
 
-  // Keeps profiles.timezone reasonably fresh so server-side crons (e.g. the
-  // daily good-morning nudge) can fire at 8am in each user's own timezone
-  // instead of one fixed UTC time for everyone. Runs on every sign-in/cold
-  // start (not just push registration, and not gated on isNative() - web
-  // sessions get a timezone too), so it also picks up a user traveling to
-  // a new timezone next time they open the app.
+  // Keeps profiles.timezone fresh so the daily pushes (7am fun fact, 8am and
+  // 5pm exploring) go out at those times in the user's own timezone. Saved
+  // on every sign-in/cold start AND whenever the app comes back to the
+  // foreground, so someone who lands in a new timezone with the app still
+  // in the background is picked up the next time they open it, not only
+  // after a full restart. Not gated on isNative(): web sessions save a
+  // timezone too. Only writes when the value actually changed.
   useEffect(() => {
     if (!userId) return;
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (!timeZone) return;
-    void supabase.from('profiles').update({ timezone: timeZone }).eq('user_id', userId);
+    let lastSaved: string | null = null;
+    let cancelled = false;
+    let removeAppListener: (() => void) | null = null;
+
+    const saveTimeZone = () => {
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (!timeZone || timeZone === lastSaved) return;
+      lastSaved = timeZone;
+      void supabase
+        .from('profiles')
+        .update({ timezone: timeZone })
+        .eq('user_id', userId)
+        .then(({ error }) => {
+          if (error) lastSaved = null; // try again next time
+        });
+    };
+
+    saveTimeZone();
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') saveTimeZone();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    if (isNative()) {
+      void import('@capacitor/app').then(async ({ App }) => {
+        const handle = await App.addListener('appStateChange', ({ isActive }) => {
+          if (isActive) saveTimeZone();
+        });
+        if (cancelled) void handle.remove();
+        else removeAppListener = () => void handle.remove();
+      });
+    }
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisibility);
+      removeAppListener?.();
+    };
   }, [userId]);
 
   // Re-registers on sign-in if notifications are already allowed, so a

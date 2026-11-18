@@ -42,6 +42,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Pencil, Save, LogOut, Lock, Check, X, UserPlus, Trash2, Stamp, LifeBuoy, ChevronRight } from 'lucide-react';
 import { buildLabel } from '@/lib/buildInfo';
 import { BlockedAccountsCard } from '@/components/moderation/BlockedAccountsCard';
+import { NotificationSettingsCard } from '@/components/shared/NotificationSettingsCard';
 import { PassportBadge } from '@/components/passport/PassportBadge';
 import { toast } from 'sonner';
 import { blockedByContentFilter } from '@/lib/contentFilter';
@@ -544,6 +545,8 @@ export default function Profile() {
             </div>
           </CardContent>
         </Card>
+
+        <NotificationSettingsCard />
 
         <BlockedAccountsCard />
 
