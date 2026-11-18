@@ -124,6 +124,47 @@ const FLOWS = {
     }
   },
 
+  async 'photos: picking more than 5 is refused at once; 5 is accepted and the add tile goes away'(page) {
+    const fs = await import('node:fs');
+    const os = await import('node:os');
+    const path = await import('node:path');
+    // Tiny valid PNGs on disk for the file input.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'afiyeat-photos-'));
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+    const files = Array.from({ length: 6 }, (_, i) => { const f = path.join(dir, `photo-${i}.png`); fs.writeFileSync(f, png); return f; });
+    const toasts = () => page.$$eval('[data-sonner-toast]', (ts) => ts.map((t) => t.textContent.trim()));
+    const previews = () => page.$$eval('[role=dialog] img[alt]', (imgs) => imgs.length);
+
+    await tap('Add item')(page); await wait(700);
+    await type(page, '#add-item-name', 'Photo test');
+    await tapContaining(page, '[role=dialog] button', 'More details');
+    const input = await page.$('[role=dialog] input[type=file]');
+    assert.ok(input, 'photo input');
+    await input.uploadFile(...files); await wait(500);
+    assert.ok((await toasts()).some((t) => t.includes('You can only add 5 images.')), `toast: ${await toasts()}`);
+    assert.equal(await previews(), 0, 'nothing from the over-limit pick was kept');
+
+    await input.uploadFile(...files.slice(0, 5)); await wait(1500);
+    assert.equal(await previews(), 5, 'five accepted');
+    assert.equal(await page.$('[role=dialog] button[aria-label="Add photos"]'), null, 'add tile hidden at the cap');
+  },
+
+  async 'Profile > Notifications: three daily switches; an opt-out saves and survives a reload'(page) {
+    await page.goto(page.url().replace(/[?]reset/, '').replace(/#.*$/, '#/profile'), { waitUntil: 'networkidle0' }); await wait(900);
+    const sw = (name) => page.evaluateHandle((n) => [...document.querySelectorAll('[role=switch]')].find((el) => el.id && document.querySelector(`label[for="${el.id}"]`)?.textContent?.includes(n)), name);
+    for (const n of ['Good morning fun fact', 'Explore your city', 'Evening exploring']) {
+      const h = (await sw(n)).asElement();
+      assert.ok(h, `switch ${n}`);
+      assert.equal(await h.evaluate((el) => el.getAttribute('aria-checked')), 'true', `${n} on by default`);
+    }
+    await (await sw('Evening exploring')).asElement().click(); await wait(800);
+    const d = await db(page);
+    assert.deepEqual((d.notification_opt_outs ?? []).map((r) => r.push_kind), ['evening_explore']);
+    await page.reload({ waitUntil: 'networkidle0' }); await wait(900);
+    assert.equal(await (await sw('Evening exploring')).asElement().evaluate((el) => el.getAttribute('aria-checked')), 'false', 'still off after reload');
+    assert.equal(await (await sw('Good morning fun fact')).asElement().evaluate((el) => el.getAttribute('aria-checked')), 'true');
+  },
+
   async 'existing lists and My Restaurants are unchanged by visiting them'(page) {
     const before = await db(page);
     await openList(page, 'Books'); await page.goBack(); await wait(600);

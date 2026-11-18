@@ -114,10 +114,10 @@ export function NotificationSettingsCard() {
             return (
               <div key={push.kind} className="flex items-center justify-between gap-3 rounded-lg border p-3">
                 <label htmlFor={id} className="min-w-0 space-y-0.5">
-                  <span className="block text-sm font-medium">
-                    {push.title} <span className="font-normal text-muted-foreground">· {push.time}</span>
+                  <span className="block text-sm font-medium">{push.title}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground/80">{push.time}</span> · {push.description}
                   </span>
-                  <span className="block text-xs text-muted-foreground">{push.description}</span>
                 </label>
                 <Switch
                   id={id}
