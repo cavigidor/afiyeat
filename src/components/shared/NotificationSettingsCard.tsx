@@ -6,34 +6,39 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { useAuth } from '@/contexts/AuthContext';
-import { getPushPermission } from '@/lib/native';
-import { PUSH_PROMPT_ENABLED } from '@/lib/pushPrompt';
-import { registerForPush } from '@/components/shared/PushNotificationManager';
+import { getPushPermission, isNative } from '@/lib/native';
+import { askForPushPermissionFromSettings, openIPhoneSettings, syncPushRegistration } from '@/lib/pushPermission';
 import {
+  ALL_DAILY_PUSH_KINDS,
   DAILY_PUSHES,
-  fetchDailyPushOptOuts,
-  setDailyPushEnabled,
+  DAILY_PUSH_CONSENT_TEXT,
+  fetchDailyPushConsents,
+  setDailyPushConsent,
+  type DailyPushConsents,
   type DailyPushKind,
-  type DailyPushOptOuts,
 } from '@/lib/notificationPreferences';
 
 /**
- * Profile > Notifications: switch each of the three daily pushes on or off.
+ * Profile > Notifications.
  *
- * iPhone Settings can only turn every notification from the app on or off
- * at once. This lets someone keep, say, the morning fun fact and drop the
- * exploration nudges. Hidden entirely until the database has the
- * notification update (see lib/notificationPreferences.ts).
+ *  - This iPhone's permission: if it's off, how to turn it on in iPhone
+ *    Settings (Apple's dialog can't be shown twice).
+ *  - The daily engagement pushes: off until the person opts in here, next to
+ *    the consent wording (App Review 4.5.4), then one switch per push.
+ *    Stored on the account, so it applies on every device they use.
+ *
+ * Hidden entirely until the database has the notification update (see
+ * lib/notificationPreferences.ts).
  */
 export function NotificationSettingsCard() {
   const { user } = useAuth();
   const userId = user?.id;
   const queryClient = useQueryClient();
-  const queryKey = ['daily-push-opt-outs', userId];
+  const queryKey = ['daily-push-consents', userId];
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey,
-    queryFn: () => fetchDailyPushOptOuts(userId!),
+    queryFn: () => fetchDailyPushConsents(userId!),
     enabled: !!userId,
     staleTime: 60 * 1000,
   });
@@ -42,29 +47,30 @@ export function NotificationSettingsCard() {
     queryKey: ['push-permission'],
     queryFn: getPushPermission,
     staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   if (!userId || data?.status === 'unavailable') return null;
 
-  const optedOut = data?.status === 'ok' ? data.optedOut : [];
+  const consented = data?.status === 'ok' ? data.consented : [];
+  const optedIn = consented.length > 0;
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-  const handleToggle = async (kind: DailyPushKind, enabled: boolean) => {
-    const previous = queryClient.getQueryData<DailyPushOptOuts>(queryKey);
-    queryClient.setQueryData<DailyPushOptOuts>(queryKey, {
-      status: 'ok',
-      optedOut: enabled ? optedOut.filter((k) => k !== kind) : [...optedOut, kind],
-    });
+  const save = async (kinds: DailyPushKind[], on: boolean) => {
+    const previous = queryClient.getQueryData<DailyPushConsents>(queryKey);
+    const next = on ? [...new Set([...consented, ...kinds])] : consented.filter((k) => !kinds.includes(k));
+    queryClient.setQueryData<DailyPushConsents>(queryKey, { status: 'ok', consented: next });
     try {
-      await setDailyPushEnabled(userId, kind, enabled);
+      await setDailyPushConsent(userId, kinds, on);
     } catch {
       queryClient.setQueryData(queryKey, previous);
       toast.error("Couldn't save that. Check your connection and try again.");
     }
   };
 
-  const handleTurnOn = async () => {
-    await registerForPush({ prompt: true });
+  const allowOnThisIPhone = async () => {
+    await askForPushPermissionFromSettings();
+    await syncPushRegistration(userId);
     void refetchPermission();
   };
 
@@ -76,26 +82,26 @@ export function NotificationSettingsCard() {
           Notifications
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-4">
         {permission === 'denied' && (
-          <p className="text-sm text-muted-foreground rounded-lg bg-muted p-3">
-            Notifications are off for Afiyeat in your iPhone Settings, so none of these will arrive. To get them, go
-            to Settings › Notifications › Afiyeat.
-          </p>
-        )}
-        {permission === 'not-asked' &&
-          (PUSH_PROMPT_ENABLED ? (
-            <div className="flex items-center justify-between gap-3 rounded-lg bg-muted p-3">
-              <p className="text-sm text-muted-foreground">Notifications aren't on for this iPhone yet.</p>
-              <Button size="sm" onClick={handleTurnOn}>
-                Turn on
-              </Button>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground rounded-lg bg-muted p-3">
-              Notifications aren't on for this iPhone yet.
+          <div className="space-y-2 rounded-lg bg-muted p-3">
+            <p className="text-sm font-medium">Notifications are off for Afiyeat on this iPhone</p>
+            <p className="text-xs text-muted-foreground">
+              Nothing from Afiyeat can arrive until you allow it in iPhone Settings › Notifications › Afiyeat.
             </p>
-          ))}
+            <Button size="sm" variant="outline" onClick={openIPhoneSettings}>
+              Open iPhone Settings
+            </Button>
+          </div>
+        )}
+        {permission === 'not-asked' && (
+          <div className="space-y-2 rounded-lg bg-muted p-3">
+            <p className="text-sm font-medium">Notifications aren't allowed on this iPhone yet</p>
+            <Button size="sm" onClick={() => void allowOnThisIPhone()}>
+              Allow notifications
+            </Button>
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex justify-center py-6">
@@ -109,27 +115,57 @@ export function NotificationSettingsCard() {
             </Button>
           </div>
         ) : (
-          DAILY_PUSHES.map((push) => {
-            const id = `daily-push-${push.kind}`;
-            return (
-              <div key={push.kind} className="flex items-center justify-between gap-3 rounded-lg border p-3">
-                <label htmlFor={id} className="min-w-0 space-y-0.5">
-                  <span className="block text-sm font-medium">{push.title}</span>
-                  <span className="block text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground/80">{push.time}</span> · {push.description}
-                  </span>
-                </label>
-                <Switch
-                  id={id}
-                  checked={!optedOut.includes(push.kind)}
-                  onCheckedChange={(checked) => void handleToggle(push.kind, checked)}
-                />
+          <div className="space-y-3">
+            <div className="flex items-start justify-between gap-3 rounded-lg border p-3">
+              <label htmlFor="daily-push-opt-in" className="min-w-0 space-y-1">
+                <span className="block text-sm font-medium">Daily ideas</span>
+                <span className="block text-xs text-muted-foreground">{DAILY_PUSH_CONSENT_TEXT}</span>
+              </label>
+              <Switch
+                id="daily-push-opt-in"
+                className="mt-0.5 shrink-0"
+                checked={optedIn}
+                onCheckedChange={(on) => void save(ALL_DAILY_PUSH_KINDS, on)}
+              />
+            </div>
+
+            {optedIn && (
+              <div className="space-y-2 pl-3">
+                {DAILY_PUSHES.map((push) => {
+                  const id = `daily-push-${push.kind}`;
+                  return (
+                    <div key={push.kind} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                      <label htmlFor={id} className="min-w-0 space-y-0.5">
+                        <span className="block text-sm font-medium">{push.title}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground/80">{push.time}</span> · {push.description}
+                        </span>
+                      </label>
+                      <Switch
+                        id={id}
+                        className="shrink-0"
+                        checked={consented.includes(push.kind)}
+                        onCheckedChange={(on) => void save([push.kind], on)}
+                      />
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })
+            )}
+
+            {optedIn && permission === 'denied' && (
+              <p className="text-xs text-muted-foreground">
+                These are saved, but won't arrive until notifications are allowed in iPhone Settings.
+              </p>
+            )}
+            {optedIn && !isNative() && <p className="text-xs text-muted-foreground">These arrive on the iPhone app.</p>}
+          </div>
         )}
 
-        {timeZone && <p className="text-xs text-muted-foreground">Times follow your time zone ({timeZone}).</p>}
+        <p className="text-xs text-muted-foreground">
+          {timeZone ? `Times follow your time zone (${timeZone}). ` : ''}
+          Notifications about follows and shared lists aren't affected by these switches.
+        </p>
       </CardContent>
     </Card>
   );

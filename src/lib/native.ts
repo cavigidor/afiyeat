@@ -2,53 +2,6 @@ import { Capacitor } from '@capacitor/core';
 
 export const isNative = (): boolean => Capacitor.isNativePlatform();
 
-/**
- * Registers this device for push and hands the token to `onToken`.
- *
- * By default this never shows the system permission prompt: it only
- * registers if the user has already said yes. It used to prompt on every
- * sign-in, which meant a brand-new user's first moment in the app was an
- * iOS dialog asking to send notifications before they'd seen anything -
- * exactly what Apple asks apps not to do, and a reliable way to collect a
- * "Don't Allow" that can never be asked again. Pass `prompt: true` only in
- * response to something the user just did (see lib/pushPrompt.ts).
- */
-export async function initPushNotifications(
-  onToken?: (token: string) => void | Promise<void>,
-  opts: { prompt?: boolean } = {},
-): Promise<void> {
-  if (!isNative()) return;
-  try {
-    const { PushNotifications } = await import('@capacitor/push-notifications');
-    let perm = await PushNotifications.checkPermissions();
-    if (perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') {
-      if (!opts.prompt) return;
-      perm = await PushNotifications.requestPermissions();
-    }
-    if (perm.receive !== 'granted') return;
-    // This can legitimately run more than once per app session (e.g. the
-    // auth listener firing SIGNED_IN again on token refresh), and each call
-    // used to stack a fresh pair of listeners on top of any still attached
-    // from a previous call - so a single real token event would fire the
-    // (Supabase-upserting) callback once per past call, growing over the
-    // session. Clear out anything previously attached first.
-    await PushNotifications.removeAllListeners();
-    // Listeners must be attached before register() is called - otherwise the
-    // native 'registration' event (with the token) can fire and resolve
-    // before the JS side is listening for it, silently dropping the token
-    // and leaving device_tokens empty even though registration "succeeded".
-    PushNotifications.addListener('registration', (token) => {
-      void onToken?.(token.value);
-    });
-    PushNotifications.addListener('registrationError', (err) => {
-      console.error('Push registration error:', err);
-    });
-    await PushNotifications.register();
-  } catch (err) {
-    console.error('initPushNotifications failed:', err);
-  }
-}
-
 // There is intentionally no "request permissions at startup" helper here any
 // more. The app used to ask for location on every cold launch, before the
 // user had done anything that needed it. Every permission is now requested
@@ -57,7 +10,8 @@ export async function initPushNotifications(
 //     opening Explore (see useLocationPermission / getCurrentPosition)
 //   - camera/photos: choosing to add a photo (the Camera plugin prompts
 //     itself inside capturePhoto)
-//   - notifications: offered after following someone (lib/pushPrompt.ts)
+//   - notifications: Apple's dialog once on first launch (lib/pushPermission.ts),
+//     the one deliberate exception (PM decision 2026-11-18)
 // Screens that merely benefit from location, rather than being about it,
 // use getCurrentPositionIfGranted() below, which never prompts.
 

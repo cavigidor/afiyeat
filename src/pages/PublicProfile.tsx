@@ -13,7 +13,6 @@ import { RestaurantListToolbar } from '@/components/restaurants/RestaurantListTo
 import { UserSafetyMenu } from '@/components/moderation/UserSafetyMenu';
 import { PassportBadge, usePassportFrame } from '@/components/passport/PassportBadge';
 import { hapticSuccess } from '@/lib/haptics';
-import { offerPushAfterFollow } from '@/lib/pushPrompt';
 import { useRestaurantListControls } from '@/hooks/useRestaurantListControls';
 import { useViewMode } from '@/hooks/useViewMode';
 import { useAuth } from '@/contexts/AuthContext';
@@ -191,7 +190,6 @@ export default function PublicProfile() {
       toast.success(profile?.is_private ? 'Follow request sent' : 'Now following!');
       void hapticSuccess();
       invalidateFollow();
-      void offerPushAfterFollow({ pending: !!profile?.is_private });
     }
   };
 
