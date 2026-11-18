@@ -32,6 +32,24 @@ const seed = (): DemoDb => ({
 });
 
 describe('demo backend (PostgREST subset)', () => {
+  it('delete on a table without an id column removes only the matching rows (composite keys)', async () => {
+    const db = seed();
+    const { client } = setup(db);
+    const rows = ['good_morning_fun_fact', 'morning_explore', 'evening_explore'].map((push_kind) => ({
+      user_id: USER.id, push_kind, consent_version: 'v1',
+    }));
+    await client.from('notification_consents').upsert(rows, { onConflict: 'user_id,push_kind', ignoreDuplicates: true });
+    await client.from('notification_consents').upsert(rows.slice(0, 1), { onConflict: 'user_id,push_kind', ignoreDuplicates: true });
+    expect(db.notification_consents).toHaveLength(3);
+
+    const { error } = await client.from('notification_consents').delete().eq('user_id', USER.id).in('push_kind', ['evening_explore']);
+    expect(error).toBeNull();
+    expect((db.notification_consents as { push_kind: string }[]).map((r) => r.push_kind).sort()).toEqual([
+      'good_morning_fun_fact',
+      'morning_explore',
+    ]);
+  });
+
   it('select with filters and order', async () => {
     const { client } = setup(seed());
     const { data, error } = await client.from('custom_lists').select('*').eq('user_id', USER.id).order('created_at', { ascending: false });

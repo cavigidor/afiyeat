@@ -84,6 +84,25 @@ describe('usePhotoPicker', () => {
     expect(onReady.mock.calls[0][0]).toHaveLength(2);
   });
 
+  it('on iPhone with four photos, the picker allows exactly one more', async () => {
+    native.isNative.mockReturnValue(true);
+    native.pickGalleryPhotos.mockResolvedValue({ status: 'picked', files: jpegs(1) });
+    const { onReady, hook } = setup(4);
+    await act(() => hook.result.current.openPicker());
+    expect(native.pickGalleryPhotos).toHaveBeenCalledWith(1);
+    expect(onReady.mock.calls[0][0]).toHaveLength(1);
+  });
+
+  it('exactly five on an empty item is accepted; a sixth on top is refused', async () => {
+    const empty = setup(0);
+    await act(() => empty.hook.result.current.addFiles(jpegs(5)));
+    expect(empty.onReady.mock.calls[0][0]).toHaveLength(5);
+    const full = setup(5);
+    await act(() => full.hook.result.current.addFiles(jpegs(1)));
+    expect(toast.error).toHaveBeenCalledWith('You can only add 5 images. Remove one to add another.');
+    expect(full.onReady).not.toHaveBeenCalled();
+  });
+
   it('on iPhone with no slots left, explains instead of opening the picker', async () => {
     native.isNative.mockReturnValue(true);
     const { hook } = setup(5);

@@ -258,4 +258,78 @@ describe('Edit place photo uploader', () => {
     await waitFor(() => expect(container.querySelectorAll('img')).toHaveLength(2));
     expect(screen.queryByTestId('photo-uploading')).toBeNull();
   });
+
+  // --- Five-photo limit (PM 2026-11-18) -----------------------------------
+  function seedMany(n: number) {
+    const out: { id: string; image_url: string }[] = [];
+    for (let i = 0; i < n; i++) {
+      const path = `${OWNER}/r1/existing-${i}.jpg`;
+      fake.current.seed('restaurant-images', path, {
+        table: 'restaurant_images',
+        id: `existing-${i}`,
+        image_url: toStoredImageUrl('restaurant-images', path),
+        restaurant_id: 'r1',
+      });
+      out.push({ id: `existing-${i}`, image_url: toStoredImageUrl('restaurant-images', path) });
+    }
+    return out;
+  }
+
+  it('with four photos, picking two is refused with the remaining room; nothing is uploaded or lost', async () => {
+    const existing = seedMany(4);
+    const { container } = wrap(<ImageUploadSection restaurantId="r1" existingImages={existing} onImagesChange={() => {}} />);
+    await waitFor(() => expect(container.querySelectorAll('img')).toHaveLength(4));
+    fireEvent.change(screen.getByTestId('photo-input'), { target: { files: [jpeg('a.jpg'), jpeg('b.jpg')] } });
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('You can only add 5 images. You have room for 1 more.'),
+    );
+    expect(fake.current.calls.some((c) => c.op === 'upload')).toBe(false);
+    expect(container.querySelectorAll('img')).toHaveLength(4);
+    expect(screen.getByText('Photos (4/5)')).toBeTruthy();
+  });
+
+  it('with four photos, one more is added; then the add tile goes and the limit is explained', async () => {
+    const existing = seedMany(4);
+    const { container } = wrap(<ImageUploadSection restaurantId="r1" existingImages={existing} onImagesChange={() => {}} />);
+    await waitFor(() => expect(container.querySelectorAll('img')).toHaveLength(4));
+    expect(screen.queryByText(/Remove one to add another/)).toBeNull();
+    fireEvent.change(screen.getByTestId('photo-input'), { target: { files: [jpeg('fifth.jpg')] } });
+    await waitFor(() => expect(container.querySelectorAll('img')).toHaveLength(5));
+    expect(screen.getByText('Photos (5/5)')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Add photos' })).toBeNull();
+    expect(screen.getByText('You can only add 5 images. Remove one to add another.')).toBeTruthy();
+    // The four originals are all still there.
+    for (let i = 0; i < 4; i++) {
+      expect(fake.current.tables.restaurant_images.map((r) => r.id)).toContain(`existing-${i}`);
+    }
+  });
+
+  it('at five, a sixth is refused; removing one brings the add tile back', async () => {
+    const existing = seedMany(5);
+    const { container } = wrap(<ImageUploadSection restaurantId="r1" existingImages={existing} onImagesChange={() => {}} />);
+    await waitFor(() => expect(container.querySelectorAll('img')).toHaveLength(5));
+    fireEvent.change(screen.getByTestId('photo-input'), { target: { files: [jpeg('sixth.jpg')] } });
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('You can only add 5 images. Remove one to add another.'),
+    );
+    expect(fake.current.calls.some((c) => c.op === 'upload')).toBe(false);
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove photo' })[0]);
+    await waitFor(() => expect(screen.getByText('Photos (4/5)')).toBeTruthy());
+    expect(screen.getByRole('button', { name: 'Add photos' })).toBeTruthy();
+    expect(screen.queryByText(/Remove one to add another/)).toBeNull();
+  });
+
+  it('after a failed upload, picking the photo again works (retry)', async () => {
+    const existing = seedExisting();
+    const { container } = wrap(<ImageUploadSection restaurantId="r1" existingImages={existing} onImagesChange={() => {}} />);
+    fake.current.state.failUpload = 1;
+    fireEvent.change(screen.getByTestId('photo-input'), { target: { files: [jpeg('retry.jpg')] } });
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(container.querySelectorAll('img')).toHaveLength(1);
+
+    fireEvent.change(screen.getByTestId('photo-input'), { target: { files: [jpeg('retry.jpg')] } });
+    await waitFor(() => expect(container.querySelectorAll('img')).toHaveLength(2));
+    expect(toast.success).toHaveBeenCalledWith('1 photo added');
+  });
 });

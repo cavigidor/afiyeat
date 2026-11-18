@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { usePhotoPicker } from '@/hooks/usePhotoPicker';
+import { PhotoCapNote } from '@/components/shared/PhotoCapNote';
 import {
   Dialog,
   DialogContent,
@@ -424,6 +425,7 @@ export function AddCustomListItemDialog({
           {list.show_photos && (
             <div className="space-y-2">
               <Label>Photos ({totalPhotoCount}/{MAX_IMAGES_PER_ITEM})</Label>
+              <PhotoCapNote count={totalPhotoCount} max={MAX_IMAGES_PER_ITEM} />
               <div className="grid grid-cols-4 gap-2">
                 {existingImages.map((img) => (
                   <div key={img.id} className="relative aspect-square">

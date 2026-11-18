@@ -30,6 +30,7 @@ import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
 import { blockedByContentFilter } from '@/lib/contentFilter';
 import { MAX_IMAGES_PER_ITEM } from '@/lib/imageValidation';
 import { usePhotoPicker } from '@/hooks/usePhotoPicker';
+import { PhotoCapNote } from '@/components/shared/PhotoCapNote';
 import { isNative } from '@/lib/native';
 import { hapticSuccess } from '@/lib/haptics';
 import { errorMessage } from '@/lib/utils';
@@ -710,6 +711,7 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null,
                       <Label>
                         Photos ({photos.length}/{MAX_IMAGES_PER_ITEM})
                       </Label>
+                      <PhotoCapNote count={photos.length} max={MAX_IMAGES_PER_ITEM} />
                       <div className="grid grid-cols-4 gap-2">
                         {photoPreviews.map((src, i) => (
                           <div key={i} className="relative aspect-square">

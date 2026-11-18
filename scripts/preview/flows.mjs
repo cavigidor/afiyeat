@@ -3,6 +3,9 @@
 // fake backend). Each flow taps through the UI like a person and then asserts on the saved data.
 //   npm run build:demo && node scripts/preview/flows.mjs
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { startHarness } from './harness.mjs';
 import { tap } from './scenes.mjs';
 
@@ -22,6 +25,15 @@ async function tapContaining(page, scope, text) {
   await wait(600);
 }
 async function type(page, selector, text) { await page.click(selector, { clickCount: 3 }); await page.keyboard.type(text); await wait(300); }
+function photoFiles(n) {
+  // Tiny valid PNGs on disk for the file input.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'afiyeat-photos-'));
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  return Array.from({ length: n }, (_, i) => { const f = path.join(dir, `photo-${i}.png`); fs.writeFileSync(f, png); return f; });
+}
+const toasts = (page) => page.$$eval('[data-sonner-toast]', (ts) => ts.map((t) => t.textContent.trim()));
+const previews = (page) => page.$$eval('[role=dialog] img[alt]', (imgs) => imgs.filter((i) => i.getClientRects().length).length);
+const dialogText = (page, text) => page.evaluate((t) => [...document.querySelectorAll('[role=dialog]')].some((d) => d.textContent.includes(t)), text);
 
 const FLOWS = {
   async 'hiding a field keeps its saved values (legacy Wines list)'(page) {
@@ -124,45 +136,81 @@ const FLOWS = {
     }
   },
 
-  async 'photos: picking more than 5 is refused at once; 5 is accepted and the add tile goes away'(page) {
-    const fs = await import('node:fs');
-    const os = await import('node:os');
-    const path = await import('node:path');
-    // Tiny valid PNGs on disk for the file input.
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'afiyeat-photos-'));
-    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
-    const files = Array.from({ length: 6 }, (_, i) => { const f = path.join(dir, `photo-${i}.png`); fs.writeFileSync(f, png); return f; });
-    const toasts = () => page.$$eval('[data-sonner-toast]', (ts) => ts.map((t) => t.textContent.trim()));
-    const previews = () => page.$$eval('[role=dialog] img[alt]', (imgs) => imgs.length);
-
+  async 'photos (Universal Add item): more than 5 refused at once; exactly 5 accepted; the limit is explained'(page) {
+    const files = photoFiles(6);
     await tap('Add item')(page); await wait(700);
     await type(page, '#add-item-name', 'Photo test');
     await tapContaining(page, '[role=dialog] button', 'More details');
     const input = await page.$('[role=dialog] input[type=file]');
     assert.ok(input, 'photo input');
     await input.uploadFile(...files); await wait(500);
-    assert.ok((await toasts()).some((t) => t.includes('You can only add 5 images.')), `toast: ${await toasts()}`);
-    assert.equal(await previews(), 0, 'nothing from the over-limit pick was kept');
+    assert.ok((await toasts(page)).some((t) => t.includes('You can only add 5 images.')), `toast: ${await toasts(page)}`);
+    assert.equal(await previews(page), 0, 'nothing from the over-limit pick was kept');
 
     await input.uploadFile(...files.slice(0, 5)); await wait(1500);
-    assert.equal(await previews(), 5, 'five accepted');
+    assert.equal(await previews(page), 5, 'five accepted');
     assert.equal(await page.$('[role=dialog] button[aria-label="Add photos"]'), null, 'add tile hidden at the cap');
+    assert.ok(await dialogText(page, 'You can only add 5 images. Remove one to add another.'), 'limit explained');
   },
 
-  async 'Profile > Notifications: three daily switches; an opt-out saves and survives a reload'(page) {
+  async 'photos (Add Place): 4 then 2 more refused with the room left; 1 more accepted'(page) {
+    const files = photoFiles(6);
+    await openList(page, 'My Restaurants'); await wait(600);
+    await page.click('[aria-label="Add place"]'); await wait(900);
+    const input = await page.$('[role=dialog] input[type=file]');
+    assert.ok(input, 'photo input in Add Place');
+    await input.uploadFile(...files.slice(0, 4)); await wait(1200);
+    assert.equal(await previews(page), 4);
+    await input.uploadFile(...files.slice(0, 2)); await wait(500);
+    assert.ok((await toasts(page)).some((t) => t.includes('You have room for 1 more.')), `toast: ${await toasts(page)}`);
+    assert.equal(await previews(page), 4, 'existing four kept, nothing added');
+    await input.uploadFile(files[5]); await wait(1000);
+    assert.equal(await previews(page), 5);
+    assert.ok(await dialogText(page, 'Photos (5/5)'));
+  },
+
+  async 'photos (editing a list item that already has a photo): counts it toward the 5'(page) {
+    const files = photoFiles(5);
+    await openList(page, 'Wines');
+    await tap('Tried, 3')(page);
+    await tapContaining(page, 'main button', 'Ridge Lytton Springs');
+    await tap('Edit details')(page); await wait(700);
+    assert.ok(await dialogText(page, 'Photos (1/5)'), 'existing photo counted');
+    const input = await page.$('[role=dialog] input[type=file]');
+    assert.ok(input, 'photo input in Edit item');
+    await input.uploadFile(...files); await wait(500);
+    assert.ok((await toasts(page)).some((t) => t.includes('You have room for 4 more.')), `toast: ${await toasts(page)}`);
+    await input.uploadFile(...files.slice(0, 4)); await wait(1200);
+    assert.ok(await dialogText(page, 'Photos (5/5)'));
+    assert.ok(await dialogText(page, 'Remove one to add another.'));
+  },
+
+  async 'Profile > Notifications: daily ideas are off until opted in; consent saves per push and survives a reload'(page) {
     await page.goto(page.url().replace(/[?]reset/, '').replace(/#.*$/, '#/profile'), { waitUntil: 'networkidle0' }); await wait(900);
     const sw = (name) => page.evaluateHandle((n) => [...document.querySelectorAll('[role=switch]')].find((el) => el.id && document.querySelector(`label[for="${el.id}"]`)?.textContent?.includes(n)), name);
-    for (const n of ['Good morning fun fact', 'Explore your city', 'Evening exploring']) {
-      const h = (await sw(n)).asElement();
-      assert.ok(h, `switch ${n}`);
-      assert.equal(await h.evaluate((el) => el.getAttribute('aria-checked')), 'true', `${n} on by default`);
-    }
+    const isOn = async (name) => (await sw(name)).asElement().evaluate((el) => el.getAttribute('aria-checked') === 'true');
+
+    assert.ok((await sw('Daily ideas')).asElement(), 'opt-in switch');
+    assert.equal(await isOn('Daily ideas'), false, 'off by default');
+    assert.equal((await sw('Explore your city')).asElement(), null, 'per-push switches hidden until opted in');
+    assert.ok(await page.evaluate(() => document.body.innerText.includes('Yes, send me up to three Afiyeat notifications a day')), 'consent wording shown');
+
+    await (await sw('Daily ideas')).asElement().click(); await wait(800);
+    let d = await db(page);
+    assert.deepEqual((d.notification_consents ?? []).map((r) => r.push_kind).sort(), ['evening_explore', 'good_morning_fun_fact', 'morning_explore']);
+    assert.ok(d.notification_consents.every((r) => r.consent_version === '2026-11-18'));
+
     await (await sw('Evening exploring')).asElement().click(); await wait(800);
-    const d = await db(page);
-    assert.deepEqual((d.notification_opt_outs ?? []).map((r) => r.push_kind), ['evening_explore']);
+    d = await db(page);
+    assert.deepEqual(d.notification_consents.map((r) => r.push_kind).sort(), ['good_morning_fun_fact', 'morning_explore']);
+
     await page.reload({ waitUntil: 'networkidle0' }); await wait(900);
-    assert.equal(await (await sw('Evening exploring')).asElement().evaluate((el) => el.getAttribute('aria-checked')), 'false', 'still off after reload');
-    assert.equal(await (await sw('Good morning fun fact')).asElement().evaluate((el) => el.getAttribute('aria-checked')), 'true');
+    assert.equal(await isOn('Daily ideas'), true);
+    assert.equal(await isOn('Evening exploring'), false, 'still off after reload');
+    assert.equal(await isOn('Good morning fun fact'), true);
+
+    await (await sw('Daily ideas')).asElement().click(); await wait(800);
+    assert.deepEqual((await db(page)).notification_consents, [], 'switching Daily ideas off withdraws all consent');
   },
 
   async 'existing lists and My Restaurants are unchanged by visiting them'(page) {

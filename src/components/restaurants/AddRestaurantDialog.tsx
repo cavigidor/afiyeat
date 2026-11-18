@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { usePhotoPicker } from '@/hooks/usePhotoPicker';
+import { PhotoCapNote } from '@/components/shared/PhotoCapNote';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -491,6 +492,7 @@ export function AddRestaurantDialog({
               <FormLabel>
                 Photos ({imagePreviews.length}/{MAX_IMAGES_PER_RESTAURANT})
               </FormLabel>
+              <PhotoCapNote count={imagePreviews.length} max={MAX_IMAGES_PER_RESTAURANT} />
               <div className="grid grid-cols-4 gap-2">
                 {imagePreviews.map((preview, index) => (
                   <div key={index} className="relative aspect-square">

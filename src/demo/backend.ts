@@ -290,8 +290,12 @@ export function createDemoFetch(opts: DemoBackendOptions): (input: RequestInfo |
       const hit = rows.filter((r) => preds.every((p) => p(r)));
       const removeRows = (t: string, gone: Row[]) => {
         if (!gone.length) return;
-        const ids = new Set(gone.map((g) => g.id));
-        db[t] = (db[t] ?? []).filter((r) => !ids.has(r.id));
+        // Remove exactly the matched rows (by identity), so tables without an
+        // `id` column (composite keys, e.g. notification_consents) only lose
+        // the rows that matched, not every row whose id is undefined.
+        const goneRows = new Set(gone);
+        const ids = new Set(gone.map((g) => g.id).filter((id) => id !== undefined && id !== null));
+        db[t] = (db[t] ?? []).filter((r) => !goneRows.has(r));
         for (const c of CASCADES[t] ?? []) {
           const children = (db[c.table] ?? []).filter((r) => ids.has(r[c.fk]));
           if (c.action === 'delete') removeRows(c.table, children);

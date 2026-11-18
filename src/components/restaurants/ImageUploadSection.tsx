@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { MAX_IMAGES_PER_RESTAURANT } from '@/lib/imageValidation';
 import { usePhotoPicker } from '@/hooks/usePhotoPicker';
+import { PhotoCapNote } from '@/components/shared/PhotoCapNote';
 import { uploadRestaurantPhotos, photoUploadSummary } from '@/lib/photoUpload';
 import { StorageImage } from '@/components/shared/StorageImage';
 import { Spinner } from '@/components/ui/spinner';
@@ -139,6 +140,7 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
       <label className="text-sm font-medium">
         Photos ({images.length}/{MAX_IMAGES_PER_RESTAURANT})
       </label>
+      <PhotoCapNote count={images.length} max={MAX_IMAGES_PER_RESTAURANT} />
       <div className="grid grid-cols-4 gap-2">
         {images.map((img) => (
           <ImageThumbnail key={img.id} image={img} onDelete={handleDeleteImage} />
