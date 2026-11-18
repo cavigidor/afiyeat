@@ -107,6 +107,22 @@ export interface Coords {
   longitude: number;
 }
 
+export type PushPermission = 'granted' | 'denied' | 'not-asked' | 'unsupported';
+
+/** This device's notification permission, without ever prompting. */
+export async function getPushPermission(): Promise<PushPermission> {
+  if (!isNative()) return 'unsupported';
+  try {
+    const { PushNotifications } = await import('@capacitor/push-notifications');
+    const { receive } = await PushNotifications.checkPermissions();
+    if (receive === 'granted') return 'granted';
+    if (receive === 'denied') return 'denied';
+    return 'not-asked';
+  } catch {
+    return 'unsupported';
+  }
+}
+
 export type GalleryPick =
   | { status: 'picked'; files: File[] }
   | { status: 'cancelled' }
