@@ -1,54 +1,28 @@
-import { useEffect } from 'react';
-import { Capacitor } from '@capacitor/core';
-import { initPushNotifications, isNative } from '@/lib/native';
+import { useEffect, useState } from 'react';
+import { isNative } from '@/lib/native';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  askForPushPermissionOnFirstLaunch,
+  getRememberedDeviceToken,
+  syncPushRegistration,
+} from '@/lib/pushPermission';
 
-// Tracked so AuthContext.signOut() can remove just *this* device's token
-// row (rather than every token belonging to the user, which would also
-// knock out push on their other devices).
-let currentDeviceToken: string | null = null;
-
+/** This device's push token, if it has registered; AuthContext.signOut()
+ *  removes just this row so the user's other devices keep their pushes. */
 export function getCurrentDeviceToken(): string | null {
-  return currentDeviceToken;
+  return getRememberedDeviceToken();
 }
 
 /**
- * Registers this device and saves its token.
+ * Notification permission and registration for this device, plus the saved
+ * timezone the daily pushes are scheduled by. Renders nothing; mount once
+ * near the root, inside AuthProvider.
  *
- * `prompt: false` (the default, used on every sign-in) only registers if
- * notifications are already allowed and never shows the system dialog.
- * `prompt: true` is for lib/pushPrompt.ts, after the user has just done
- * something that makes notifications worth having.
- */
-export async function registerForPush({ prompt = false }: { prompt?: boolean } = {}): Promise<void> {
-  if (!isNative()) return;
-  const platform = Capacitor.getPlatform() === 'android' ? 'android' : 'ios';
-
-  await initPushNotifications(
-    async (token) => {
-      currentDeviceToken = token;
-      // Goes through a SECURITY DEFINER RPC (not a direct table upsert) so
-      // the row's owner is always taken from auth.uid() server-side, never
-      // a client-supplied user_id - see the claim_device_token migration.
-      const { error } = await supabase.rpc('claim_device_token', {
-        p_token: token,
-        p_platform: platform,
-      });
-      if (error) {
-        console.error('Failed to save device token:', error);
-      }
-    },
-    { prompt },
-  );
-}
-
-/**
- * Registers this device for push notifications once a user is signed in,
- * and saves the resulting APNs/FCM token to public.device_tokens so a
- * backend function can look it up and send pushes later.
- *
- * Renders nothing; mount once near the root, inside AuthProvider.
+ *  - First launch: Apple's notification dialog, once (lib/pushPermission.ts).
+ *  - Launch, sign-in/account switch, and every return to the foreground:
+ *    registration is brought in line with the current permission - token
+ *    saved if allowed, removed if not.
  */
 export function PushNotificationManager() {
   const { user } = useAuth();
@@ -104,18 +78,38 @@ export function PushNotificationManager() {
     };
   }, [userId]);
 
-  // Re-registers on sign-in if notifications are already allowed, so a
-  // returning user's token stays fresh. Never prompts - see registerForPush.
+  // First launch: Apple's dialog, once, whether or not anyone is signed in
+  // yet. Then (and on every sign-in, account switch and return to the app)
+  // sync this device's registration with the current permission.
+  const [firstLaunchDone, setFirstLaunchDone] = useState(!isNative());
+  const [foregroundCount, setForegroundCount] = useState(0);
+
   useEffect(() => {
-    if (!userId || !isNative()) return;
-    void registerForPush({ prompt: false });
-    // Supabase hands back a new `session`/`user` object on every auth event
-    // (initial getSession(), the auth listener's INITIAL_SESSION, a token
-    // refresh, etc.) even when it's the same signed-in account - depending
-    // on the object itself re-ran this effect (and re-registered for push)
-    // multiple times per cold start. Depending on just the id instead means
-    // it only actually re-runs on a real sign-in/sign-out/account switch.
-  }, [userId]);
+    if (!isNative()) return;
+    let cancelled = false;
+    void askForPushPermissionOnFirstLaunch().finally(() => {
+      if (!cancelled) setFirstLaunchDone(true);
+    });
+    let removeListener: (() => void) | null = null;
+    void import('@capacitor/app').then(async ({ App }) => {
+      const handle = await App.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) setForegroundCount((n) => n + 1);
+      });
+      if (cancelled) void handle.remove();
+      else removeListener = () => void handle.remove();
+    });
+    return () => {
+      cancelled = true;
+      removeListener?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isNative() || !firstLaunchDone) return;
+    void syncPushRegistration(userId ?? null);
+    // Depends on the user id, not the user object: Supabase hands back a new
+    // object on every auth event (token refresh etc.) for the same account.
+  }, [userId, firstLaunchDone, foregroundCount]);
 
   return null;
 }

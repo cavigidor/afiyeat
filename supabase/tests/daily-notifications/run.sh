@@ -26,19 +26,19 @@ psql=(psql -h "$dir" -p "$port" -U postgres -d postgres -v ON_ERROR_STOP=1 -q -X
 "${psql[@]}" -f "$migration" >/dev/null 2>&1   # re-applying must be harmless
 echo "ok  0  migration applies cleanly, and applies again without error"
 
-"${psql[@]}" -f "$here/checks.sql" | grep -E "^(ok|FAIL)"
+"${psql[@]}" -v msgs="$(cat "$here/messages.json")" -f "$here/checks.sql" | grep -E "^(ok|FAIL)"
 
-# 6. Two cron runs overlapping: the second must wait for the first and then
+# 8. Two cron runs overlapping: the second must wait for the first and then
 #    send nothing. 13:00Z = 07:00 in Chicago (users 1, 20, 21 are Chicago).
-"${psql[@]}" -c "update public.profiles set timezone = 'America/Chicago' where user_id = '00000000-0000-0000-0000-000000000001'; truncate public.sent_log;" >/dev/null
-"${psql[@]}" -c "begin; select set_config('test.now', '2026-11-10 13:00Z', true); select public.send_good_morning_fun_fact('2026-11-10 13:00Z'); select pg_sleep(3); commit;" >/dev/null &
+"${psql[@]}" -c "update public.profiles set timezone = 'America/Chicago' where user_id = '00000000-0000-0000-0000-000000000001'; update public.device_tokens set user_id = '00000000-0000-0000-0000-000000000001' where token = 'tok-1'; truncate public.sent_log;" >/dev/null
+"${psql[@]}" -c "begin; select set_config('test.now', '2027-02-01 13:00Z', true); select public.send_good_morning_fun_fact('2027-02-01 13:00Z'); select pg_sleep(3); commit;" >/dev/null &
 first=$!
 sleep 1
-"${psql[@]}" -c "select set_config('test.now', '2026-11-10 13:00Z', false); select public.send_good_morning_fun_fact('2026-11-10 13:00Z');" >/dev/null
+"${psql[@]}" -c "select set_config('test.now', '2027-02-01 13:00Z', false); select public.send_good_morning_fun_fact('2027-02-01 13:00Z');" >/dev/null
 wait "$first"
 read -r total distinct_users < <("${psql[@]}" -At -F ' ' -c "select count(*), count(distinct user_id) from public.sent_log")
 if [ "$total" != "$distinct_users" ] || [ "$total" = 0 ]; then
-  echo "FAIL 6  overlapping runs sent $total pushes to $distinct_users users"; exit 1
+  echo "FAIL 8  overlapping runs sent $total pushes to $distinct_users users"; exit 1
 fi
-echo "ok  6  overlapping cron runs: second run waits, then sends nothing ($total pushes, $distinct_users users)"
+echo "ok  8  overlapping cron runs: second run waits, then sends nothing ($total pushes, $distinct_users users)"
 echo "all checks passed"

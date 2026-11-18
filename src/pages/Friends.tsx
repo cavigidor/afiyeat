@@ -19,7 +19,6 @@ import { Search, UserPlus, UserMinus, Users, Sparkles, Check, Clock, X, ArrowLef
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { hapticSuccess } from '@/lib/haptics';
-import { offerPushAfterFollow } from '@/lib/pushPrompt';
 import { useMapCenter } from '@/hooks/useMapCenter';
 import { PlaceMap, type MapPoint } from '@/components/maps/PlaceMap';
 import { useViewMode } from '@/hooks/useViewMode';
@@ -244,7 +243,6 @@ export default function Friends() {
       toast.success('Now following!');
       void hapticSuccess();
       invalidateFollowing();
-      void offerPushAfterFollow({ pending: false });
     }
   };
 

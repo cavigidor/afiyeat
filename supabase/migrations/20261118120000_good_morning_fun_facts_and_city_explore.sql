@@ -1,40 +1,54 @@
--- Daily notifications: three pushes a day, each at a fixed local time in the
--- user's own saved timezone (profiles.timezone, which the app refreshes on
--- every sign-in and cold start):
+-- Daily engagement notifications: at most three a day, at a fixed local time
+-- in the user's own saved timezone (profiles.timezone, which the app saves
+-- at sign-in and whenever it returns to the foreground with a new zone):
 --
---   7am  good_morning_fun_fact  Good morning + a fun fact about animals, the
---                               world, nature or space (60 facts).
---   8am  morning_explore        Explore your city: one idea for today
---                               (30 ideas). Replaces the old 8am treat push.
+--   7am  good_morning_fun_fact  "Good morning!" + a fact about animals, the
+--                               world, nature or space (60, one per day).
+--   8am  morning_explore        Explore your city (30 ideas).
 --   5pm  evening_explore        Evening city exploration (40 ideas). Cafés and
---                               restaurants can appear as places to explore.
---                               Replaces the old daily prompt (11pm UTC).
+--                               restaurants only appear as places to explore.
 --
--- Who gets them: users with at least one registered device AND a saved
--- timezone, who haven't switched that push off in Profile > Notifications.
--- No saved timezone = no daily pushes (rather than guessing a time and
--- waking someone at 1am); the user is picked up the next time they open
--- the app.
+-- CONSENT (App Review Guideline 4.5.4): these are engagement/promotional
+-- pushes, so they go ONLY to users who explicitly opted in to that push in
+-- Profile > Notifications, where the consent wording is shown. One row in
+-- notification_consents per push the user agreed to. No row = no push.
+-- Existing accounts start with no rows, so nobody receives any of these
+-- until they opt in themselves; allowing notifications in the iOS dialog is
+-- not consent to these.
+--
+-- Eligible for push p on a given day = has a registered device token
+--   AND has a saved, valid timezone AND has a consent row for p.
+-- The app removes a device's token when iOS notification permission is off,
+-- and on sign-out; a token belongs to one account at a time
+-- (claim_device_token moves it to whoever signs in on that phone).
 --
 -- Duplicates: each send is claimed in daily_push_sent (one row per user per
--- push, holding the local date of the last send) BEFORE notify_user() is
--- called, with an atomic upsert. Overlapping or repeated cron runs, several
--- devices, or travel across the date line can't produce a second push for
--- the same local date. notify_user() fans out to every device the user has
--- signed in on; each device gets it once.
+-- push, holding the local date of the last send) with an atomic upsert
+-- BEFORE notify_user() is called. Overlapping or repeated cron runs,
+-- several devices, or travel across the date line can't produce a second
+-- push for the same local date. notify_user() fans out to every device the
+-- user is signed in on; each device gets it once.
 --
--- Changes:
---   + table    public.daily_push_sent          (service role only)
---   + table    public.notification_opt_outs    (users manage their own rows)
---   + function public.send_local_time_push(...)
---   + function public.send_good_morning_fun_fact(timestamptz)
---   + function public.send_morning_explore(timestamptz)
---   + function public.send_evening_explore(timestamptz)
---   - cron     good-morning-treat   (8am treat)      unscheduled
---   - cron     daily-prompt         (11pm UTC prompt) unscheduled
---   + cron     good-morning-fun-fact, morning-explore, evening-explore  (*/15)
--- send_good_morning_treat() and send_daily_prompt() are left in place,
--- unscheduled, so rollback is just re-scheduling them (see the end of file).
+-- Rotation: by days since 2026-01-01 in the user's local date, so the 60
+-- facts never repeat within 60 days, including across 31 Dec / 1 Jan, and
+-- the 8am and 5pm lists are ordered so the same kind of activity is never
+-- suggested twice on one day.
+--
+-- Scheduler: retires every older scheduled ENGAGEMENT push, so the three
+-- above are the only ones:
+--   - good-morning-treat    (8am treat)                   send_good_morning_treat()
+--   - daily-prompt          (11pm UTC food prompt)        send_daily_prompt()
+--   - weekly-suggestions    (Mon 15:00 UTC)               send_weekly_suggestions()
+--   - weekly-digest         (Mon 16:00 UTC)               send_weekly_digest()
+--   - inactivity-reminders  (daily 17:00 UTC)             send_inactivity_reminders()
+-- Their functions are left in place (unscheduled) for rollback.
+-- NOT touched: social/transactional pushes, which are triggers, not cron
+-- (notify_on_follow_insert, notify_on_follow_accepted,
+-- notify_on_shared_list_item_insert, notify_on_friend_visited_your_to_go_place),
+-- notify_user(), device_tokens, the send-push Edge Function, and the
+-- purge-expired-place-cache maintenance job.
+--
+-- Rollback: see the end of this file.
 
 -- ---------------------------------------------------------------------
 -- Tables
@@ -51,45 +65,47 @@ grant all on public.daily_push_sent to service_role;
 alter table public.daily_push_sent enable row level security;
 -- No policies: only the SECURITY DEFINER senders below touch it.
 
--- Opt-out list. A row means "don't send me this push". No row = on (the
--- default for anyone who has allowed notifications on their phone).
-create table if not exists public.notification_opt_outs (
+-- Explicit opt-in, one row per push the user agreed to. consent_version
+-- records which wording they saw (see src/lib/notificationPreferences.ts).
+create table if not exists public.notification_consents (
   user_id uuid not null references auth.users(id) on delete cascade,
   push_kind text not null
     check (push_kind in ('good_morning_fun_fact', 'morning_explore', 'evening_explore')),
-  created_at timestamptz not null default now(),
+  consent_version text not null check (char_length(consent_version) between 1 and 40),
+  consented_at timestamptz not null default now(),
   primary key (user_id, push_kind)
 );
 
-grant select, insert, delete on public.notification_opt_outs to authenticated;
-grant all on public.notification_opt_outs to service_role;
-alter table public.notification_opt_outs enable row level security;
+-- Users may only supply which push and which wording; consented_at is
+-- always the server's clock, so a consent time can't be backdated.
+grant select, delete on public.notification_consents to authenticated;
+grant insert (user_id, push_kind, consent_version) on public.notification_consents to authenticated;
+grant all on public.notification_consents to service_role;
+alter table public.notification_consents enable row level security;
 
-drop policy if exists "Users can view own notification opt-outs" on public.notification_opt_outs;
-create policy "Users can view own notification opt-outs"
-  on public.notification_opt_outs for select to authenticated
+drop policy if exists "Users can view own notification consents" on public.notification_consents;
+create policy "Users can view own notification consents"
+  on public.notification_consents for select to authenticated
   using (user_id = auth.uid());
 
-drop policy if exists "Users can add own notification opt-outs" on public.notification_opt_outs;
-create policy "Users can add own notification opt-outs"
-  on public.notification_opt_outs for insert to authenticated
+drop policy if exists "Users can give own notification consent" on public.notification_consents;
+create policy "Users can give own notification consent"
+  on public.notification_consents for insert to authenticated
   with check (user_id = auth.uid());
 
-drop policy if exists "Users can remove own notification opt-outs" on public.notification_opt_outs;
-create policy "Users can remove own notification opt-outs"
-  on public.notification_opt_outs for delete to authenticated
+drop policy if exists "Users can withdraw own notification consent" on public.notification_consents;
+create policy "Users can withdraw own notification consent"
+  on public.notification_consents for delete to authenticated
   using (user_id = auth.uid());
 
 -- ---------------------------------------------------------------------
 -- Shared sender
 -- ---------------------------------------------------------------------
 
--- Sends push p_kind to every eligible user whose local time (at p_now) is
--- within hour p_hour, at most once per user per local date. The message is
--- picked by local day of year, so everyone in the same local day gets the
--- same one and it doesn't repeat until the list wraps around. Returns the
--- number of users sent to. p_now exists so the behaviour can be tested at
--- any moment; the cron jobs always use now().
+-- Sends push p_kind to every eligible user (see header) whose local time at
+-- p_now is within hour p_hour, at most once per user per local date.
+-- Returns the number of users sent to. p_now exists so the behaviour can
+-- be tested at any moment; the cron jobs always use now().
 create or replace function public.send_local_time_push(
   p_kind text,
   p_hour int,
@@ -107,11 +123,12 @@ declare
   local_now timestamp;
   local_date date;
   claimed boolean;
+  n int;
   msg_idx int;
   sent int := 0;
 begin
-  if coalesce(array_length(p_titles, 1), 0) = 0
-     or array_length(p_titles, 1) <> array_length(p_bodies, 1) then
+  n := coalesce(array_length(p_titles, 1), 0);
+  if n = 0 or n <> coalesce(array_length(p_bodies, 1), 0) then
     raise exception 'send_local_time_push(%): titles and bodies must be non-empty and the same length', p_kind;
   end if;
 
@@ -119,11 +136,8 @@ begin
     select distinct dt.user_id, p.timezone as tz
     from public.device_tokens dt
     join public.profiles p on p.user_id = dt.user_id
+    join public.notification_consents c on c.user_id = dt.user_id and c.push_kind = p_kind
     where p.timezone is not null
-      and not exists (
-        select 1 from public.notification_opt_outs o
-        where o.user_id = dt.user_id and o.push_kind = p_kind
-      )
   loop
     -- A timezone that isn't a real IANA name is skipped for that user
     -- rather than aborting the whole run.
@@ -155,7 +169,9 @@ begin
         continue;
       end if;
 
-      msg_idx := extract(doy from local_date)::int % array_length(p_titles, 1) + 1;
+      -- Days since 2026-01-01 (local), so the cycle runs straight through
+      -- 31 Dec / 1 Jan instead of restarting each year.
+      msg_idx := (((local_date - date '2026-01-01') % n) + n) % n + 1;
 
       perform public.notify_user(
         r.user_id,
@@ -192,128 +208,128 @@ as $$
     'good_morning_fun_fact',
     7,
     array[
-      'Good morning! 🐾 Today''s animal fact',
-      'Good morning! 🌍 Today''s world fact',
-      'Good morning! 🌿 Today''s nature fact',
-      'Good morning! 🚀 Today''s space fact',
-      'Good morning! 🐾 Today''s animal fact',
-      'Good morning! 🌍 Today''s world fact',
-      'Good morning! 🌿 Today''s nature fact',
-      'Good morning! 🚀 Today''s space fact',
-      'Good morning! 🐾 Today''s animal fact',
-      'Good morning! 🌍 Today''s world fact',
-      'Good morning! 🌿 Today''s nature fact',
-      'Good morning! 🚀 Today''s space fact',
-      'Good morning! 🐾 Today''s animal fact',
-      'Good morning! 🌍 Today''s world fact',
-      'Good morning! 🌿 Today''s nature fact',
-      'Good morning! 🚀 Today''s space fact',
-      'Good morning! 🐾 Today''s animal fact',
-      'Good morning! 🌍 Today''s world fact',
-      'Good morning! 🌿 Today''s nature fact',
-      'Good morning! 🚀 Today''s space fact',
-      'Good morning! 🐾 Today''s animal fact',
-      'Good morning! 🌍 Today''s world fact',
-      'Good morning! 🌿 Today''s nature fact',
-      'Good morning! 🚀 Today''s space fact',
-      'Good morning! 🐾 Today''s animal fact',
-      'Good morning! 🌍 Today''s world fact',
-      'Good morning! 🌿 Today''s nature fact',
-      'Good morning! 🚀 Today''s space fact',
-      'Good morning! 🐾 Today''s animal fact',
-      'Good morning! 🌍 Today''s world fact',
-      'Good morning! 🌿 Today''s nature fact',
-      'Good morning! 🚀 Today''s space fact',
-      'Good morning! 🐾 Today''s animal fact',
-      'Good morning! 🌍 Today''s world fact',
-      'Good morning! 🌿 Today''s nature fact',
-      'Good morning! 🚀 Today''s space fact',
-      'Good morning! 🐾 Today''s animal fact',
-      'Good morning! 🌍 Today''s world fact',
-      'Good morning! 🌿 Today''s nature fact',
-      'Good morning! 🚀 Today''s space fact',
-      'Good morning! 🐾 Today''s animal fact',
-      'Good morning! 🌍 Today''s world fact',
-      'Good morning! 🌿 Today''s nature fact',
-      'Good morning! 🚀 Today''s space fact',
-      'Good morning! 🐾 Today''s animal fact',
-      'Good morning! 🌍 Today''s world fact',
-      'Good morning! 🌿 Today''s nature fact',
-      'Good morning! 🚀 Today''s space fact',
-      'Good morning! 🐾 Today''s animal fact',
-      'Good morning! 🌍 Today''s world fact',
-      'Good morning! 🌿 Today''s nature fact',
-      'Good morning! 🚀 Today''s space fact',
-      'Good morning! 🐾 Today''s animal fact',
-      'Good morning! 🌍 Today''s world fact',
-      'Good morning! 🌿 Today''s nature fact',
-      'Good morning! 🚀 Today''s space fact',
-      'Good morning! 🐾 Today''s animal fact',
-      'Good morning! 🌍 Today''s world fact',
-      'Good morning! 🌿 Today''s nature fact',
-      'Good morning! 🚀 Today''s space fact'
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!',
+      'Good morning!'
     ],
     array[
-      'Octopuses have three hearts and blue blood.',
-      'Australia is wider than the Moon.',
-      'Bananas are berries, but strawberries aren''t.',
-      'A day on Venus is longer than its whole year.',
-      'A group of flamingos is called a flamboyance.',
-      'Canada has more lakes than the rest of the world combined.',
-      'A bolt of lightning can be about five times hotter than the surface of the Sun.',
-      'A teaspoon of neutron star would weigh about a billion tons on Earth.',
-      'Wombats poop in little cubes, which helps the droppings stay put on rocks and logs.',
-      'There''s a village in Norway called Hell, and it freezes over most winters.',
-      'Some kinds of bamboo can grow nearly 90 cm (3 feet) in a single day.',
-      'The footprints on the Moon could last for millions of years - there''s no wind to blow them away.',
-      'Koala fingerprints are so similar to ours that they can be hard to tell apart, even under a microscope.',
-      'Istanbul sits on two continents at once: Europe and Asia.',
-      'There are more trees on Earth (about 3 trillion) than stars in the Milky Way.',
-      'Sunlight takes about 8 minutes to reach Earth, so you always see the Sun as it was 8 minutes ago.',
-      'Butterflies taste with their feet.',
-      'The world''s shortest scheduled flight, between two Scottish islands, takes about 90 seconds.',
-      'Rainbows are actually full circles. From the ground, the horizon hides the bottom half.',
-      'Saturn is less dense than water. In a big enough bathtub, it would float.',
-      'Crows can recognize individual human faces and remember them for years.',
-      'Oxford University is older than the Aztec Empire.',
-      'Sealed honey can last for thousands of years - pots of it have turned up in ancient Egyptian tombs.',
-      'Astronauts say space smells like seared steak, hot metal and welding fumes.',
-      'Dolphins use signature whistles that work a lot like names.',
-      'France spans 12 time zones, more than any other country, thanks to its overseas territories.',
-      'A pineapple plant takes about two years to grow a single pineapple.',
-      'Jupiter''s Great Red Spot is a storm that''s bigger than Earth.',
-      'A shrimp''s heart is in its head.',
-      'Lake Baikal in Siberia holds roughly a fifth of all the unfrozen fresh surface water on Earth.',
-      'Snowflakes almost always have six sides or six arms.',
-      'About 1.3 million Earths could fit inside the Sun.',
-      'Owls can''t move their eyes, so they turn their heads up to 270 degrees instead.',
-      'The Eiffel Tower grows up to about 15 cm (6 inches) taller in summer as its iron expands.',
-      'Young sunflowers follow the Sun across the sky all day, then turn back east overnight.',
-      'The Space Station circles Earth every 90 minutes or so, so astronauts see about 16 sunrises a day.',
-      'Male seahorses are the ones who carry the babies and give birth.',
-      'Around 6,000 years ago the Sahara was green, with lakes, grasslands and hippos.',
-      'Most of the ocean floor still hasn''t been mapped in high detail.',
-      'Olympus Mons, a volcano on Mars, is about two and a half times taller than Mount Everest.',
-      'Giraffes have seven neck bones - the same number as you.',
-      'Alaska is the most northern, western and eastern US state all at once.',
-      'Forgetful squirrels help plant forests: some of the nuts they bury and never dig up sprout into trees.',
-      'Uranus spins on its side, tipped over at about 98 degrees.',
-      'Sharks have been around longer than trees.',
-      'Russia stretches across 11 time zones.',
-      'Peanuts aren''t nuts - they''re legumes, like beans and peas.',
-      'Sunsets on Mars glow blue.',
-      'Polar bears have black skin, and their fur isn''t really white - each hair is see-through.',
-      'Vatican City is the smallest country in the world - smaller than many city parks.',
-      'One of the oldest known living trees, a bristlecone pine in California, is over 4,800 years old.',
-      'Halley''s Comet swings past Earth about every 76 years. Its next visit is in 2061.',
-      'Sea otters sometimes hold paws while they sleep so they don''t drift apart.',
-      'The Dead Sea is so salty that you float without even trying.',
-      'Coral reefs cover less than 1% of the ocean floor but are home to about a quarter of all ocean species.',
-      'Astronomers estimate there are more stars in the universe than grains of sand on all of Earth''s beaches.',
-      'Axolotls can regrow lost legs, and even parts of their heart and brain.',
-      'More than a third of everyone on Earth lives in just two countries: India and China.',
-      'Venus flytraps can count: they only snap shut after their trigger hairs are touched twice.',
-      'Earth isn''t a perfect ball - it bulges at the equator because it spins.'
+      '🐾 Octopuses have three hearts and blue blood.',
+      '🌍 Australia is wider than the Moon.',
+      '🌿 Bananas are berries, but strawberries aren''t.',
+      '🚀 A day on Venus is longer than its whole year.',
+      '🐾 A group of flamingos is called a flamboyance.',
+      '🌍 Canada has more lakes than the rest of the world combined.',
+      '🌿 A bolt of lightning can be about five times hotter than the surface of the Sun.',
+      '🚀 A teaspoon of neutron star would weigh about a billion tons on Earth.',
+      '🐾 Wombats poop in little cubes, which helps the droppings stay put on rocks and logs.',
+      '🌍 There''s a village in Norway called Hell, and it freezes over most winters.',
+      '🌿 Some kinds of bamboo can grow nearly 90 cm (3 feet) in a single day.',
+      '🚀 The footprints on the Moon could last for millions of years - there''s no wind to blow them away.',
+      '🐾 Koala fingerprints are so similar to ours that they can be hard to tell apart, even under a microscope.',
+      '🌍 Istanbul sits on two continents at once: Europe and Asia.',
+      '🌿 There are more trees on Earth (about 3 trillion) than stars in the Milky Way.',
+      '🚀 Sunlight takes about 8 minutes to reach Earth, so you always see the Sun as it was 8 minutes ago.',
+      '🐾 Butterflies taste with their feet.',
+      '🌍 The world''s shortest scheduled flight, between two Scottish islands, takes about 90 seconds.',
+      '🌿 Rainbows are actually full circles. From the ground, the horizon hides the bottom half.',
+      '🚀 Saturn is less dense than water. In a big enough bathtub, it would float.',
+      '🐾 Crows can recognize individual human faces and remember them for years.',
+      '🌍 Oxford University is older than the Aztec Empire.',
+      '🌿 Sealed honey can last for thousands of years - pots of it have turned up in ancient Egyptian tombs.',
+      '🚀 Astronauts say space smells like seared steak, hot metal and welding fumes.',
+      '🐾 Dolphins use signature whistles that work a lot like names.',
+      '🌍 France spans 12 time zones, more than any other country, thanks to its overseas territories.',
+      '🌿 A pineapple plant takes about two years to grow a single pineapple.',
+      '🚀 Jupiter''s Great Red Spot is a storm that''s bigger than Earth.',
+      '🐾 A shrimp''s heart is in its head.',
+      '🌍 Lake Baikal in Siberia holds roughly a fifth of all the unfrozen fresh surface water on Earth.',
+      '🌿 Snowflakes almost always have six sides or six arms.',
+      '🚀 About 1.3 million Earths could fit inside the Sun.',
+      '🐾 Owls can''t move their eyes, so they turn their heads up to 270 degrees instead.',
+      '🌍 The Eiffel Tower grows up to about 15 cm (6 inches) taller in summer as its iron expands.',
+      '🌿 Young sunflowers follow the Sun across the sky all day, then turn back east overnight.',
+      '🚀 The Space Station circles Earth every 90 minutes or so, so astronauts see about 16 sunrises a day.',
+      '🐾 Male seahorses are the ones who carry the babies and give birth.',
+      '🌍 Around 6,000 years ago the Sahara was green, with lakes, grasslands and hippos.',
+      '🌿 Most of the ocean floor still hasn''t been mapped in high detail.',
+      '🚀 Olympus Mons, a volcano on Mars, is about two and a half times taller than Mount Everest.',
+      '🐾 Giraffes have seven neck bones - the same number as you.',
+      '🌍 Alaska is the most northern, western and eastern US state all at once.',
+      '🌿 Forgetful squirrels help plant forests: some of the nuts they bury and never dig up sprout into trees.',
+      '🚀 Uranus spins on its side, tipped over at about 98 degrees.',
+      '🐾 Sharks have been around longer than trees.',
+      '🌍 Russia stretches across 11 time zones.',
+      '🌿 Peanuts aren''t nuts - they''re legumes, like beans and peas.',
+      '🚀 Sunsets on Mars glow blue.',
+      '🐾 Polar bears have black skin, and their fur isn''t really white - each hair is see-through.',
+      '🌍 Vatican City is the smallest country in the world - smaller than many city parks.',
+      '🌿 One of the oldest known living trees, a bristlecone pine in California, is over 4,800 years old.',
+      '🚀 Halley''s Comet swings past Earth about every 76 years. Its next visit is in 2061.',
+      '🐾 Sea otters sometimes hold paws while they sleep so they don''t drift apart.',
+      '🌍 The Dead Sea is so salty that you float without even trying.',
+      '🌿 Coral reefs cover less than 1% of the ocean floor but are home to about a quarter of all ocean species.',
+      '🚀 Astronomers estimate there are more stars in the universe than grains of sand on all of Earth''s beaches.',
+      '🐾 Axolotls can regrow lost legs, and even parts of their heart and brain.',
+      '🌍 More than a third of everyone on Earth lives in just two countries: India and China.',
+      '🌿 Venus flytraps can count: they only snap shut after their trigger hairs are touched twice.',
+      '🚀 Earth isn''t a perfect ball - it bulges at the equator because it spins.'
     ],
     p_now
   );
@@ -418,10 +434,10 @@ as $$
     'evening_explore',
     17,
     array[
-      'Be a tourist at home',
       'Golden hour is coming',
-      'Take the long way',
+      'Be a tourist at home',
       'Museum mood',
+      'Take the long way',
       'Night market hunt',
       'New neighborhood unlocked',
       'Bookstore wander',
@@ -433,12 +449,12 @@ as $$
       'Waterfront walk',
       'Neon & signs',
       'Ferry, tram or cable car',
-      'Say yes to the detour',
       'After-dark stroll',
+      'Say yes to the detour',
       'Window shopping, upgraded',
       'Evening picnic',
-      'New café, new corner',
       'Dinner in a new neighborhood',
+      'New café, new corner',
       'Live music check',
       'Rooftop hunt',
       'Stargazing spot',
@@ -447,8 +463,8 @@ as $$
       'Bridge at dusk',
       'Cinema night',
       'Small stages',
-      'Tea house hideaway',
       'City lights',
+      'Tea house hideaway',
       'Weekend explore plan',
       'Food hall wander',
       'Plaza people-watching',
@@ -460,10 +476,10 @@ as $$
       'Save your find'
     ],
     array[
-      'Pick one spot in your city you''ve never been to and go this week.',
       'Find a park, rooftop or riverside spot with a view and catch the sunset.',
-      'Walk a street you''ve never walked. The best finds hide one block over.',
+      'Pick one spot in your city you''ve never been to and go this week.',
       'Lots of museums have free or late nights. See what''s on near you this week.',
+      'Walk a street you''ve never walked. The best finds hide one block over.',
       'Night markets, food halls, late bazaars - find one and wander through.',
       'Pick a neighborhood you only know by name and spend an evening there.',
       'Get lost in an indie bookstore. Leave with something you didn''t plan on.',
@@ -475,12 +491,12 @@ as $$
       'River, lake or harbor - head to the water and take a slow lap.',
       'Find the best old neon sign in your city. Evenings are when they shine.',
       'If your city has one, ride it at dusk just for the view.',
-      'That spot you pass on your commute? Today''s the day you stop in.',
       'Some streets look completely different lit up. Take an evening walk somewhere new.',
+      'That spot you pass on your commute? Today''s the day you stop in.',
       'Wander a street of small shops you''ve never browsed.',
       'Grab something from a local deli or bakery and eat it in a park.',
-      'Try a café in a part of town you never visit. Grab a window seat and people-watch.',
       'Pick a restaurant somewhere you''ve never explored and make an evening of it.',
+      'Try a café in a part of town you never visit. Grab a window seat and people-watch.',
       'Find a small venue with live music this week. Jazz, open mic, anything goes.',
       'Rooftops, terraces, top-floor cafés - find a high spot for tonight''s sky.',
       'Find a park away from the brightest city lights and look up after dark.',
@@ -489,8 +505,8 @@ as $$
       'Walk across a bridge in your city around sunset. The view is usually worth it.',
       'Find an independent cinema or an outdoor screening near you.',
       'Small theaters and comedy clubs are local treasures. See what''s on this week.',
-      'Find a quiet tea house or café you''ve never been to and take the evening slow.',
       'Head somewhere known for its lights - a skyline view, a lit-up square, a busy avenue.',
+      'Find a quiet tea house or café you''ve never been to and take the evening slow.',
       'Pick one neighborhood for the weekend and save three spots there on Afiyeat.',
       'A food hall is a whole neighborhood under one roof. Go explore one.',
       'Find a busy square, grab a bench and watch the city go by.',
@@ -517,7 +533,7 @@ revoke execute on function public.send_evening_explore(timestamptz) from anon, a
 select cron.unschedule(jobname)
 from cron.job
 where jobname in (
-  'good-morning-treat', 'daily-prompt',
+  'good-morning-treat', 'daily-prompt', 'weekly-suggestions', 'weekly-digest', 'inactivity-reminders',
   'good-morning-fun-fact', 'morning-explore', 'evening-explore'
 );
 
@@ -526,10 +542,22 @@ select cron.schedule('morning-explore',       '*/15 * * * *', $$ select public.s
 select cron.schedule('evening-explore',       '*/15 * * * *', $$ select public.send_evening_explore(); $$);
 
 -- ---------------------------------------------------------------------
--- Rollback (run manually if needed, not part of this migration)
+-- Rollback (run manually only if needed; not part of this migration)
 -- ---------------------------------------------------------------------
+-- 1. Stop the new pushes (safe, immediate):
 --   select cron.unschedule(jobname) from cron.job
 --    where jobname in ('good-morning-fun-fact', 'morning-explore', 'evening-explore');
---   select cron.schedule('good-morning-treat', '*/15 * * * *', $$ select public.send_good_morning_treat(); $$);
---   select cron.schedule('daily-prompt', '0 23 * * *', $$ select public.send_daily_prompt(); $$);
--- The new tables and functions can stay; nothing else calls them.
+--
+-- 2. Only if the old pushes should come back. LIMITATION: the old functions
+--    send to EVERY user with a device and ignore notification_consents, so
+--    this brings back engagement pushes without in-app consent.
+--   select cron.schedule('good-morning-treat',   '*/15 * * * *', $$ select public.send_good_morning_treat(); $$);
+--   select cron.schedule('daily-prompt',         '0 23 * * *',   $$ select public.send_daily_prompt(); $$);
+--   select cron.schedule('weekly-suggestions',   '0 15 * * 1',   $$ select public.send_weekly_suggestions(); $$);
+--   select cron.schedule('weekly-digest',        '0 16 * * 1',   $$ select public.send_weekly_digest(); $$);
+--   select cron.schedule('inactivity-reminders', '0 17 * * *',   $$ select public.send_inactivity_reminders(); $$);
+--
+-- 3. The new tables and functions can stay (nothing else uses them). If
+--    they must go: drop the three wrappers, send_local_time_push,
+--    daily_push_sent and notification_consents, which deletes users'
+--    recorded consents; the app's Notifications card then hides itself.
