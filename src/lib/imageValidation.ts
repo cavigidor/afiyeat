@@ -8,6 +8,37 @@ export const MAX_IMAGES_PER_RESTAURANT = 5;
 // rather than restaurants specifically.
 export const MAX_IMAGES_PER_ITEM = 5;
 
+/**
+ * Checks a new photo selection against the per-place/per-item cap BEFORE
+ * anything is decoded or compressed. Returns an error message if the
+ * selection would go over the cap, otherwise null.
+ *
+ * Picking more than the cap used to quietly keep the first few and start
+ * compressing them, which on a phone looked like the app hanging. Now the
+ * whole selection is rejected straight away with a clear message, and the
+ * user can pick again.
+ */
+export function photoLimitError(selectedCount: number, alreadyAdded: number, max: number): string | null {
+  const remaining = max - alreadyAdded;
+  if (selectedCount <= remaining) return null;
+  if (remaining <= 0) return `You can only add ${max} images. Remove one to add another.`;
+  if (alreadyAdded === 0) return `You can only add ${max} images.`;
+  return `You can only add ${max} images. You have room for ${remaining} more.`;
+}
+
+/**
+ * compressImage() over a list, one at a time. Decoding several full-size
+ * phone photos at once can exhaust the iOS WebView's memory, so this
+ * deliberately doesn't use Promise.all.
+ */
+export async function compressImages(files: File[]): Promise<File[]> {
+  const out: File[] = [];
+  for (const file of files) {
+    out.push(await compressImage(file));
+  }
+  return out;
+}
+
 export function validateImageFile(file: File): string | null {
   if (file.size > MAX_FILE_SIZE) {
     return 'File size must be less than 8MB';

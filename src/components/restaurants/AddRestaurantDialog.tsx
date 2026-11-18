@@ -31,7 +31,12 @@ import { isNative, capturePhoto } from '@/lib/native';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { validateImageFile, compressImage, MAX_IMAGES_PER_RESTAURANT } from '@/lib/imageValidation';
+import {
+  validateImageFile,
+  compressImages,
+  photoLimitError,
+  MAX_IMAGES_PER_RESTAURANT,
+} from '@/lib/imageValidation';
 import { isDuplicateRestaurant } from '@/lib/duplicateRestaurant';
 import { PriceLevelPicker } from './PriceLevelPicker';
 import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
@@ -150,6 +155,7 @@ export function AddRestaurantDialog({
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [addingPhotos, setAddingPhotos] = useState(false);
   // Metadata for the selected place, used to dedupe/aggregate this entry
   // with other users' entries for the same place on the Explore map. Not
   // shown in the form UI, so it's tracked separately rather than as a
@@ -208,9 +214,13 @@ export function AddRestaurantDialog({
   });
 
   const addFiles = async (incoming: File[]) => {
-    const remainingSlots = MAX_IMAGES_PER_RESTAURANT - images.length;
-    if (remainingSlots <= 0) {
-      toast.error(`You can add up to ${MAX_IMAGES_PER_RESTAURANT} photos per place.`);
+    if (incoming.length === 0 || addingPhotos) return;
+
+    // Check the count first, before touching any of the files: picking too
+    // many gets an immediate error instead of a long "buffering" pause.
+    const limitError = photoLimitError(incoming.length, images.length, MAX_IMAGES_PER_RESTAURANT);
+    if (limitError) {
+      toast.error(limitError);
       return;
     }
 
@@ -222,32 +232,34 @@ export function AddRestaurantDialog({
       }
       return true;
     });
+    if (validated.length === 0) return;
 
-    if (validated.length > remainingSlots) {
-      toast.error(
-        `Only ${remainingSlots} more photo${remainingSlots === 1 ? '' : 's'} can be added (max ${MAX_IMAGES_PER_RESTAURANT}).`,
-      );
+    setAddingPhotos(true);
+    try {
+      // Downscale/re-encode before it ever touches state or gets uploaded, so
+      // normal multi-megabyte phone photos don't trip size limits or bloat
+      // storage - see compressImage() for details.
+      const compressed = await compressImages(validated);
+
+      setImages((prev) => [...prev, ...compressed]);
+
+      compressed.forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setImagePreviews((prev) => [...prev, e.target?.result as string]);
+        };
+        reader.readAsDataURL(file);
+      });
+    } finally {
+      setAddingPhotos(false);
     }
-    const toAdd = validated.slice(0, remainingSlots);
-
-    // Downscale/re-encode before it ever touches state or gets uploaded, so
-    // normal multi-megabyte phone photos don't trip size limits or bloat
-    // storage - see compressImage() for details.
-    const compressed = await Promise.all(toAdd.map((file) => compressImage(file)));
-
-    setImages((prev) => [...prev, ...compressed]);
-
-    compressed.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreviews((prev) => [...prev, e.target?.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    addFiles(Array.from(e.target.files || []));
+    const files = Array.from(e.target.files || []);
+    // Clear it so picking the same photos again still fires onChange.
+    e.target.value = '';
+    addFiles(files);
   };
 
   const handleTakePhoto = async () => {
@@ -584,21 +596,32 @@ export function AddRestaurantDialog({
                   </div>
                 ))}
                 {imagePreviews.length < MAX_IMAGES_PER_RESTAURANT && (
-                  <label className="aspect-square border-2 border-dashed border-muted rounded-lg flex items-center justify-center cursor-pointer hover:border-primary transition-colors">
+                  <label
+                    aria-busy={addingPhotos}
+                    className={`aspect-square border-2 border-dashed border-muted rounded-lg flex items-center justify-center transition-colors ${
+                      addingPhotos ? 'pointer-events-none opacity-60' : 'cursor-pointer hover:border-primary'
+                    }`}
+                  >
                     <input
                       type="file"
                       accept="image/*"
                       multiple
                       onChange={handleImageChange}
+                      disabled={addingPhotos}
                       className="hidden"
                     />
-                    <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                    {addingPhotos ? (
+                      <Spinner className="h-5 w-5 animate-spin text-muted-foreground" />
+                    ) : (
+                      <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                    )}
                   </label>
                 )}
                 {isNative() && imagePreviews.length < MAX_IMAGES_PER_RESTAURANT && (
                   <button
                     type="button"
                     onClick={handleTakePhoto}
+                    disabled={addingPhotos}
                     className="aspect-square border-2 border-dashed border-muted rounded-lg flex items-center justify-center cursor-pointer hover:border-primary transition-colors"
                     aria-label="Take photo"
                   >

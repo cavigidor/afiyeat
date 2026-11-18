@@ -55,7 +55,7 @@ export function PushNotificationManager() {
   const userId = user?.id;
 
   // Keeps profiles.timezone reasonably fresh so server-side crons (e.g. the
-  // daily good-morning nudge) can fire at 8am in each user's own timezone
+  // daily good-morning fun fact) can fire at 7am in each user's own timezone
   // instead of one fixed UTC time for everyone. Runs on every sign-in/cold
   // start (not just push registration, and not gated on isNative() - web
   // sessions get a timezone too), so it also picks up a user traveling to

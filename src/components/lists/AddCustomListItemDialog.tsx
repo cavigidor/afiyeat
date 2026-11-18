@@ -22,7 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { isNative, capturePhoto } from '@/lib/native';
-import { validateImageFile, compressImage, MAX_IMAGES_PER_ITEM } from '@/lib/imageValidation';
+import { validateImageFile, compressImages, photoLimitError, MAX_IMAGES_PER_ITEM } from '@/lib/imageValidation';
 import { PriceLevelPicker } from '@/components/restaurants/PriceLevelPicker';
 import { StarRatingPicker } from '@/components/lists/StarRatingPicker';
 import { useSignedImageUrls } from '@/hooks/useSignedImageUrl';
@@ -113,6 +113,7 @@ export function AddCustomListItemDialog({
   const [notes, setNotes] = useState('');
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [addingPhotos, setAddingPhotos] = useState(false);
   const [existingImages, setExistingImages] = useState<{ id: string; image_url: string }[]>([]);
   const [removedImageIds, setRemovedImageIds] = useState<string[]>([]);
 
@@ -177,9 +178,16 @@ export function AddCustomListItemDialog({
   }, [open, editItem]);
 
   const addFiles = async (incoming: File[]) => {
-    const remainingSlots = MAX_IMAGES_PER_ITEM - existingImages.length - images.length;
-    if (remainingSlots <= 0) {
-      toast.error(`You can add up to ${MAX_IMAGES_PER_ITEM} photos per item.`);
+    if (incoming.length === 0 || addingPhotos) return;
+    // Check the count first, before touching any of the files: picking too
+    // many gets an immediate error instead of a long "buffering" pause.
+    const limitError = photoLimitError(
+      incoming.length,
+      existingImages.length + images.length,
+      MAX_IMAGES_PER_ITEM,
+    );
+    if (limitError) {
+      toast.error(limitError);
       return;
     }
     const validated = incoming.filter((file) => {
@@ -190,17 +198,27 @@ export function AddCustomListItemDialog({
       }
       return true;
     });
-    const toAdd = validated.slice(0, remainingSlots);
-    const compressed = await Promise.all(toAdd.map((file) => compressImage(file)));
-    setImages((prev) => [...prev, ...compressed]);
-    compressed.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (e) => setImagePreviews((prev) => [...prev, e.target?.result as string]);
-      reader.readAsDataURL(file);
-    });
+    if (validated.length === 0) return;
+    setAddingPhotos(true);
+    try {
+      const compressed = await compressImages(validated);
+      setImages((prev) => [...prev, ...compressed]);
+      compressed.forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = (e) => setImagePreviews((prev) => [...prev, e.target?.result as string]);
+        reader.readAsDataURL(file);
+      });
+    } finally {
+      setAddingPhotos(false);
+    }
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => addFiles(Array.from(e.target.files || []));
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    // Clear it so picking the same photos again still fires onChange.
+    e.target.value = '';
+    addFiles(files);
+  };
   const handleTakePhoto = async () => {
     const file = await capturePhoto();
     if (file) addFiles([file]);
@@ -509,15 +527,32 @@ export function AddCustomListItemDialog({
                   </div>
                 ))}
                 {totalPhotoCount < MAX_IMAGES_PER_ITEM && (
-                  <label className="aspect-square border-2 border-dashed border-muted rounded-lg flex items-center justify-center cursor-pointer hover:border-primary transition-colors">
-                    <input type="file" accept="image/*" multiple onChange={handleImageChange} className="hidden" />
-                    <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                  <label
+                    aria-busy={addingPhotos}
+                    className={`aspect-square border-2 border-dashed border-muted rounded-lg flex items-center justify-center transition-colors ${
+                      addingPhotos ? 'pointer-events-none opacity-60' : 'cursor-pointer hover:border-primary'
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageChange}
+                      disabled={addingPhotos}
+                      className="hidden"
+                    />
+                    {addingPhotos ? (
+                      <Spinner className="h-5 w-5 animate-spin text-muted-foreground" />
+                    ) : (
+                      <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                    )}
                   </label>
                 )}
                 {isNative() && totalPhotoCount < MAX_IMAGES_PER_ITEM && (
                   <button
                     type="button"
                     onClick={handleTakePhoto}
+                    disabled={addingPhotos}
                     className="aspect-square border-2 border-dashed border-muted rounded-lg flex items-center justify-center cursor-pointer hover:border-primary transition-colors"
                     aria-label="Take photo"
                   >

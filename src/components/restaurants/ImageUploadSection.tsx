@@ -3,7 +3,7 @@ import { ImagePlus, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { validateImageFile, compressImage, MAX_IMAGES_PER_RESTAURANT } from '@/lib/imageValidation';
+import { validateImageFile, compressImages, photoLimitError, MAX_IMAGES_PER_RESTAURANT } from '@/lib/imageValidation';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import { Spinner } from '@/components/ui/spinner';
 import { errorMessage } from '@/lib/utils';
@@ -58,33 +58,32 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
     const files = e.target.files;
     if (!files || !user) return;
 
-    const remainingSlots = MAX_IMAGES_PER_RESTAURANT - existingImages.length;
-    if (remainingSlots <= 0) {
-      toast.error(`You can add up to ${MAX_IMAGES_PER_RESTAURANT} photos per place.`);
+    const fileArray = Array.from(files);
+    if (fileArray.length === 0) return;
+
+    // Check the count first, before touching any of the files: picking too
+    // many gets an immediate error instead of a long "buffering" pause.
+    const limitError = photoLimitError(fileArray.length, existingImages.length, MAX_IMAGES_PER_RESTAURANT);
+    if (limitError) {
+      toast.error(limitError);
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
-    const fileArray = Array.from(files);
     for (const file of fileArray) {
       const error = validateImageFile(file);
       if (error) {
         toast.error(error);
+        if (fileInputRef.current) fileInputRef.current.value = '';
         return;
       }
     }
-
-    if (fileArray.length > remainingSlots) {
-      toast.error(
-        `Only ${remainingSlots} more photo${remainingSlots === 1 ? '' : 's'} can be added (max ${MAX_IMAGES_PER_RESTAURANT}).`,
-      );
-    }
-    const toUpload = fileArray.slice(0, remainingSlots);
+    const toUpload = fileArray;
 
     setUploading(true);
     try {
       // Downscale/re-encode before upload - see compressImage() for why.
-      const compressedFiles = await Promise.all(toUpload.map((file) => compressImage(file)));
+      const compressedFiles = await compressImages(toUpload);
       for (const file of compressedFiles) {
         const ext = file.name.split('.').pop();
         const path = `${user.id}/${restaurantId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
