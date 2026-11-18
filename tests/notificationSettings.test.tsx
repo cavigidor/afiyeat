@@ -315,9 +315,9 @@ describe('Profile > Notifications: explicit opt-in', () => {
     await waitFor(() => expect(db.consents.filter((r) => r.user_id === ME)).toHaveLength(3));
     expect(db.consents.filter((r) => r.user_id === ME).every((r) => r.consent_version === DAILY_PUSH_CONSENT_VERSION)).toBe(true);
     expect(checked(/Good morning fun fact/) && checked(/Explore your city/) && checked(/Evening exploring/)).toBe(true);
-    expect(screen.getByText(/7 AM/)).toBeTruthy();
-    expect(screen.getByText(/8 AM/)).toBeTruthy();
-    expect(screen.getByText(/5 PM/)).toBeTruthy();
+    expect(screen.getByText('7 AM')).toBeTruthy();
+    expect(screen.getByText('8 AM')).toBeTruthy();
+    expect(screen.getByText('5 PM')).toBeTruthy();
 
     fireEvent.click(switchFor(/Explore your city/));
     await waitFor(() =>
