@@ -7,6 +7,7 @@ import { validateImageFile, compressImages, photoLimitError, MAX_IMAGES_PER_REST
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import { Spinner } from '@/components/ui/spinner';
 import { errorMessage } from '@/lib/utils';
+import { isNative, pickGalleryPhotos } from '@/lib/native';
 
 interface ExistingImage {
   id: string;
@@ -54,12 +55,26 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || !user) return;
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    uploadFiles(Array.from(e.target.files || []));
+  };
 
-    const fileArray = Array.from(files);
-    if (fileArray.length === 0) return;
+  // On the iPhone app, open the native photo picker capped at the photos
+  // still allowed, so it's impossible to select too many in the first place.
+  // On the web (or if the native picker fails) use the file input instead.
+  const handlePickPhotos = async () => {
+    if (uploading) return;
+    if (!isNative()) {
+      fileInputRef.current?.click();
+      return;
+    }
+    const result = await pickGalleryPhotos(MAX_IMAGES_PER_RESTAURANT - existingImages.length);
+    if (result.status === 'picked') uploadFiles(result.files);
+    else if (result.status === 'unavailable') fileInputRef.current?.click();
+  };
+
+  const uploadFiles = async (fileArray: File[]) => {
+    if (!user || fileArray.length === 0) return;
 
     // Check the count first, before touching any of the files: picking too
     // many gets an immediate error instead of a long "buffering" pause.
@@ -141,7 +156,7 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
         {existingImages.length < MAX_IMAGES_PER_RESTAURANT && (
           <button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={handlePickPhotos}
             disabled={uploading}
             className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center hover:border-primary/50 transition-colors"
           >

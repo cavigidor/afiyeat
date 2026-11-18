@@ -1,30 +1,45 @@
--- Notification refresh:
+-- Notification refresh: three daily pushes, each at a set local time in the
+-- user's own timezone (profiles.timezone, which the app keeps fresh on
+-- every sign-in and cold start):
 --
---   1. New 7am "Good morning" push with a fun fact about animals, the
---      world, nature or space. Fires at 7am in each user's own timezone
---      (profiles.timezone, which the app keeps fresh on every sign-in and
---      cold start). It takes over the morning slot from the old 8am
---      "go get a treat" push, so people still get one morning push, not two.
---      Rotates through 60 facts, so nothing repeats for about two months.
+--   7am  Good morning + a fun fact about animals, the world, nature or
+--        space. 60 facts, so nothing repeats for about two months.
+--   8am  Explore your city: one idea for getting out and seeing something
+--        new today (parks, landmarks, galleries, markets, new neighborhoods).
+--        Replaces the old 8am "go get a treat" push. 30 ideas.
+--   5pm  Daily prompt: alternates food spots with evening/weekend
+--        explore-the-city ideas. 40 messages. This used to go out at
+--        11pm UTC for everyone (2am in Istanbul).
 --
---   2. The daily prompt is no longer only about food. It now alternates
---      food ideas with ideas for exploring the city (parks, markets,
---      museums, new neighborhoods, views...), rotating through 40
---      messages. It also moves from one fixed time for everyone
---      (11pm UTC, which is 2am in Istanbul) to 5pm in each user's own
---      timezone. Users whose timezone isn't known yet keep the old 11pm UTC.
+-- Users without a saved timezone: skipped at 7am and 8am (so nobody is woken
+-- at 1am), and keep the old 11pm UTC for the 5pm prompt. They move onto
+-- their local times as soon as they next open the app.
 --
--- Only copy and timing change. Same recipients (everyone with a registered
--- device), same notify_user() delivery path.
+-- Same recipients as before (everyone with a registered device), same
+-- notify_user() delivery path.
 --
--- Rollback: unschedule 'good-morning-fun-fact', re-schedule
--- 'good-morning-treat' ('*/15 * * * *', select public.send_good_morning_treat()),
--- and restore send_daily_prompt / 'daily-prompt' from
--- 20260816211302_bf5fbf99-4a4c-44b5-957c-b08030ba7f7c.sql.
+-- Rollback: unschedule 'good-morning-fun-fact' and 'morning-explore',
+-- re-schedule 'good-morning-treat' ('*/15 * * * *',
+-- select public.send_good_morning_treat()), and restore send_daily_prompt /
+-- 'daily-prompt' from 20260816211302_bf5fbf99-4a4c-44b5-957c-b08030ba7f7c.sql.
 -- send_good_morning_treat() is intentionally left in place for that reason.
 
+-- Per-user "already sent today" guard for the 8am and 5pm pushes (the 7am
+-- one keeps using the existing good_morning_sent). The crons run every 15
+-- minutes and check each user's own local hour, so without this a user
+-- would get the same push up to 4 times in that hour. Service role only.
+create table if not exists public.daily_push_sent (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  push_kind text not null,
+  last_sent_date date not null,
+  primary key (user_id, push_kind)
+);
+
+grant all on public.daily_push_sent to service_role;
+alter table public.daily_push_sent enable row level security;
+
 -- ---------------------------------------------------------------------
--- 1. 7am Good morning + fun fact
+-- 7am: Good morning + fun fact
 -- ---------------------------------------------------------------------
 
 create or replace function public.send_good_morning_fun_fact()
@@ -45,9 +60,6 @@ begin
     select distinct dt.user_id, p.timezone as tz
     from public.device_tokens dt
     join public.profiles p on p.user_id = dt.user_id
-    -- No timezone yet means we don't know when their 7am is. Skip them
-    -- rather than wake someone up at 1am; they're picked up as soon as
-    -- they next open the app and the timezone gets saved.
     where p.timezone is not null
   loop
     -- Skip anything that isn't a real IANA zone name rather than let
@@ -63,8 +75,6 @@ begin
       continue;
     end if;
 
-    -- The cron runs every 15 minutes, so without this a user would get the
-    -- push up to 4 times during their 7am hour.
     if exists (
       select 1 from public.good_morning_sent
       where user_id = r.user_id and last_sent_date = local_date
@@ -155,10 +165,6 @@ $$;
 
 revoke execute on function public.send_good_morning_fun_fact() from anon, authenticated, public;
 
--- Retire the 8am treat push (the 7am fun fact takes the morning slot).
-select cron.unschedule('good-morning-treat')
-where exists (select 1 from cron.job where jobname = 'good-morning-treat');
-
 select cron.unschedule('good-morning-fun-fact')
 where exists (select 1 from cron.job where jobname = 'good-morning-fun-fact');
 
@@ -169,19 +175,117 @@ select cron.schedule(
 );
 
 -- ---------------------------------------------------------------------
--- 2. Daily prompt: food + exploring the city, 5pm local
+-- 8am: Explore your city (replaces the 8am treat push)
 -- ---------------------------------------------------------------------
 
--- Same "already sent today" guard as good_morning_sent, for the same
--- reason (cron every 15 minutes, per-user local hour check). Only the
--- service role touches it.
-create table if not exists public.daily_prompt_sent (
-  user_id uuid primary key references auth.users(id) on delete cascade,
-  last_sent_date date not null
+create or replace function public.send_morning_explore()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  r record;
+  local_now timestamp;
+  local_date date;
+  msg_idx int;
+  msg_title text;
+  msg_body text;
+begin
+  for r in
+    select distinct dt.user_id, p.timezone as tz
+    from public.device_tokens dt
+    join public.profiles p on p.user_id = dt.user_id
+    where p.timezone is not null
+  loop
+    begin
+      local_now := now() at time zone r.tz;
+    exception when others then
+      continue;
+    end;
+    local_date := local_now::date;
+
+    if extract(hour from local_now)::int <> 8 then
+      continue;
+    end if;
+
+    if exists (
+      select 1 from public.daily_push_sent
+      where user_id = r.user_id
+        and push_kind = 'morning_explore'
+        and last_sent_date = local_date
+    ) then
+      continue;
+    end if;
+
+    msg_idx := extract(doy from local_date)::int % 30;
+
+    select title, body into msg_title, msg_body
+    from (values
+      ( 0, 'Today''s mini adventure', 'Pick one street, park or shop you''ve never been to and check it out today.'),
+      ( 1, 'New route, new finds', 'Take a different way to wherever you''re going today. See what you spot.'),
+      ( 2, 'Coffee with a view', 'Grab a coffee somewhere new and drink it outside.'),
+      ( 3, 'Explore like a local', 'Ask a barista or shop owner for their favorite spot nearby, then go.'),
+      ( 4, 'Free is fun', 'Free museums, parks, public gardens - your city has more free stuff than you think.'),
+      ( 5, 'Garden check', 'Look up a botanical or community garden near you. Perfect for a slow morning.'),
+      ( 6, 'Library field trip', 'Big city libraries are often stunning buildings. Go take a look inside.'),
+      ( 7, 'Climb for the view', 'Find the highest point in your city - a hill, a tower, a top-floor café - and look out.'),
+      ( 8, 'Neighborhood bingo', 'Walk through a neighborhood you''ve never visited. Bonus points for a new café.'),
+      ( 9, 'Sunset plans', 'Pick a spot you''ve never watched the sunset from and go this week.'),
+      (10, 'Pop-up hunt', 'Pop-up markets and shops come and go. See what''s popping up near you.'),
+      (11, 'Wander a little', 'Take a 20-minute walk in a direction you never go.'),
+      (12, 'Local landmark day', 'There''s a landmark in your city you''ve never actually visited. Today''s the day.'),
+      (13, 'Thrift treasure hunt', 'Pop into a vintage or thrift shop you''ve never been in. Treasure hunting counts.'),
+      (14, 'Green space reset', 'Start the day in a park you don''t usually go to. Fresh air, new view.'),
+      (15, 'Architecture walk', 'Find the most interesting building near you and go see it up close.'),
+      (16, 'Two wheels', 'Rent a bike or scooter and explore a part of town you''d never walk to.'),
+      (17, 'Gallery hop', 'Small galleries are usually free to walk into. Find one near you this week.'),
+      (18, 'Tourist for a day', 'What would a visitor do in your city? Do one of those things this week.'),
+      (19, 'Find your third place', 'Not home, not work: a café, a bench, a bookstore. Go find your spot.'),
+      (20, 'Water day', 'Find a fountain, pond, beach or riverwalk near you and spend some time there.'),
+      (21, 'Check the calendar', 'Festivals, fairs, free concerts - see what''s on in your city this week.'),
+      (22, 'Explore your own block', 'There''s a spot within 10 minutes of home you''ve never noticed. Go look.'),
+      (23, 'Sculpture spotting', 'Public art hides in plain sight. Find a statue or sculpture you''ve never really looked at.'),
+      (24, 'Weekend scouting', 'Pick one new place to explore this weekend and add it to a list on Afiyeat.'),
+      (25, 'Step inside', 'That place you always walk past but never go into? Go in today.'),
+      (26, 'Historic stroll', 'Find your city''s oldest street or district and take a walk through it.'),
+      (27, 'Photo walk', 'Go on a walk just to take photos. You''ll notice things you''ve passed for years.'),
+      (28, 'Hidden courtyards', 'Cities are full of hidden courtyards and rooftop gardens. Go find one.'),
+      (29, 'Start an explore list', 'Make an Afiyeat list of places in your city you want to visit, and tick one off.')
+    ) as ideas(idx, title, body)
+    where idx = msg_idx;
+
+    perform public.notify_user(
+      r.user_id,
+      msg_title,
+      msg_body,
+      jsonb_build_object('type', 'morning_explore')
+    );
+
+    insert into public.daily_push_sent (user_id, push_kind, last_sent_date)
+    values (r.user_id, 'morning_explore', local_date)
+    on conflict (user_id, push_kind) do update set last_sent_date = excluded.last_sent_date;
+  end loop;
+end;
+$$;
+
+revoke execute on function public.send_morning_explore() from anon, authenticated, public;
+
+select cron.unschedule('good-morning-treat')
+where exists (select 1 from cron.job where jobname = 'good-morning-treat');
+
+select cron.unschedule('morning-explore')
+where exists (select 1 from cron.job where jobname = 'morning-explore');
+
+select cron.schedule(
+  'morning-explore',
+  '*/15 * * * *',
+  $$ select public.send_morning_explore(); $$
 );
 
-grant all on public.daily_prompt_sent to service_role;
-alter table public.daily_prompt_sent enable row level security;
+-- ---------------------------------------------------------------------
+-- 5pm: daily prompt, food + exploring the city
+-- ---------------------------------------------------------------------
 
 create or replace function public.send_daily_prompt()
 returns void
@@ -217,8 +321,10 @@ begin
     end if;
 
     if exists (
-      select 1 from public.daily_prompt_sent
-      where user_id = r.user_id and last_sent_date = local_date
+      select 1 from public.daily_push_sent
+      where user_id = r.user_id
+        and push_kind = 'daily_prompt'
+        and last_sent_date = local_date
     ) then
       continue;
     end if;
@@ -281,9 +387,9 @@ begin
       )
     );
 
-    insert into public.daily_prompt_sent (user_id, last_sent_date)
-    values (r.user_id, local_date)
-    on conflict (user_id) do update set last_sent_date = excluded.last_sent_date;
+    insert into public.daily_push_sent (user_id, push_kind, last_sent_date)
+    values (r.user_id, 'daily_prompt', local_date)
+    on conflict (user_id, push_kind) do update set last_sent_date = excluded.last_sent_date;
   end loop;
 end;
 $$;

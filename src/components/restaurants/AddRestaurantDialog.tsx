@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ImagePlus, X, Search, Camera } from 'lucide-react';
-import { isNative, capturePhoto } from '@/lib/native';
+import { isNative, capturePhoto, pickGalleryPhotos } from '@/lib/native';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -156,6 +156,7 @@ export function AddRestaurantDialog({
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [addingPhotos, setAddingPhotos] = useState(false);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   // Metadata for the selected place, used to dedupe/aggregate this entry
   // with other users' entries for the same place on the Explore map. Not
   // shown in the form UI, so it's tracked separately rather than as a
@@ -260,6 +261,26 @@ export function AddRestaurantDialog({
     // Clear it so picking the same photos again still fires onChange.
     e.target.value = '';
     addFiles(files);
+  };
+
+  // On the iPhone app, open the native photo picker capped at the photos
+  // still allowed, so it's impossible to select too many in the first place.
+  // On the web (or if the native picker fails) use the file input instead.
+  const handlePickFromGallery = async () => {
+    if (addingPhotos) return;
+    if (!isNative()) {
+      // Called straight from the tap so the browser lets the picker open.
+      galleryInputRef.current?.click();
+      return;
+    }
+    const remaining = MAX_IMAGES_PER_RESTAURANT - images.length;
+    if (remaining <= 0) {
+      toast.error(photoLimitError(1, images.length, MAX_IMAGES_PER_RESTAURANT) ?? '');
+      return;
+    }
+    const result = await pickGalleryPhotos(remaining);
+    if (result.status === 'picked') addFiles(result.files);
+    else if (result.status === 'unavailable') galleryInputRef.current?.click();
   };
 
   const handleTakePhoto = async () => {
@@ -596,26 +617,30 @@ export function AddRestaurantDialog({
                   </div>
                 ))}
                 {imagePreviews.length < MAX_IMAGES_PER_RESTAURANT && (
-                  <label
-                    aria-busy={addingPhotos}
-                    className={`aspect-square border-2 border-dashed border-muted rounded-lg flex items-center justify-center transition-colors ${
-                      addingPhotos ? 'pointer-events-none opacity-60' : 'cursor-pointer hover:border-primary'
-                    }`}
-                  >
+                  <>
+                    <button
+                      type="button"
+                      onClick={handlePickFromGallery}
+                      disabled={addingPhotos}
+                      aria-busy={addingPhotos}
+                      aria-label="Choose photos"
+                      className="aspect-square border-2 border-dashed border-muted rounded-lg flex items-center justify-center cursor-pointer hover:border-primary transition-colors disabled:cursor-default disabled:opacity-60"
+                    >
+                      {addingPhotos ? (
+                        <Spinner className="h-5 w-5 animate-spin text-muted-foreground" />
+                      ) : (
+                        <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                      )}
+                    </button>
                     <input
+                      ref={galleryInputRef}
                       type="file"
                       accept="image/*"
                       multiple
                       onChange={handleImageChange}
-                      disabled={addingPhotos}
                       className="hidden"
                     />
-                    {addingPhotos ? (
-                      <Spinner className="h-5 w-5 animate-spin text-muted-foreground" />
-                    ) : (
-                      <ImagePlus className="h-6 w-6 text-muted-foreground" />
-                    )}
-                  </label>
+                  </>
                 )}
                 {isNative() && imagePreviews.length < MAX_IMAGES_PER_RESTAURANT && (
                   <button

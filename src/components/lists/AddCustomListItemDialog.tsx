@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -21,7 +21,7 @@ import { Search, ImagePlus, X, Camera } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { isNative, capturePhoto } from '@/lib/native';
+import { isNative, capturePhoto, pickGalleryPhotos } from '@/lib/native';
 import { validateImageFile, compressImages, photoLimitError, MAX_IMAGES_PER_ITEM } from '@/lib/imageValidation';
 import { PriceLevelPicker } from '@/components/restaurants/PriceLevelPicker';
 import { StarRatingPicker } from '@/components/lists/StarRatingPicker';
@@ -114,6 +114,7 @@ export function AddCustomListItemDialog({
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [addingPhotos, setAddingPhotos] = useState(false);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [existingImages, setExistingImages] = useState<{ id: string; image_url: string }[]>([]);
   const [removedImageIds, setRemovedImageIds] = useState<string[]>([]);
 
@@ -219,6 +220,26 @@ export function AddCustomListItemDialog({
     e.target.value = '';
     addFiles(files);
   };
+  // On the iPhone app, open the native photo picker capped at the photos
+  // still allowed, so it's impossible to select too many in the first place.
+  // On the web (or if the native picker fails) use the file input instead.
+  const handlePickFromGallery = async () => {
+    if (addingPhotos) return;
+    if (!isNative()) {
+      // Called straight from the tap so the browser lets the picker open.
+      galleryInputRef.current?.click();
+      return;
+    }
+    const remaining = MAX_IMAGES_PER_ITEM - (existingImages.length + images.length);
+    if (remaining <= 0) {
+      toast.error(photoLimitError(1, existingImages.length + images.length, MAX_IMAGES_PER_ITEM) ?? '');
+      return;
+    }
+    const result = await pickGalleryPhotos(remaining);
+    if (result.status === 'picked') addFiles(result.files);
+    else if (result.status === 'unavailable') galleryInputRef.current?.click();
+  };
+
   const handleTakePhoto = async () => {
     const file = await capturePhoto();
     if (file) addFiles([file]);
@@ -527,26 +548,30 @@ export function AddCustomListItemDialog({
                   </div>
                 ))}
                 {totalPhotoCount < MAX_IMAGES_PER_ITEM && (
-                  <label
-                    aria-busy={addingPhotos}
-                    className={`aspect-square border-2 border-dashed border-muted rounded-lg flex items-center justify-center transition-colors ${
-                      addingPhotos ? 'pointer-events-none opacity-60' : 'cursor-pointer hover:border-primary'
-                    }`}
-                  >
+                  <>
+                    <button
+                      type="button"
+                      onClick={handlePickFromGallery}
+                      disabled={addingPhotos}
+                      aria-busy={addingPhotos}
+                      aria-label="Choose photos"
+                      className="aspect-square border-2 border-dashed border-muted rounded-lg flex items-center justify-center cursor-pointer hover:border-primary transition-colors disabled:cursor-default disabled:opacity-60"
+                    >
+                      {addingPhotos ? (
+                        <Spinner className="h-5 w-5 animate-spin text-muted-foreground" />
+                      ) : (
+                        <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                      )}
+                    </button>
                     <input
+                      ref={galleryInputRef}
                       type="file"
                       accept="image/*"
                       multiple
                       onChange={handleImageChange}
-                      disabled={addingPhotos}
                       className="hidden"
                     />
-                    {addingPhotos ? (
-                      <Spinner className="h-5 w-5 animate-spin text-muted-foreground" />
-                    ) : (
-                      <ImagePlus className="h-6 w-6 text-muted-foreground" />
-                    )}
-                  </label>
+                  </>
                 )}
                 {isNative() && totalPhotoCount < MAX_IMAGES_PER_ITEM && (
                   <button

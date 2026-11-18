@@ -107,6 +107,61 @@ export interface Coords {
   longitude: number;
 }
 
+export type GalleryPick =
+  | { status: 'picked'; files: File[] }
+  | { status: 'cancelled' }
+  | { status: 'unavailable' };
+
+/**
+ * Opens the iPhone's own photo picker with a hard cap on how many photos
+ * can be selected (iOS greys out the rest and shows "Select up to N").
+ *
+ * With a plain <input type="file" multiple>, iOS lets people select any
+ * number of photos and converts every one of them before the app even sees
+ * them, so picking 12 photos meant a long wait just to be told "max 5".
+ * Here the picker itself stops at `limit`, and photos come back already
+ * resized to 1600px JPEGs, so they're quick to hand over.
+ *
+ * Uses Camera.pickImages: deprecated in @capacitor/camera 8 in favour of
+ * chooseFromGallery, but pickImages is the one that uses Apple's standard
+ * picker (PHPicker, no photo-library permission prompt) and resizes
+ * natively. Revisit when upgrading the plugin.
+ *
+ * 'unavailable' means the native picker couldn't be used (web, or the
+ * plugin failed); callers fall back to the file input.
+ */
+export async function pickGalleryPhotos(limit: number): Promise<GalleryPick> {
+  if (!isNative() || limit <= 0) return { status: 'unavailable' };
+  try {
+    const { Camera } = await import('@capacitor/camera');
+    const { photos } = await Camera.pickImages({
+      limit,
+      quality: 82,
+      width: 1600,
+      height: 1600,
+      correctOrientation: true,
+    });
+    const files: File[] = [];
+    // Older Android ignores `limit`; the caller's own count check still
+    // rejects an over-limit selection with the error message.
+    for (const [i, photo] of photos.entries()) {
+      const blob = await (await fetch(photo.webPath)).blob();
+      const ext = photo.format || 'jpeg';
+      files.push(
+        new File([blob], `photo_${Date.now()}_${i}.${ext === 'jpeg' ? 'jpg' : ext}`, {
+          type: blob.type || `image/${ext}`,
+        }),
+      );
+    }
+    return { status: 'picked', files };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (/cancel/i.test(message)) return { status: 'cancelled' };
+    console.warn('pickGalleryPhotos failed, falling back to file input:', err);
+    return { status: 'unavailable' };
+  }
+}
+
 export async function capturePhoto(): Promise<File | null> {
   if (!isNative()) return null;
   try {
