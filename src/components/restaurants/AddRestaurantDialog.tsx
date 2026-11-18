@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { usePhotoPicker } from '@/hooks/usePhotoPicker';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -27,10 +28,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ImagePlus, X, Search, Camera } from 'lucide-react';
-import { isNative, capturePhoto } from '@/lib/native';
+import { isNative } from '@/lib/native';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { validateImageFile, compressImage, MAX_IMAGES_PER_RESTAURANT } from '@/lib/imageValidation';
+import { MAX_IMAGES_PER_RESTAURANT } from '@/lib/imageValidation';
 import { photoUploadWarning, saveRestaurant } from '@/lib/listItemSave';
 import { PriceLevelPicker } from './PriceLevelPicker';
 import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
@@ -206,60 +207,20 @@ export function AddRestaurantDialog({
     },
   });
 
-  const addFiles = async (incoming: File[]) => {
-    const remainingSlots = MAX_IMAGES_PER_RESTAURANT - images.length;
-    if (remainingSlots <= 0) {
-      toast.error(`You can add up to ${MAX_IMAGES_PER_RESTAURANT} photos per place.`);
-      return;
-    }
-
-    const validated = incoming.filter((file) => {
-      const error = validateImageFile(file);
-      if (error) {
-        toast.error(`${file.name}: ${error}`);
-        return false;
-      }
-      return true;
-    });
-
-    if (validated.length > remainingSlots) {
-      toast.error(
-        `Only ${remainingSlots} more photo${remainingSlots === 1 ? '' : 's'} can be added (max ${MAX_IMAGES_PER_RESTAURANT}).`,
-      );
-    }
-    const toAdd = validated.slice(0, remainingSlots);
-
-    // Downscale/re-encode before it ever touches state or gets uploaded, so
-    // normal multi-megabyte phone photos don't trip size limits or bloat
-    // storage - see compressImage() for details.
-    let compressed: File[];
-    try {
-      compressed = await Promise.all(toAdd.map((file) => compressImage(file)));
-    } catch (err) {
-      console.error('Photo preparation failed:', err);
-      toast.error("Couldn't prepare that photo. Try a different one.");
-      return;
-    }
-
-    setImages((prev) => [...prev, ...compressed]);
-
-    compressed.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreviews((prev) => [...prev, e.target?.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    addFiles(Array.from(e.target.files || []));
-  };
-
-  const handleTakePhoto = async () => {
-    const file = await capturePhoto();
-    if (file) addFiles([file]);
-  };
+  const photoPicker = usePhotoPicker({
+    max: MAX_IMAGES_PER_RESTAURANT,
+    count: images.length,
+    onReady: (compressed) => {
+      setImages((prev) => [...prev, ...compressed]);
+      compressed.forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setImagePreviews((prev) => [...prev, e.target?.result as string]);
+        };
+        reader.readAsDataURL(file);
+      });
+    },
+  });
 
   const removeImage = (index: number) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
@@ -548,27 +509,40 @@ export function AddRestaurantDialog({
                   </div>
                 ))}
                 {imagePreviews.length < MAX_IMAGES_PER_RESTAURANT && (
-                  <label className="aspect-square border-2 border-dashed border-muted rounded-lg flex items-center justify-center cursor-pointer hover:border-primary transition-colors">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleImageChange}
-                      className="hidden"
-                    />
-                    <ImagePlus className="h-6 w-6 text-muted-foreground" />
-                  </label>
+                  <button
+                    type="button"
+                    onClick={() => void photoPicker.openPicker()}
+                    disabled={photoPicker.preparing}
+                    aria-busy={photoPicker.preparing}
+                    aria-label="Add photos"
+                    className="aspect-square border-2 border-dashed border-muted rounded-lg flex items-center justify-center cursor-pointer hover:border-primary transition-colors disabled:cursor-default disabled:opacity-60"
+                  >
+                    {photoPicker.preparing ? (
+                      <Spinner className="h-5 w-5 animate-spin text-muted-foreground" />
+                    ) : (
+                      <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                    )}
+                  </button>
                 )}
                 {isNative() && imagePreviews.length < MAX_IMAGES_PER_RESTAURANT && (
                   <button
                     type="button"
-                    onClick={handleTakePhoto}
+                    onClick={() => void photoPicker.takePhoto()}
+                    disabled={photoPicker.preparing}
                     className="aspect-square border-2 border-dashed border-muted rounded-lg flex items-center justify-center cursor-pointer hover:border-primary transition-colors"
                     aria-label="Take photo"
                   >
                     <Camera className="h-6 w-6 text-muted-foreground" />
                   </button>
                 )}
+                <input
+                  ref={photoPicker.inputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={photoPicker.onInputChange}
+                  className="hidden"
+                />
               </div>
             </div>
 

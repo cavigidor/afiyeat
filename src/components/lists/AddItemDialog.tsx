@@ -28,8 +28,9 @@ import { PlaceResultsDropdown } from '@/components/shared/PlaceResultsDropdown';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
 import { blockedByContentFilter } from '@/lib/contentFilter';
-import { validateImageFile, compressImage, MAX_IMAGES_PER_ITEM } from '@/lib/imageValidation';
-import { isNative, capturePhoto } from '@/lib/native';
+import { MAX_IMAGES_PER_ITEM } from '@/lib/imageValidation';
+import { usePhotoPicker } from '@/hooks/usePhotoPicker';
+import { isNative } from '@/lib/native';
 import { hapticSuccess } from '@/lib/haptics';
 import { errorMessage } from '@/lib/utils';
 import type { PickedPlace } from '@/lib/appleMaps';
@@ -304,32 +305,18 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null,
   }, [destKey]);
 
   // -- Photos -----------------------------------------------------------------
-  const addFiles = async (incoming: File[]) => {
-    const remaining = MAX_IMAGES_PER_ITEM - photos.length;
-    if (remaining <= 0) {
-      toast.error(`You can add up to ${MAX_IMAGES_PER_ITEM} photos.`);
-      return;
-    }
-    const valid = incoming.filter((file) => {
-      const issue = validateImageFile(file);
-      if (issue) toast.error(`${file.name}: ${issue}`);
-      return !issue;
-    });
-    let compressed: File[];
-    try {
-      compressed = await Promise.all(valid.slice(0, remaining).map((f) => compressImage(f)));
-    } catch (err) {
-      console.error('Photo preparation failed:', err);
-      toast.error("Couldn't prepare that photo. Try a different one.");
-      return;
-    }
-    setPhotos((prev) => [...prev, ...compressed]);
-    compressed.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (e) => setPhotoPreviews((prev) => [...prev, e.target?.result as string]);
-      reader.readAsDataURL(file);
-    });
-  };
+  const photoPicker = usePhotoPicker({
+    max: MAX_IMAGES_PER_ITEM,
+    count: photos.length,
+    onReady: (compressed) => {
+      setPhotos((prev) => [...prev, ...compressed]);
+      compressed.forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = (e) => setPhotoPreviews((prev) => [...prev, e.target?.result as string]);
+        reader.readAsDataURL(file);
+      });
+    },
+  });
   const removePhoto = (i: number) => {
     setPhotos((prev) => prev.filter((_, idx) => idx !== i));
     setPhotoPreviews((prev) => prev.filter((_, idx) => idx !== i));
@@ -738,31 +725,40 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null,
                           </div>
                         ))}
                         {photos.length < MAX_IMAGES_PER_ITEM && (
-                          <label className="flex aspect-square cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-muted transition-colors hover:border-primary">
-                            <input
-                              type="file"
-                              accept="image/*"
-                              multiple
-                              className="hidden"
-                              onChange={(e) => void addFiles(Array.from(e.target.files || []))}
-                            />
-                            <ImagePlus className="h-6 w-6 text-muted-foreground" />
-                            <span className="sr-only">Add photos</span>
-                          </label>
+                          <button
+                            type="button"
+                            onClick={() => void photoPicker.openPicker()}
+                            disabled={photoPicker.preparing}
+                            aria-busy={photoPicker.preparing}
+                            aria-label="Add photos"
+                            className="aspect-square border-2 border-dashed border-muted rounded-lg flex items-center justify-center cursor-pointer hover:border-primary transition-colors disabled:cursor-default disabled:opacity-60"
+                          >
+                            {photoPicker.preparing ? (
+                              <Spinner className="h-5 w-5 animate-spin text-muted-foreground" />
+                            ) : (
+                              <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                            )}
+                          </button>
                         )}
                         {isNative() && photos.length < MAX_IMAGES_PER_ITEM && (
                           <button
                             type="button"
                             aria-label="Take photo"
-                            onClick={async () => {
-                              const file = await capturePhoto();
-                              if (file) void addFiles([file]);
-                            }}
+                            onClick={() => void photoPicker.takePhoto()}
+                            disabled={photoPicker.preparing}
                             className="flex aspect-square items-center justify-center rounded-lg border-2 border-dashed border-muted transition-colors hover:border-primary"
                           >
                             <Camera className="h-6 w-6 text-muted-foreground" />
                           </button>
                         )}
+                        <input
+                          ref={photoPicker.inputRef}
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={photoPicker.onInputChange}
+                          className="hidden"
+                        />
                       </div>
                     </div>
                   )}

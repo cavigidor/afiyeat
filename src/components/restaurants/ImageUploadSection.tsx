@@ -1,10 +1,11 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { ImagePlus, X } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { validateImageFile, compressImage, MAX_IMAGES_PER_RESTAURANT } from '@/lib/imageValidation';
+import { MAX_IMAGES_PER_RESTAURANT } from '@/lib/imageValidation';
+import { usePhotoPicker } from '@/hooks/usePhotoPicker';
 import { uploadRestaurantPhotos, photoUploadSummary } from '@/lib/photoUpload';
 import { StorageImage } from '@/components/shared/StorageImage';
 import { Spinner } from '@/components/ui/spinner';
@@ -61,7 +62,6 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [pendingCount, setPendingCount] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const uploading = pendingCount > 0;
 
   // The dialog's `existingImages` prop is a snapshot taken when it opened, so
@@ -78,41 +78,10 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
     onImagesChange();
   };
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || !user) return;
-    const clearInput = () => {
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    };
-
-    const remainingSlots = MAX_IMAGES_PER_RESTAURANT - images.length;
-    if (remainingSlots <= 0) {
-      toast.error(`You can add up to ${MAX_IMAGES_PER_RESTAURANT} photos per place.`);
-      clearInput();
-      return;
-    }
-
-    const fileArray = Array.from(files);
-    for (const file of fileArray) {
-      const error = validateImageFile(file);
-      if (error) {
-        toast.error(error);
-        clearInput();
-        return;
-      }
-    }
-
-    if (fileArray.length > remainingSlots) {
-      toast.error(
-        `Only ${remainingSlots} more photo${remainingSlots === 1 ? '' : 's'} can be added (max ${MAX_IMAGES_PER_RESTAURANT}).`,
-      );
-    }
-    const toUpload = fileArray.slice(0, remainingSlots);
-
-    setPendingCount(toUpload.length);
+  const uploadPhotos = async (compressedFiles: File[]) => {
+    if (!user || compressedFiles.length === 0) return;
+    setPendingCount(compressedFiles.length);
     try {
-      // Downscale/re-encode before upload - see compressImage() for why.
-      const compressedFiles = await Promise.all(toUpload.map((file) => compressImage(file)));
       const result = await uploadRestaurantPhotos(user.id, restaurantId, compressedFiles);
 
       // Show what was saved straight away, from the rows the insert returned,
@@ -131,14 +100,20 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
       // Refetch for unconfirmed photos too: if their record did land, they show.
       if (result.uploaded > 0 || (result.unconfirmed ?? 0) > 0) refresh();
     } catch (err) {
-      // Preparing the photos (decode/compress) failed - nothing was uploaded.
-      console.error('Photo preparation failed:', err);
-      toast.error("Couldn't prepare that photo. Try a different one.");
+      console.error('Photo upload failed:', err);
+      toast.error("Couldn't upload that photo. Try again.");
     } finally {
       setPendingCount(0);
-      clearInput();
     }
   };
+
+  // Cap, native capped picker, sequential compression - see usePhotoPicker.
+  const photoPicker = usePhotoPicker({
+    max: MAX_IMAGES_PER_RESTAURANT,
+    count: images.length + pendingCount,
+    onReady: uploadPhotos,
+    busy: uploading,
+  });
 
   const handleDeleteImage = async (imageId: string) => {
     const { error } = await supabase
@@ -180,12 +155,12 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
         {shown < MAX_IMAGES_PER_RESTAURANT && (
           <button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
+            onClick={() => void photoPicker.openPicker()}
+            disabled={uploading || photoPicker.preparing}
             aria-label="Add photos"
             className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center hover:border-primary/50 transition-colors"
           >
-            {uploading ? (
+            {uploading || photoPicker.preparing ? (
               <Spinner className="h-5 w-5 animate-spin text-muted-foreground" />
             ) : (
               <ImagePlus className="h-5 w-5 text-muted-foreground" />
@@ -194,11 +169,11 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
         )}
       </div>
       <input
-        ref={fileInputRef}
+        ref={photoPicker.inputRef}
         type="file"
         accept="image/jpeg,image/png,image/gif,image/webp"
         multiple
-        onChange={handleUpload}
+        onChange={photoPicker.onInputChange}
         className="hidden"
         data-testid="photo-input"
       />
