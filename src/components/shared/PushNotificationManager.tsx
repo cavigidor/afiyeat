@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { App } from '@capacitor/app';
 import { isNative } from '@/lib/native';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -62,10 +63,9 @@ export function PushNotificationManager() {
     document.addEventListener('visibilitychange', onVisibility);
 
     if (isNative()) {
-      void import('@capacitor/app').then(async ({ App }) => {
-        const handle = await App.addListener('appStateChange', ({ isActive }) => {
-          if (isActive) saveTimeZone();
-        });
+      void App.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) saveTimeZone();
+      }).then((handle) => {
         if (cancelled) void handle.remove();
         else removeAppListener = () => void handle.remove();
       });
@@ -91,10 +91,9 @@ export function PushNotificationManager() {
       if (!cancelled) setFirstLaunchDone(true);
     });
     let removeListener: (() => void) | null = null;
-    void import('@capacitor/app').then(async ({ App }) => {
-      const handle = await App.addListener('appStateChange', ({ isActive }) => {
-        if (isActive) setForegroundCount((n) => n + 1);
-      });
+    void App.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) setForegroundCount((n) => n + 1);
+    }).then((handle) => {
       if (cancelled) void handle.remove();
       else removeListener = () => void handle.remove();
     });
