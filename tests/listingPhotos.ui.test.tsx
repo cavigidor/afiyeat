@@ -18,6 +18,13 @@ vi.mock('sonner', () => ({ toast }));
 vi.mock('@/lib/imageValidation', async (orig) => ({
   ...(await orig<typeof import('@/lib/imageValidation')>()),
   compressImage: (file: File) => compress.fn(file),
+  // The upload screens now compress through compressImages (one at a time);
+  // route it through the same stub.
+  compressImages: async (files: File[]) => {
+    const out: File[] = [];
+    for (const file of files) out.push(await compress.fn(file));
+    return out;
+  },
 }));
 vi.mock('@/components/sharing/ShareButton', () => ({ ShareButton: () => null }));
 vi.mock('@/components/shared/GetDirectionsButton', () => ({ GetDirectionsButton: () => null }));
