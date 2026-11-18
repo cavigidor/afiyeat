@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { validateImageFile, compressImages, photoLimitError, MAX_IMAGES_PER_RESTAURANT } from '@/lib/imageValidation';
+import { PhotoCapNote } from '@/components/shared/PhotoCapNote';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import { Spinner } from '@/components/ui/spinner';
 import { errorMessage } from '@/lib/utils';
@@ -149,6 +150,7 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
       <label className="text-sm font-medium">
         Photos ({existingImages.length}/{MAX_IMAGES_PER_RESTAURANT})
       </label>
+      <PhotoCapNote count={existingImages.length} max={MAX_IMAGES_PER_RESTAURANT} />
       <div className="grid grid-cols-4 gap-2">
         {existingImages.map((img) => (
           <ImageThumbnail key={img.id} image={img} onDelete={handleDeleteImage} />

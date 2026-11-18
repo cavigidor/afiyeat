@@ -23,6 +23,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { isNative, capturePhoto, pickGalleryPhotos } from '@/lib/native';
 import { validateImageFile, compressImages, photoLimitError, MAX_IMAGES_PER_ITEM } from '@/lib/imageValidation';
+import { PhotoCapNote } from '@/components/shared/PhotoCapNote';
 import { PriceLevelPicker } from '@/components/restaurants/PriceLevelPicker';
 import { StarRatingPicker } from '@/components/lists/StarRatingPicker';
 import { useSignedImageUrls } from '@/hooks/useSignedImageUrl';
@@ -518,6 +519,7 @@ export function AddCustomListItemDialog({
           {list.show_photos && (
             <div className="space-y-2">
               <Label>Photos ({totalPhotoCount}/{MAX_IMAGES_PER_ITEM})</Label>
+              <PhotoCapNote count={totalPhotoCount} max={MAX_IMAGES_PER_ITEM} />
               <div className="grid grid-cols-4 gap-2">
                 {existingImages.map((img, i) => (
                   <div key={img.id} className="relative aspect-square">

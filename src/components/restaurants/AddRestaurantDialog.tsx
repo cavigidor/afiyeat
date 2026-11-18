@@ -37,6 +37,7 @@ import {
   photoLimitError,
   MAX_IMAGES_PER_RESTAURANT,
 } from '@/lib/imageValidation';
+import { PhotoCapNote } from '@/components/shared/PhotoCapNote';
 import { isDuplicateRestaurant } from '@/lib/duplicateRestaurant';
 import { PriceLevelPicker } from './PriceLevelPicker';
 import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
@@ -599,6 +600,7 @@ export function AddRestaurantDialog({
               <FormLabel>
                 Photos ({imagePreviews.length}/{MAX_IMAGES_PER_RESTAURANT})
               </FormLabel>
+              <PhotoCapNote count={imagePreviews.length} max={MAX_IMAGES_PER_RESTAURANT} />
               <div className="grid grid-cols-4 gap-2">
                 {imagePreviews.map((preview, index) => (
                   <div key={index} className="relative aspect-square">
