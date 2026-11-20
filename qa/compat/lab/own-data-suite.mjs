@@ -378,7 +378,7 @@ try {
   const restPhotos = qj(`SELECT r.id, r.name, r.status, (SELECT count(*) FROM restaurant_images m WHERE m.restaurant_id = r.id)::int AS n
     FROM restaurants r WHERE r.user_id = '${ME}' AND EXISTS (SELECT 1 FROM restaurant_images m WHERE m.restaurant_id = r.id) ORDER BY n DESC, r.created_at`);
   const restResults = [];
-  for (const r of restPhotos.filter((x) => x.status === 'went_to').slice(0, 40)) {
+  for (const r of restPhotos.filter((x) => x.status === 'went_to').slice(0, 120)) {
     try {
       await openRestaurantEdit(page, r.name, r.status);
       const imgs = await page.evaluate(() => [...document.querySelectorAll('[role=dialog] img')].map((i) => ({ ok: i.complete && i.naturalWidth > 0, src: i.src })));
@@ -388,6 +388,28 @@ try {
     } catch (e) { restResults.push({ place: short(r.id), error: e.message.slice(0, 80) }); }
   }
   restSummary = restResults;
+  // To Go places don't list photos in Edit; their card shows the cover photo. Check every card cover loads.
+  const toGoWithPhotos = restPhotos.filter((x) => x.status === 'to_go');
+  let coverResults = [];
+  if (toGoWithPhotos.length) {
+    await goto(page, '/my-list');
+    await clickContaining(page, 'main [role=tab]', 'To Go');
+    await page.evaluate(async () => { for (let i = 0; i < 30; i++) { window.scrollBy(0, 2000); await new Promise((r) => setTimeout(r, 150)); } });
+    await wait(2500);
+    coverResults = await page.evaluate((names) => names.map((n) => {
+      for (const b of document.querySelectorAll('[aria-label="Restaurant options"]')) {
+        let card = b; while (card.parentElement && card.parentElement.querySelectorAll('[aria-label="Restaurant options"]').length === 1) card = card.parentElement;
+        if (card.textContent.includes(n)) { const imgs = [...card.querySelectorAll('img')].filter((i) => /\/storage\/v1\/object\/sign\//.test(i.src)); return { found: true, imgs: imgs.length, ok: imgs.filter((i) => i.complete && i.naturalWidth > 0).length }; }
+      }
+      return { found: false };
+    }), toGoWithPhotos.map((x) => x.name));
+  }
+  await check('P5 Lists V2', 'the cover photo of every To Go place with photos loads on My Restaurants', () => {
+    if (!toGoWithPhotos.length) return 'NOT COVERED: none of your To Go places has photos';
+    const bad = coverResults.map((c, i) => ({ ...c, place: short(toGoWithPhotos[i].id) })).filter((c) => !c.found || c.imgs === 0 || c.ok < c.imgs);
+    assert.equal(bad.length, 0, JSON.stringify(bad.slice(0, 8)));
+    return `${coverResults.length} To Go places, every cover loaded`;
+  });
   await check('P5 Lists V2', 'every downloadable photo on your Been There places renders in Edit', () => {
     if (!restPhotos.some((x) => x.status === 'went_to')) return 'NOT COVERED: none of your Been There places has photos';
     const bad = restResults.filter((r) => r.error || r.rendered < r.downloadable || r.broken);

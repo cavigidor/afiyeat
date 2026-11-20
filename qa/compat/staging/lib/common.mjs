@@ -55,11 +55,29 @@ export function pseudonymiser() {
   return fn;
 }
 
-/** Prompt on the terminal; hidden input for passwords and keys. */
+/** Prompt on the terminal. Hidden input (passwords, keys) is read in raw mode, so nothing is echoed. */
 export function ask(question, { hidden = false } = {}) {
+  if (!hidden) {
+    return new Promise((resolve) => {
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+      rl.question(question, (a) => { rl.close(); resolve(a.trim()); });
+    });
+  }
+  if (!process.stdin.isTTY) throw new Error('a hidden prompt needs an interactive terminal');
   return new Promise((resolve) => {
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
-    if (hidden) rl._writeToOutput = (s) => { if (s.includes(question)) process.stdout.write(s); };
-    rl.question(question, (a) => { rl.close(); if (hidden) process.stdout.write('\n'); resolve(a.trim()); });
+    process.stdout.write(question);
+    const stdin = process.stdin;
+    stdin.setRawMode(true); stdin.resume(); stdin.setEncoding('utf8');
+    let value = '';
+    const done = (v) => { stdin.setRawMode(false); stdin.pause(); stdin.removeListener('data', onData); process.stdout.write('\n'); resolve(v); };
+    const onData = (chunk) => {
+      for (const ch of chunk) {
+        if (ch === '\r' || ch === '\n') return done(value);
+        if (ch === '\u0003') { process.stdout.write('\n'); process.exit(130); }      // Ctrl-C
+        if (ch === '\u007f' || ch === '\b') { value = value.slice(0, -1); continue; } // Backspace
+        if (ch >= ' ') value += ch;                                                   // nothing is printed
+      }
+    };
+    stdin.on('data', onData);
   });
 }

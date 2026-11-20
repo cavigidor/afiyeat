@@ -152,3 +152,36 @@ cd qa/compat/lab && node db.mjs start && node db.mjs build baseline --main 9baf3
 node compat-suite.mjs          # ~3 min -> ../results/<run>/report.md
 node rehearse-staging.mjs      # ~1 min -> staging path rehearsal
 ```
+
+## Update 2026-11-20: own-data check (supersedes the staging path for the initial check)
+
+The staging path in section 4 is not needed for the initial check.
+
+**Production read-only checks (Lovable Chat mode, read-only role).** Details are in `evidence/lovable-readonly-2026-11-20.md`.
+* None of the five pending migrations is live in production.
+* Across all users, production holds 5 lists, 15 items and 4 item photos, plus 238 places and 167 photos.
+* There are 0 shared lists, 0 categories and 0 hidden values.
+* No row breaks the new owner checks.
+
+**Own-data export.** The PM's account was exported read-only to his Mac:
+* 2 lists and 14 items
+* 188 places with 159 photos
+* 6 folders and 12 follows
+
+The export's counts equal production's counts for that account.
+
+**Local run (`lab/own-data-suite.mjs`):** 30 PASS, 1 PRE-EXISTING, 0 FAIL.
+* 391 rows were checked: 0 deleted, 0 lists converted, 163/163 photos still stored.
+* The migrations changed no existing row.
+* Privacy is identical before and after for 12 viewers.
+* Lists V2 rendered all 159 photos on 66 Been There places, including a place with 10 photos. Saving that place unchanged kept all 10.
+
+**PRE-EXISTING:** editing a Been There place re-stamps `visited_at` to now. EditRestaurantDialog does this in both the old app and Lists V2.
+
+**Minimum before release:**
+1. Back up, then apply the 5 migrations (approval needed).
+2. Run a 15-minute TestFlight check on the PM's own account.
+3. Re-export and compare.
+4. Submit to the App Store.
+
+Hosted staging is needed only if no pre-release build may touch production.
