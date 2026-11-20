@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { visitedAtForEdit } from '@/lib/visitDate';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -218,7 +219,8 @@ export function EditRestaurantDialog({
           folder_ids: submitValues.folder_ids,
           rating: submitValues.rating,
           price_level: submitValues.price_level,
-          visited_at: submitValues.status === 'went_to' ? new Date().toISOString() : null,
+          // Keeps the original visit date unless the place just became Been There.
+          ...visitedAtForEdit(restaurant.status, submitValues.status),
         })
         .eq('id', restaurant.id);
 

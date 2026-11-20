@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { visitedAtForEdit } from '@/lib/visitDate';
 import {
   Dialog,
   DialogContent,
@@ -96,7 +97,8 @@ export function EditSharedItemDialog({ open, onOpenChange, item, onSuccess }: Ed
         rating: isToGo ? null : rating,
         price_level: priceLevel,
         notes: notes.trim() || null,
-        visited_at: status === 'went_to' ? new Date().toISOString() : null,
+        // Keeps the original visit date unless the place just became Been There.
+        ...visitedAtForEdit(item.status, status),
       })
       .eq('id', item.id);
     setLoading(false);
