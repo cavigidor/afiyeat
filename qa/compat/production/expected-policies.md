@@ -1,0 +1,22 @@
+# Expected Q1 results: policies of pending migrations #7, #13, #14
+
+Generated from the lab: main 9baf34e replayed (**before**), then the five pending migrations from 4973aa7 (**after**). Whitespace collapsed.
+Compare production's Q1 output with these rows. A row matching **after** means that migration is already live in production; matching **before** means it is not.
+
+| Table | Policy | Cmd | Before (not applied) | After (applied) | Changed by |
+|---|---|---|---|---|---|
+| public.custom_list_item_images | Users can insert their own custom list item images | INSERT | roles {public};  CHECK `(auth.uid() = user_id)` | roles {authenticated};  CHECK `((auth.uid() = user_id) AND (EXISTS ( SELECT 1 FROM custom_list_items i WHERE ((i.id = custom_list_item_images.item_id) AND (i.user_id = auth.uid())))))` | #14 |
+| public.custom_list_item_images | Users can view custom list item images of people they follow | SELECT | roles {public}; USING `(EXISTS ( SELECT 1 FROM follows f WHERE ((f.follower_id = auth.uid()) AND (f.following_id = custom_list_item_images.user_id) AND (f.status = 'accepted'::text))))` | — (absent) | #8 |
+| public.custom_list_item_images | Users can view custom list item images of public profiles | SELECT | roles {public}; USING `(EXISTS ( SELECT 1 FROM profiles p WHERE ((p.user_id = custom_list_item_images.user_id) AND (p.is_private = false))))` | — (absent) | #8 |
+| public.custom_list_item_images | Users can view photos of custom lists shared with them | SELECT | — (absent) | roles {authenticated}; USING `(EXISTS ( SELECT 1 FROM custom_list_items i WHERE ((i.id = custom_list_item_images.item_id) AND (i.user_id = custom_list_item_images.user_id) AND can_view_custom_list(i.list_id, i.user_id))))` | #8 |
+| public.custom_list_items | Users can insert their own custom list items | INSERT | roles {public};  CHECK `(auth.uid() = user_id)` | roles {authenticated};  CHECK `((auth.uid() = user_id) AND (EXISTS ( SELECT 1 FROM custom_lists l WHERE ((l.id = custom_list_items.list_id) AND (l.user_id = auth.uid())))))` | #7 |
+| public.custom_list_items | Users can update their own custom list items | UPDATE | roles {public}; USING `(auth.uid() = user_id)` | roles {authenticated}; USING `(auth.uid() = user_id)` CHECK `((auth.uid() = user_id) AND (EXISTS ( SELECT 1 FROM custom_lists l WHERE ((l.id = custom_list_items.list_id) AND (l.user_id = auth.uid())))))` | #7 |
+| public.custom_list_items | Users can view custom list items of people they follow | SELECT | roles {public}; USING `(EXISTS ( SELECT 1 FROM follows f WHERE ((f.follower_id = auth.uid()) AND (f.following_id = custom_list_items.user_id) AND (f.status = 'accepted'::text))))` | — (absent) | #8 |
+| public.custom_list_items | Users can view custom list items of public profiles | SELECT | roles {public}; USING `(EXISTS ( SELECT 1 FROM profiles p WHERE ((p.user_id = custom_list_items.user_id) AND (p.is_private = false))))` | — (absent) | #8 |
+| public.custom_list_items | Users can view items of custom lists shared with them | SELECT | — (absent) | roles {authenticated}; USING `can_view_custom_list(list_id, user_id)` | #8 |
+| public.restaurant_images | Users can insert their own images | INSERT | roles {public};  CHECK `(auth.uid() = user_id)` | roles {authenticated};  CHECK `((auth.uid() = user_id) AND (EXISTS ( SELECT 1 FROM restaurants r WHERE ((r.id = restaurant_images.restaurant_id) AND (r.user_id = auth.uid())))))` | #14 |
+| public.restaurant_images | Users can view images from followed users | SELECT | roles {public}; USING `(EXISTS ( SELECT 1 FROM follows WHERE ((follows.follower_id = auth.uid()) AND (follows.following_id = restaurant_images.user_id) AND (follows.status = 'accepted'::text))))` | roles {public}; USING `((EXISTS ( SELECT 1 FROM follows f WHERE ((f.follower_id = auth.uid()) AND (f.following_id = restaurant_images.user_id) AND (f.status = 'accepted'::text)))) AND (EXISTS ( SELECT 1 FROM restaurants r WHERE ((r.id = restaurant_images.restaurant_id) AND (r.user_id = restaurant_images.user_id)))))` | #14 |
+| storage.objects | Authenticated users can upload custom list images | INSERT | roles {public};  CHECK `((bucket_id = 'custom-list-images'::text) AND (auth.uid() IS NOT NULL))` | — (absent) | #13 |
+| storage.objects | Users can upload custom list images to own folder | INSERT | — (absent) | roles {authenticated};  CHECK `((bucket_id = 'custom-list-images'::text) AND ((auth.uid())::text = (storage.foldername(name))[1]))` | #13 |
+
+13 policies differ; rows identical before and after are not listed.

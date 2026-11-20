@@ -1,0 +1,107 @@
+{
+ "checks": [
+  {
+   "name": "export runs",
+   "result": "PASS",
+   "detail": ""
+  },
+  {
+   "name": "export changed nothing in the source database",
+   "result": "PASS",
+   "detail": "identical"
+  },
+  {
+   "name": "export requests were read-only",
+   "result": "PASS",
+   "detail": "POST /auth/v1/token ; GET /rest/v1/folders ; GET /rest/v1/custom_lists ; GET /rest/v1/custom_list_statuses ; GET /rest/v1/custom_list_types ; GET /rest/v1/custom_list_items ; GET /rest/v1/custom_list_item_images ; GET /rest/v1/restaurants ; GET /rest/v1/restaurant_images ; GET /rest/v1/shared_lists ; GET /rest/v1/shared_list_items ; GET /rest/v1/shared_list_item_comments ; GET /rest/v1/follows ; GET /rest/v1/blocked_users ; GET /rest/v1/profiles ; POST /storage/v1/object/sign/custom-list-images ; GET /storage/v1/object/sign/custom-list-images/36ddd869-1755-5308-aebe-7a394f76f56d/e5e90702-b58e-5460-a763-453638cb6df4/dc34b657-c561-46e4-aba9-5d967f6f91bd.png ; GET /storage/v1/object/sign/custom-list-images/36ddd869-1755-5308-aebe-7a394f76f56d/1f175a00-b5a0-5d60-aaef-bea473f36506/0.png ; GET /storage/v1/object/sign/custom-list-images/36ddd869-1755-5308-aebe-7a394f76f56d/1f175a00-b5a0-5d60-aaef-bea473f36506/1.png ; GET /storage/v1/object/sign/custom-list-images/36ddd869-1755-5308-aebe-7a394f76f56d/c425aae2-d59e-525a-ac9c-585de967820b/0.png ; GET /storage/v1/object/sign/custom-list-images/36ddd869-1755-5308-aebe-7a394f76f56d/784d7137-9276-55bb-aaf8-d7f63626c8b5/0.png ; GET /storage/v1/object/sign/custom-list-images/36ddd869-1755-5308-aebe-7a394f76f56d/e5e90702-b58e-5460-a763-453638cb6df4/0.png ; POST /storage/v1/object/sign/restaurant-images ; GET /storage/v1/object/sign/restaurant-images/36ddd869-1755-5308-aebe-7a394f76f56d/a7644a71-825b-5c4b-a5c6-6307af6e1245/0.png ; GET /storage/v1/object/sign/restaurant-images/36ddd869-1755-5308-aebe-7a394f76f56d/7233d2c4-423f-5a6a-aa41-0e6cbbf30f89/2.png ; GET /storage/v1/object/sign/restaurant-images/36ddd869-1755-5308-aebe-7a394f76f56d/7233d2c4-423f-5a6a-aa41-0e6cbbf30f89/1.png ; GET /storage/v1/object/sign/restaurant-images/36ddd869-1755-5308-aebe-7a394f76f56d/7233d2c4-423f-5a6a-aa41-0e6cbbf30f89/0.png ; POST /auth/v1/logout"
+  },
+  {
+   "name": "export holds every one of Ayla's lists and items",
+   "result": "PASS",
+   "detail": "11/11 lists, 79/79 items"
+  },
+  {
+   "name": "export holds no one else's lists",
+   "result": "PASS",
+   "detail": ""
+  },
+  {
+   "name": "no other person's id, email or username appears in the export",
+   "result": "PASS",
+   "detail": "4 pseudonymous members"
+  },
+  {
+   "name": "other member's shared-list place and comment are redacted",
+   "result": "PASS",
+   "detail": "Mikla / Place added by Member 1 #dfd2"
+  },
+  {
+   "name": "no passwords, tokens or emails in the export",
+   "result": "PASS",
+   "detail": ""
+  },
+  {
+   "name": "photos exported with checksums",
+   "result": "PASS",
+   "detail": "10 downloaded, 1 missing in source: photo custom-list-images/36ddd869-1755-5308-aebe-7a394f76f56d/c425aae2-d59e-525a-ac9c-585de967820b/missing-file.png: Either the requested resource does not exist or you do not have access to it"
+  },
+  {
+   "name": "import runs",
+   "result": "PASS",
+   "detail": ""
+  },
+  {
+   "name": "every exported row is in staging with its original id",
+   "result": "PASS",
+   "detail": "folders 7/7, custom_lists 11/11, custom_list_statuses 22/22, custom_list_types 5/5, custom_list_items 79/79, custom_list_item_images 7/7, restaurants 3/3, restaurant_images 4/4, shared_lists 1/1, shared_list_items 2/2, shared_list_item_comments 2/2, follows 4/4, blocked_users 1/1"
+  },
+  {
+   "name": "values identical to the export (after restoring trigger changes; only the profile's updated_at is re-stamped)",
+   "result": "PASS",
+   "detail": "[{\"t\":\"follows\",\"changed\":[\"status\"],\"still\":[]},{\"t\":\"profiles\",\"changed\":[\"updated_at\"],\"still\":[\"updated_at\"]}]"
+  },
+  {
+   "name": "existing lists arrive with default visibility \"profile\" (not converted)",
+   "result": "PASS",
+   "detail": ""
+  },
+  {
+   "name": "photos uploaded to the same paths and verified",
+   "result": "PASS",
+   "detail": "10/11"
+  },
+  {
+   "name": "Lists V2 on staging shows the imported lists",
+   "result": "PASS",
+   "detail": "11/11 names on the Lists screen"
+  },
+  {
+   "name": "a list with photos opens",
+   "result": "PASS",
+   "detail": ""
+  },
+  {
+   "name": "compare runs",
+   "result": "PASS",
+   "detail": ""
+  },
+  {
+   "name": "compare: no exported row deleted",
+   "result": "PASS",
+   "detail": ""
+  },
+  {
+   "name": "compare: all exported photos still present",
+   "result": "PASS",
+   "detail": ""
+  }
+ ],
+ "import_summary": {
+  "rows_inserted": 148,
+  "rows_identical_to_export": 147,
+  "rows_with_unrestorable_differences": 1,
+  "photos_verified": 10,
+  "photos_total": 11
+ },
+ "compare": "# Staging comparison: rehearsal\n\nstaging http://127.0.0.1:8102 · export 2026-11-20T05:33:20.705Z · baseline 2026-11-20T05:33:21.397Z · now 2026-11-20T05:33:32.512Z\n\n| Table | exported | baseline | now | exported rows deleted | exported rows changed | rows added |\n|---|---|---|---|---|---|---|\n| folders | 7 | 7 | 7 | 0 | 0 | 0 |\n| custom_lists | 11 | 11 | 11 | 0 | 0 | 0 |\n| custom_list_statuses | 22 | 22 | 22 | 0 | 0 | 0 |\n| custom_list_types | 5 | 5 | 5 | 0 | 0 | 0 |\n| custom_list_items | 79 | 79 | 79 | 0 | 0 | 0 |\n| custom_list_item_images | 7 | 7 | 7 | 0 | 0 | 0 |\n| restaurants | 3 | 3 | 3 | 0 | 0 | 0 |\n| restaurant_images | 4 | 4 | 4 | 0 | 0 | 0 |\n| shared_lists | 1 | 1 | 1 | 0 | 0 | 0 |\n| shared_list_items | 2 | 2 | 2 | 0 | 0 | 0 |\n| shared_list_item_comments | 2 | 2 | 2 | 0 | 0 | 0 |\n| follows | 4 | 4 | 4 | 0 | 0 | 0 |\n| blocked_users | 1 | 1 | 1 | 0 | 0 | 0 |\n| profiles | 1 | 1 | 1 | 0 | 1 | 0 |\n\n## Checks\n\n- Exported rows deleted: **0**\n- Lists whose name, icon, owner or field settings changed: **0**\n- Photos from the export still present: **10/10**\n- New columns on existing lists (from the pending migrations): visibility, discovery_token\n\n## Every change to an exported row (field: exported → now)\n\n- profiles 51e41836-7cff-4b04-a996-fe0e8afd2851: updated_at: \"2026-11-19T23:14:39.478902-06:00\" → \"2026-11-19T23:33:28.428193-06:00\""
+}

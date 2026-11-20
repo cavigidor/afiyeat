@@ -1,0 +1,25 @@
+{
+ "public.content_reports": {
+  "rowsBefore": 0,
+  "rowsAfter": 0,
+  "added": [],
+  "deleted": [],
+  "changed": [],
+  "addedCols": [
+   "via_anonymous"
+  ],
+  "removedCols": []
+ },
+ "public.custom_lists": {
+  "rowsBefore": 14,
+  "rowsAfter": 14,
+  "added": [],
+  "deleted": [],
+  "changed": [],
+  "addedCols": [
+   "visibility",
+   "discovery_token"
+  ],
+  "removedCols": []
+ }
+}

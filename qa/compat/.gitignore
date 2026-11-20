@@ -1,0 +1,12 @@
+# Lab workspace (local only)
+pgdata/
+state/
+old/
+new/
+postgrest
+postgrest.tar.xz
+lab/node_modules/
+results/*/S*.json
+results/*/privacy-*.json
+# PM-written approval for the staging project (no secret, but never commit someone's approval)
+staging/approved-target.json

@@ -1,0 +1,342 @@
+{
+ "env": {
+  "main": "9baf34e0b287b7dbb6b11909a1b509693cbcede0",
+  "new": "4973aa7216e7e147966c1c86b79161144d2d8395",
+  "five": [
+   "20261029120000_custom_list_items_owner_check.sql",
+   "20261030120000_list_visibility_and_anonymous_discovery.sql",
+   "20261109120000_discovery_places.sql",
+   "20261109180000_custom_list_images_owner_folder.sql",
+   "20261111120000_photo_records_owner_check.sql"
+  ],
+  "run": "2026-11-20T05-37-20-496Z",
+  "postgres": "16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)",
+  "at": "2026-11-20T05:37:20.528Z"
+ },
+ "summary": {
+  "INFO": 2,
+  "PASS": 49,
+  "PRE-EXISTING": 1,
+  "FAIL": 1
+ },
+ "results": [
+  {
+   "phase": "P0 seed",
+   "check": "representative dataset loaded on main schema",
+   "status": "INFO",
+   "detail": "auth.users=6, blocked_users=1, custom_list_item_images=7, custom_list_items=81, custom_list_statuses=28, custom_list_types=5, custom_lists=14, folders=42, follows=5, profiles=6, restaurant_images=5, restaurants=5, shared_list_item_comments=2, shared_list_items=2, shared_lists=1, storage.buckets=2, storage.objects=11"
+  },
+  {
+   "phase": "P1 old app / current schema",
+   "check": "Lists page shows every existing list with its item count",
+   "status": "PASS",
+   "detail": "11 lists, 78 items"
+  },
+  {
+   "phase": "P1 old app / current schema",
+   "check": "shared list visible",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P1 old app / current schema",
+   "check": "list \"Coffee Shops ☕ İstanbul\" opens with 4 items",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P1 old app / current schema",
+   "check": "list \"Wines\" opens with 2 items",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P1 old app / current schema",
+   "check": "list \"Books 2026\" opens with 3 items",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P1 old app / current schema",
+   "check": "list \"Old travel list (pre-statuses)\" opens with 2 items",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P1 old app / current schema",
+   "check": "list \"Bakeries (notes hidden)\" opens with 2 items",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P1 old app / current schema",
+   "check": "list \"Big list (60 items)\" opens with 60 items",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P1 old app / current schema",
+   "check": "no failed API calls, nothing sent off the machine except blocked map script",
+   "status": "PASS",
+   "detail": "4 blocked map-script requests"
+  },
+  {
+   "phase": "P1 old app / current schema",
+   "check": "reading changes nothing in the database",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P2 old app writes",
+   "check": "Add Item creates exactly one new item in the right list",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P2 old app writes",
+   "check": "editing Petra saves the note and a new photo; other fields keep their values",
+   "status": "PASS",
+   "detail": "photos on Petra now 2 (was 1)"
+  },
+  {
+   "phase": "P2 old app writes",
+   "check": "old app editing an item whose list hides Notes ERASES the saved note",
+   "status": "PRE-EXISTING",
+   "detail": "\"HIDDEN-NOTE: try the cake\" -> null (current live app behaviour; Lists V2 fixes it)"
+  },
+  {
+   "phase": "P2 old app writes",
+   "check": "no other rows anywhere changed, nothing deleted",
+   "status": "PASS",
+   "detail": "7 expected changes: public.custom_list_item_images: ADDED 35a4e89f-a68b-4130-bf92-26e8a755e23e | public.custom_list_items: ADDED 2365a53f-a061-4876-b92f-23dd958b6fa7 | public.custom_list_items: e5e90702-b58e-5460-a763-453638cb6df4 .notes: null -> \"Edited by the OLD app\" | public.custom_list_items: e5e90702-b58e-5460-a763-453638cb6df4 .updated_at: \"2026-03-02T11:00:00.000Z\" -> \"2026-11-20T05:37:50.538Z\" | public.custo"
+  },
+  {
+   "phase": "P3 migrations",
+   "check": "the five pending migrations apply (5)",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P3 migrations",
+   "check": "no existing row added, deleted or changed; only new columns",
+   "status": "PASS",
+   "detail": "public.content_reports: NEW COLUMN via_anonymous | public.custom_lists: NEW COLUMN visibility | public.custom_lists: NEW COLUMN discovery_token"
+  },
+  {
+   "phase": "P3 migrations",
+   "check": "every existing list keeps profile-based visibility and gets its own discovery token",
+   "status": "PASS",
+   "detail": "14/14 profile; 14 distinct tokens"
+  },
+  {
+   "phase": "P3 migrations",
+   "check": "row counts identical in every table",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P4 privacy",
+   "check": "explained difference (not a visibility change)",
+   "status": "INFO",
+   "detail": "anon / restaurant_images: before 0 rows -> after HTTP 401 {\"code\":\"42501\",\"details\":null,\"hint\":null,\"message\":\"permission denied for func: migration #14's restaurant_images policy now checks the parent restaurant, and signed-out visitors were already refused restaurants (is_moderator). No signed-out screen reads this table directly."
+  },
+  {
+   "phase": "P4 privacy",
+   "check": "every user (and a signed-out visitor) can see exactly the same rows and photos before and after the migrations",
+   "status": "PASS",
+   "detail": "7 viewers x 13 tables identical (+1 explained)"
+  },
+  {
+   "phase": "P4 privacy",
+   "check": "stranger and pending follower cannot see the private account's list; blocked user cannot see Ayla's lists",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P4 privacy",
+   "check": "shared list visible only to its two members",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P4 privacy",
+   "check": "photos: only owners and permitted viewers can get signed links",
+   "status": "PASS",
+   "detail": "ayla 11, bora 6, anon 0 signable objects"
+  },
+  {
+   "phase": "P5 old app / migrated schema",
+   "check": "Lists page still shows every list with its item count",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P5 old app / migrated schema",
+   "check": "Add Item still works and touches nothing else",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P5 old app / migrated schema",
+   "check": "no failed API calls",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P6 new app",
+   "check": "Lists home shows every existing list with its item count (same data the old app showed)",
+   "status": "PASS",
+   "detail": "11 lists"
+  },
+  {
+   "phase": "P6 new app",
+   "check": "shared list and My Restaurants visible",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P6 new app",
+   "check": "list \"Coffee Shops ☕ İstanbul\" opens and accounts for all 5 items",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P6 new app",
+   "check": "list \"Wines\" opens and accounts for all 3 items",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P6 new app",
+   "check": "list \"Books 2026\" opens and accounts for all 3 items",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P6 new app",
+   "check": "list \"Old travel list (pre-statuses)\" opens and accounts for all 2 items",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P6 new app",
+   "check": "list \"Bakeries (notes hidden)\" opens and accounts for all 2 items",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P6 new app",
+   "check": "list \"Big list (60 items)\" opens and accounts for all 60 items",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P6 new app",
+   "check": "list \"Empty list\" opens and accounts for all 0 items",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P6 new app",
+   "check": "item photos stored in both formats (old full URL and bare path) all load",
+   "status": "PASS",
+   "detail": "3 images loaded via signed URLs"
+  },
+  {
+   "phase": "P6 new app",
+   "check": "quick add creates one item with the current status",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P6 new app",
+   "check": "editing an item whose list hides Notes KEEPS the saved note (and all other values)",
+   "status": "PASS",
+   "detail": "notes still \"HIDDEN-NOTE: get the profiterol\""
+  },
+  {
+   "phase": "P6 new app",
+   "check": "hiding Price on a list keeps every item's price",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P6 new app",
+   "check": "adding a photo keeps existing photos",
+   "status": "PASS",
+   "detail": "2 -> 3"
+  },
+  {
+   "phase": "P6 new app",
+   "check": "nothing else in the database changed; nothing deleted",
+   "status": "PASS",
+   "detail": "9 expected changes"
+  },
+  {
+   "phase": "P6 new app",
+   "check": "shared list opens with both members' items",
+   "status": "PASS",
+   "detail": "Mikla (Ayla, To Go) and Balıkçı Sabahattin (Ece, Been There)"
+  },
+  {
+   "phase": "P6 new app",
+   "check": "no failed API calls; nothing sent off the machine",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "P6 new app",
+   "check": "stranger (pending follower) opening a private account's list sees no items",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "Overall",
+   "check": "no existing row was deleted in any table across the whole run",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "Overall",
+   "check": "no existing list was converted: name, icon, owner, created_at and field flags unchanged except the one Price toggle",
+   "status": "PASS",
+   "detail": ""
+  },
+  {
+   "phase": "Overall",
+   "check": "every pre-existing item ID, list link and status/category link is intact",
+   "status": "PASS",
+   "detail": "81 items checked"
+  },
+  {
+   "phase": "P7 new app / un-migrated schema",
+   "check": "Lists home on today's production schema shows every list",
+   "status": "PASS",
+   "detail": "lists shown 11/11"
+  },
+  {
+   "phase": "P7 new app / un-migrated schema",
+   "check": "Home and Explore before #10: missing get_discovery_places falls back to get_explore_places",
+   "status": "PASS",
+   "detail": "failed calls: 404 POST /rest/v1/rpc/get_discovery_places ; 404 POST /rest/v1/rpc/get_discovery_places (a 404 on get_discovery_places is the designed probe; anything else is a real failure)"
+  },
+  {
+   "phase": "P7 new app / un-migrated schema",
+   "check": "Add Item before the migrations",
+   "status": "PASS",
+   "detail": "rows created: 1; failed calls: none"
+  },
+  {
+   "phase": "P7 new app / un-migrated schema",
+   "check": "\"Who can see it\" before #8 (needs the visibility column)",
+   "status": "FAIL",
+   "detail": "app showed \"Couldn’t change who can see it. Nothing was changed.\" — 400 PATCH /rest/v1/custom_lists?id=eq.fa19b458-a55e-5cfb-ac42-b58d8f6a104b"
+  },
+  {
+   "phase": "P7 new app / un-migrated schema",
+   "check": "no rows deleted or lists converted while running before the migrations",
+   "status": "PASS",
+   "detail": "none deleted"
+  }
+ ]
+}

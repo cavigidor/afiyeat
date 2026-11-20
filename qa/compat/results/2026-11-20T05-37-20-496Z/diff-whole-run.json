@@ -1,0 +1,144 @@
+{
+ "public.content_reports": {
+  "rowsBefore": 0,
+  "rowsAfter": 0,
+  "added": [],
+  "deleted": [],
+  "changed": [],
+  "addedCols": [
+   "via_anonymous"
+  ],
+  "removedCols": []
+ },
+ "public.custom_list_item_images": {
+  "rowsBefore": 7,
+  "rowsAfter": 9,
+  "added": [
+   "35a4e89f-a68b-4130-bf92-26e8a755e23e",
+   "80753474-5a2d-41d9-9505-29a1d9598785"
+  ],
+  "deleted": [],
+  "changed": [],
+  "addedCols": [],
+  "removedCols": []
+ },
+ "public.custom_list_items": {
+  "rowsBefore": 81,
+  "rowsAfter": 84,
+  "added": [
+   "2365a53f-a061-4876-b92f-23dd958b6fa7",
+   "e0cc91e9-dc85-48ef-9e3b-6ab113da9616",
+   "42043e65-e303-4eeb-8d2a-6f8ee5af55b9"
+  ],
+  "deleted": [],
+  "changed": [
+   {
+    "key": "e5e90702-b58e-5460-a763-453638cb6df4",
+    "cols": {
+     "notes": [
+      null,
+      "Edited by the OLD app"
+     ],
+     "updated_at": [
+      "2026-03-02T11:00:00.000Z",
+      "2026-11-20T05:38:57.500Z"
+     ]
+    }
+   },
+   {
+    "key": "b6b1b111-43a3-5b59-a570-e3718a18700c",
+    "cols": {
+     "name": [
+      "Savoy Pastanesi",
+      "Savoy Pastanesi (edited in V2)"
+     ],
+     "updated_at": [
+      "2026-03-04T16:00:00.000Z",
+      "2026-11-20T05:38:44.353Z"
+     ]
+    }
+   },
+   {
+    "key": "28e4a425-360c-5626-a8a0-468dcc95359b",
+    "cols": {
+     "notes": [
+      "HIDDEN-NOTE: try the cake",
+      null
+     ],
+     "updated_at": [
+      "2026-03-04T18:00:00.000Z",
+      "2026-11-20T05:37:55.736Z"
+     ]
+    }
+   }
+  ],
+  "addedCols": [],
+  "removedCols": []
+ },
+ "public.custom_lists": {
+  "rowsBefore": 14,
+  "rowsAfter": 14,
+  "added": [],
+  "deleted": [],
+  "changed": [
+   {
+    "key": "fa19b458-a55e-5cfb-ac42-b58d8f6a104b",
+    "cols": {
+     "updated_at": [
+      "2026-11-20T05:37:20.747Z",
+      "2026-11-20T05:38:50.253Z"
+     ],
+     "show_price": [
+      true,
+      false
+     ]
+    }
+   }
+  ],
+  "addedCols": [
+   "visibility",
+   "discovery_token"
+  ],
+  "removedCols": []
+ },
+ "public.profiles": {
+  "rowsBefore": 6,
+  "rowsAfter": 6,
+  "added": [],
+  "deleted": [],
+  "changed": [
+   {
+    "key": "2679a9ac-07a9-4eba-a2d9-ae7199df3198",
+    "cols": {
+     "updated_at": [
+      "2026-11-20T05:37:20.747Z",
+      "2026-11-20T05:39:00.311Z"
+     ]
+    }
+   },
+   {
+    "key": "95bc023c-d58e-42cc-a844-ce0a18a94d8b",
+    "cols": {
+     "updated_at": [
+      "2026-11-20T05:37:20.747Z",
+      "2026-11-20T05:39:05.540Z"
+     ]
+    }
+   }
+  ],
+  "addedCols": [],
+  "removedCols": []
+ },
+ "storage.objects": {
+  "rowsBefore": 11,
+  "rowsAfter": 13,
+  "added": [
+   "7867ab37-dd1e-47d1-ac5c-d9f43996664a",
+   "89d79a28-ee13-469f-a409-5029aad8c28a"
+  ],
+  "deleted": [],
+  "changed": [],
+  "addedCols": [],
+  "removedCols": []
+ }
+}

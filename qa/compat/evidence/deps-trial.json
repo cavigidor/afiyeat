@@ -1,0 +1,291 @@
+{
+ "ref": "trial/lists-v2-notifications-photos",
+ "sha": "4973aa7216e7e147966c1c86b79161144d2d8395",
+ "tables": {
+  "blocked_users": [
+   "delete  @src/lib/moderation.ts",
+   "insert  @src/lib/moderation.ts",
+   "select(blocked_id, created_at)  @src/lib/moderation.ts",
+   "select(id)  @src/lib/moderation.ts"
+  ],
+  "content_reports": [
+   "insert  @src/lib/moderation.ts",
+   "select(id)  @src/lib/moderation.ts"
+  ],
+  "custom_list_item_images": [
+   "delete  @src/components/lists/AddCustomListItemDialog.tsx",
+   "insert  @src/lib/photoUpload.ts",
+   "select(id, image_url)  @src/lib/photoUpload.ts"
+  ],
+  "custom_list_items": [
+   "delete  @src/components/lists/v2/QuickAdd.tsx",
+   "delete  @src/pages/CustomListDetail.tsx",
+   "insert  @src/lib/listItemSave.ts",
+   "select(*)  @src/lib/listItemSave.ts",
+   "select(*, images:custom_list_item_images(id, image_url), status:custom_list_statuses(id, name, sort_order))  @src/pages/CustomListDetail.tsx",
+   "select(*, images:custom_list_item_images(id, image_url), status:custom_list_statuses(id, name, sort_order))  @src/pages/PublicListDetail.tsx",
+   "select(id)  @src/lib/duplicateRestaurant.ts",
+   "select(id, latitude, longitude)  @src/lib/duplicateRestaurant.ts",
+   "select(id, name, address, latitude, longitude, price_level, apple_place_id)  @src/components/shared/AddSharedItemDialog.tsx",
+   "select(list_id)  @src/pages/MyLists.tsx",
+   "select(list_id)  @src/pages/PublicProfile.tsx",
+   "update  @src/components/lists/AddCustomListItemDialog.tsx",
+   "update  @src/hooks/useListStatusManagement.ts",
+   "update  @src/pages/CustomListDetail.tsx"
+  ],
+  "custom_list_statuses": [
+   "delete  @src/hooks/useListStatusManagement.ts",
+   "insert  @src/components/lists/CreateListDialog.tsx",
+   "insert  @src/hooks/useListStatusManagement.ts",
+   "insert  @src/lib/listCreate.ts",
+   "select(*)  @src/lib/addDestinations.ts",
+   "select(*)  @src/pages/CustomListDetail.tsx",
+   "select(*)  @src/pages/PublicListDetail.tsx",
+   "select(id)  @src/lib/listCreate.ts",
+   "update  @src/hooks/useListStatusManagement.ts"
+  ],
+  "custom_list_types": [
+   "delete  @src/hooks/useListTypeManagement.ts",
+   "insert  @src/hooks/useListTypeManagement.ts",
+   "insert  @src/lib/listCreate.ts",
+   "select(*)  @src/lib/addDestinations.ts",
+   "select(*)  @src/pages/CustomListDetail.tsx",
+   "select(*)  @src/pages/PublicListDetail.tsx",
+   "select(id)  @src/lib/listCreate.ts",
+   "update  @src/hooks/useListTypeManagement.ts"
+  ],
+  "custom_lists": [
+   "delete  @src/components/lists/CreateListDialog.tsx",
+   "delete  @src/lib/listCreate.ts",
+   "delete  @src/pages/CustomListDetail.tsx",
+   "delete  @src/pages/MyLists.tsx",
+   "insert  @src/components/lists/CreateListDialog.tsx",
+   "insert  @src/lib/listCreate.ts",
+   "select(*)  @src/components/lists/CreateListDialog.tsx",
+   "select(*)  @src/lib/addDestinations.ts",
+   "select(*)  @src/pages/CustomListDetail.tsx",
+   "select(*)  @src/pages/MyLists.tsx",
+   "select(*)  @src/pages/PublicListDetail.tsx",
+   "select(id)  @src/lib/listCreate.ts",
+   "select(id, name, icon)  @src/components/shared/AddSharedItemDialog.tsx",
+   "select(id, name, icon, color)  @src/pages/PublicProfile.tsx",
+   "select(id, user_id, name, icon, created_at)  @src/lib/circle.ts",
+   "update  @src/components/lists/CreateListDialog.tsx",
+   "update  @src/components/lists/v2/CustomizeSheet.tsx"
+  ],
+  "device_tokens": [
+   "delete  @src/contexts/AuthContext.tsx",
+   "delete  @src/lib/pushPermission.ts"
+  ],
+  "folders": [
+   "delete  @src/hooks/useFolderManagement.ts",
+   "insert  @src/hooks/useFolderManagement.ts",
+   "select(*)  @src/pages/MyList.tsx",
+   "select(id, name, color, icon)  @src/lib/addDestinations.ts",
+   "select(id, name, color, icon)  @src/pages/Friends.tsx",
+   "select(id, name, color, icon)  @src/pages/PublicProfile.tsx",
+   "update  @src/hooks/useFolderManagement.ts"
+  ],
+  "follows": [
+   "delete  @src/components/search/PeopleResults.tsx",
+   "delete  @src/lib/followRequests.ts",
+   "delete  @src/pages/Friends.tsx",
+   "delete  @src/pages/Profile.tsx",
+   "delete  @src/pages/PublicProfile.tsx",
+   "insert  @src/components/passport/InvitedByDialog.tsx",
+   "insert  @src/components/search/PeopleResults.tsx",
+   "insert  @src/pages/Friends.tsx",
+   "insert  @src/pages/PublicProfile.tsx",
+   "select(*)  @src/pages/Friends.tsx",
+   "select(follower_id)  @src/pages/Profile.tsx",
+   "select(following_id)  @src/hooks/useFollowing.ts",
+   "select(following_id)  @src/lib/circle.ts",
+   "select(following_id)  @src/pages/Friends.tsx",
+   "select(following_id)  @src/pages/Profile.tsx",
+   "select(following_id, status)  @src/components/search/PeopleResults.tsx",
+   "select(id)  @src/pages/Profile.tsx",
+   "select(id, follower_id, created_at)  @src/lib/activity.ts",
+   "select(id, follower_id, created_at)  @src/lib/followRequests.ts",
+   "select(status)  @src/components/passport/InvitedByDialog.tsx",
+   "select(status)  @src/pages/PublicListDetail.tsx",
+   "select(status)  @src/pages/PublicProfile.tsx",
+   "update  @src/lib/followRequests.ts",
+   "update  @src/pages/Profile.tsx"
+  ],
+  "news_items": [
+   "select(*)  @src/pages/News.tsx"
+  ],
+  "notification_consents": [
+   "?  @src/lib/notificationPreferences.ts"
+  ],
+  "passport_stamps": [
+   "select(id)  @src/lib/passport.ts"
+  ],
+  "place_cache": [
+   "select(apple_place_id, name, address, latitude, longitude, category, country_code)  @src/lib/appleMaps.ts"
+  ],
+  "profiles": [
+   "select(*)  @src/components/search/PeopleResults.tsx",
+   "select(*)  @src/pages/Friends.tsx",
+   "select(*)  @src/pages/Profile.tsx",
+   "select(avatar_emoji, avatar_color)  @src/components/layout/Navbar.tsx",
+   "select(display_name, username, avatar_emoji, avatar_color)  @src/pages/Recipes.tsx",
+   "select(id, user_id, username, display_name, avatar_emoji, avatar_color)  @src/components/shared/SharedListDetail.tsx",
+   "select(id, user_id, username, display_name, avatar_emoji, avatar_color)  @src/hooks/useFollowing.ts",
+   "select(id, user_id, username, display_name, avatar_emoji, avatar_color)  @src/lib/followRequests.ts",
+   "select(id, user_id, username, display_name, avatar_emoji, avatar_color)  @src/pages/Friends.tsx",
+   "select(id, user_id, username, display_name, avatar_emoji, avatar_color)  @src/pages/Profile.tsx",
+   "select(id, user_id, username, display_name, avatar_emoji, avatar_color, is_private, bio)  @src/pages/PublicProfile.tsx",
+   "select(referral_code, is_private)  @src/hooks/useMyShareIdentity.ts",
+   "select(user_id, display_name, username)  @src/lib/addDestinations.ts",
+   "select(user_id, display_name, username, avatar_emoji, avatar_color)  @src/lib/moderation.ts",
+   "select(user_id, display_name, username, avatar_emoji, avatar_color)  @src/pages/MyLists.tsx",
+   "select(user_id, display_name, username, avatar_emoji, avatar_color)  @src/pages/PublicRecipe.tsx",
+   "select(user_id, display_name, username, avatar_emoji, avatar_color)  @src/pages/PublicRestaurant.tsx",
+   "select(user_id, username, display_name)  @src/components/news/AddMentionedPlaceDialog.tsx",
+   "select(user_id, username, display_name, avatar_emoji, avatar_color)  @src/lib/activity.ts",
+   "select(user_id, username, display_name, avatar_emoji, avatar_color)  @src/lib/circle.ts",
+   "select(user_id, username, display_name, is_private)  @src/pages/PublicListDetail.tsx",
+   "update  @src/components/shared/PushNotificationManager.tsx",
+   "update  @src/pages/Profile.tsx"
+  ],
+  "recipes": [
+   "delete  @src/pages/Recipes.tsx",
+   "insert  @src/components/recipes/AddRecipeDialog.tsx",
+   "select(*)  @src/pages/Recipes.tsx",
+   "select(id, title, description, prep_time_minutes, cook_time_minutes, servings, difficulty, cook_temp, cook_temp_unit, ingredients, instructions, tags, image_url, user_id)  @src/pages/PublicRecipe.tsx",
+   "update  @src/components/recipes/EditRecipeDialog.tsx"
+  ],
+  "restaurant_images": [
+   "delete  @src/components/restaurants/ImageUploadSection.tsx",
+   "insert  @src/lib/photoUpload.ts",
+   "select(id, image_url)  @src/components/restaurants/ImageUploadSection.tsx",
+   "select(id, image_url)  @src/lib/photoUpload.ts"
+  ],
+  "restaurants": [
+   "delete  @src/pages/MyList.tsx",
+   "delete  @src/pages/MyLists.tsx",
+   "insert  @src/components/news/AddMentionedPlaceDialog.tsx",
+   "insert  @src/lib/listItemSave.ts",
+   "insert  @src/pages/PublicRestaurant.tsx",
+   "select(*)  @src/lib/listItemSave.ts",
+   "select(*, images:restaurant_images(image_url))  @src/pages/Friends.tsx",
+   "select(*, images:restaurant_images(image_url))  @src/pages/PublicProfile.tsx",
+   "select(*, images:restaurant_images(image_url, id))  @src/pages/MyList.tsx",
+   "select(apple_place_id, name)  @src/components/home/PopularPlacesSection.tsx",
+   "select(id)  @src/lib/duplicateRestaurant.ts",
+   "select(id)  @src/pages/MyLists.tsx",
+   "select(id)  @src/pages/Profile.tsx",
+   "select(id, latitude, longitude)  @src/lib/duplicateRestaurant.ts",
+   "select(id, name, address, category, rating, price_level, status, latitude, longitude, place_id, apple_place_id, user_id, images:restaurant_images(image_url))  @src/pages/PublicRestaurant.tsx",
+   "select(id, name, address, latitude, longitude, price_level, apple_place_id)  @src/components/shared/AddSharedItemDialog.tsx",
+   "select(id, user_id, name, category, status, rating, created_at)  @src/lib/circle.ts",
+   "update  @src/components/restaurants/EditRestaurantDialog.tsx",
+   "update  @src/pages/MyList.tsx"
+  ],
+  "shared_list_item_comments": [
+   "insert  @src/components/shared/SharedItemDetailDialog.tsx",
+   "select(id, list_id, item_id, user_id, comment, created_at)  @src/lib/activity.ts",
+   "select(id, user_id, comment, created_at)  @src/components/shared/SharedItemDetailDialog.tsx"
+  ],
+  "shared_list_items": [
+   "delete  @src/components/shared/SharedListDetail.tsx",
+   "insert  @src/components/lists/ConvertToSharedListDialog.tsx",
+   "insert  @src/components/news/AddMentionedPlaceDialog.tsx",
+   "insert  @src/lib/listItemSave.ts",
+   "select(id)  @src/lib/duplicateRestaurant.ts",
+   "select(id)  @src/lib/listItemSave.ts",
+   "select(id, latitude, longitude)  @src/lib/duplicateRestaurant.ts",
+   "select(id, list_id, name, added_by, created_at)  @src/lib/activity.ts",
+   "select(id, name)  @src/lib/activity.ts",
+   "select(id, name, address, latitude, longitude, status, rating, price_level, notes, added_by, apple_place_id)  @src/components/shared/SharedListDetail.tsx",
+   "update  @src/components/shared/EditSharedItemDialog.tsx",
+   "update  @src/components/shared/SharedListDetail.tsx"
+  ],
+  "shared_lists": [
+   "delete  @src/components/shared/SharedListDetail.tsx",
+   "insert  @src/components/lists/ConvertToSharedListDialog.tsx",
+   "insert  @src/components/shared/CreateSharedListDialog.tsx",
+   "select(*)  @src/components/lists/ConvertToSharedListDialog.tsx",
+   "select(id, name)  @src/lib/activity.ts",
+   "select(id, name, user_a, user_b)  @src/components/news/AddMentionedPlaceDialog.tsx",
+   "select(id, name, user_a, user_b)  @src/components/shared/SharedListDetail.tsx",
+   "select(id, name, user_a, user_b)  @src/lib/addDestinations.ts",
+   "select(id, name, user_a, user_b)  @src/pages/MyLists.tsx"
+  ]
+ },
+ "rpcs": {
+  "claim_device_token": [
+   "(p_token,p_platform)  @src/lib/pushPermission.ts"
+  ],
+  "claim_referral": [
+   "(p_code,p_source,p_content_type,p_content_id)  @src/lib/passport.ts"
+  ],
+  "get_discoverable_list": [
+   "(p_token)  @src/lib/communityLists.ts [untyped]"
+  ],
+  "get_discovery_places": [
+   "(p_mode)  @src/lib/discovery.ts [untyped]"
+  ],
+  "get_explore_lists": [
+   "(p_mode)  @src/lib/discovery.ts",
+   "(p_mode,p_query,p_limit,p_offset)  @src/lib/communityLists.ts [untyped]"
+  ],
+  "get_explore_places": [
+   "(p_mode)  @src/lib/discovery.ts"
+  ],
+  "get_list_discovery_preview": [
+   "(p_list_id)  @src/lib/communityLists.ts [untyped]"
+  ],
+  "get_passport_summary": [
+   "()  @src/lib/passport.ts"
+  ],
+  "get_place_comments": [
+   "(p_place_id,p_mode)  @src/components/explore/PlaceDetailSheet.tsx"
+  ],
+  "get_referral_history": [
+   "()  @src/lib/passport.ts [untyped]"
+  ],
+  "get_shared_preview": [
+   "(p_type,p_id)  @src/lib/sharedPreview.ts"
+  ],
+  "report_discoverable_list": [
+   "(p_token,p_reason,p_description)  @src/lib/communityLists.ts [untyped]"
+  ]
+ },
+ "buckets": {
+  "restaurant-images": [
+   "storage.upload  @src/components/recipes/AddRecipeDialog.tsx",
+   "storage.upload  @src/components/recipes/EditRecipeDialog.tsx"
+  ]
+ },
+ "edgeFunctions": {
+  "apple-maps": [
+   "@src/lib/appleMaps.ts"
+  ],
+  "create-account": [
+   "@src/pages/Auth.tsx"
+  ],
+  "delete-account": [
+   "@src/pages/Profile.tsx"
+  ],
+  "parse-recipe-image": [
+   "@src/pages/Recipes.tsx"
+  ],
+  "report-alert": [
+   "@src/lib/moderation.ts"
+  ],
+  "reset-password": [
+   "@src/pages/Auth.tsx"
+  ],
+  "reverse-geocode-region": [
+   "@src/pages/News.tsx"
+  ],
+  "search-events": [
+   "@src/lib/events.ts"
+  ],
+  "send-otp": [
+   "@src/pages/Auth.tsx"
+  ]
+ }
+}

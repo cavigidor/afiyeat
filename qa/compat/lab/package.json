@@ -1,0 +1,7 @@
+{
+  "name": "afiyeat-compat-lab",
+  "private": true,
+  "type": "module",
+  "description": "Isolated Lists V2 data-compatibility lab: local Postgres + PostgREST + auth/storage gateway. Never connects to a hosted project.",
+  "dependencies": { "pg": "8.13.1", "puppeteer-core": "23.10.4" }
+}

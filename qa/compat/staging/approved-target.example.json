@@ -1,0 +1,9 @@
+{
+  "project_ref": "abcdefghijklmnopqrst",
+  "project_url": "https://abcdefghijklmnopqrst.supabase.co",
+  "approved_by": "<your name>",
+  "approved_on": "2026-11-20",
+  "expires_on": "2026-12-20",
+  "purpose": "Afiyeat Lists V2 staging with the PM's own list data",
+  "operations": ["load-own-data", "snapshot", "iphone-build"]
+}
