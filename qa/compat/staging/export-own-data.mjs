@@ -31,7 +31,9 @@ if (existsSync(out)) { console.error(`STOPPED: ${out} already exists. Use a new 
 const lab = !!process.env.EXPORT_SOURCE_URL;
 if (lab && !/^http:\/\/127\.0\.0\.1:\d+$/.test(process.env.EXPORT_SOURCE_URL)) { console.error('EXPORT_SOURCE_URL is for the local lab only'); process.exit(2); }
 const SRC = lab ? process.env.EXPORT_SOURCE_URL : PRODUCTION_URL;
-const KEY = lab ? process.env.EXPORT_SOURCE_KEY : (readFileSync(path.join(REPO, '.env'), 'utf8').match(/^VITE_SUPABASE_PUBLISHABLE_KEY\s*=\s*"?([^"\n]+)"?/m) ?? [])[1];
+// The app's PUBLIC publishable key: from the repository's .env, or public-app-config.env beside the tools.
+const publicEnv = () => { for (const f of ['.env', 'public-app-config.env']) { try { return readFileSync(path.join(REPO, f), 'utf8'); } catch { /* next */ } } return ''; };
+const KEY = lab ? process.env.EXPORT_SOURCE_KEY : (publicEnv().match(/^VITE_SUPABASE_PUBLISHABLE_KEY\s*=\s*"?([^"\n]+)"?/m) ?? [])[1];
 if (!KEY) { console.error('no publishable key found in .env'); process.exit(2); }
 
 // ---- read-only allowlist: the only way this script talks to the network ----
@@ -139,7 +141,9 @@ await call('POST', '/auth/v1/logout', { token }).catch(() => {});
 
 const manifest = {
   kind: 'afiyeat-own-data-export', version: 1, exported_at: new Date().toISOString(), source: new URL(SRC).host,
-  account: me, counts: Object.fromEntries(Object.entries(data).map(([t, r]) => [t, r.length])),
+  account: me,
+  columns: Object.fromEntries(Object.entries(data).map(([t, rows]) => [t, [...new Set(rows.flatMap((r) => Object.keys(r)))]])),
+  counts: Object.fromEntries(Object.entries(data).map(([t, r]) => [t, r.length])),
   row_hashes: Object.fromEntries(Object.entries(data).map(([t, rows]) => [t, Object.fromEntries(rows.map((r) => [r.id ?? r.user_id, sha256(canon(r))]))])),
   photos, members, notes,
   requests: [...new Set(sent)],
