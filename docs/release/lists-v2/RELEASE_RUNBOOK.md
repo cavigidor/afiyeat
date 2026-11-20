@@ -36,8 +36,26 @@ Verification on the release candidate:
    - Download the file to private, encrypted storage. Don't share it: it holds every user's data and password hashes.
    - Note the time of the latest automatic daily backup.
 3. **Record today's counts.** In Lovable, use **Chat** mode with the read-only wording to run `pre-migration-counts.sql`. Save the result.
-4. **Capture the rollback.** In the same Chat mode, run `capture-restore-script.sql` (read-only). Save its single output value as `restore-<date>.sql` on your Mac.
-   - Rehearsed in the lab: migrate, then run the generated restore. Security rules, functions, grants and triggers came back identical to before. Re-applying the migrations afterwards gave the same result as the first apply.
+4. **Capture the rollback, and check you saved all of it.**
+   1. In Chat mode, run `capture-restore-script.sql` (read-only). It returns one row with three values:
+      - `restore_sql`: the rollback script. Save it as `~/AfiyeatTrial/restore-<date>.sql`.
+      - `characters`: its exact length. Note it down.
+      - `md5`: its checksum. Note it down.
+   2. Check the saved file is complete. A chat window can silently cut a long value short.
+      - Its last line must be `-- END OF LISTS V2 ROLLBACK`.
+      - Run this in Terminal; it must print the same length and md5 that Lovable showed:
+        ```sh
+        node -e "const s=require('fs').readFileSync(process.argv[1],'utf8').replace(/\n$/,'');console.log(s.length, require('crypto').createHash('md5').update(s).digest('hex'))" ~/AfiyeatTrial/restore-<date>.sql
+        ```
+      - If either check fails, ask Lovable to show the value again and re-save the file. **Don't migrate until both match.**
+5. **Take the security fingerprint.** In Chat mode, run `security-fingerprint.sql` (read-only) and save the whole result as `~/AfiyeatTrial/fingerprint-before-<date>.txt`.
+   - It lists every security rule, function (definition and grants) and trigger that the five migrations touch, plus an `overall` digest as its first row.
+   - It's how you prove a rollback worked.
+
+Rehearsed in the lab:
+- The saved script's length and md5 matched what the query reported.
+- After migrating and then running the restore, the fingerprint was identical to the one taken before migrating (`overall`: 49 items both times; 51 while migrated).
+- Re-applying the migrations afterwards gave the same result as the first time.
 
 ## 2. Apply the five migrations, in this order
 
@@ -80,7 +98,7 @@ Escalate only as far as the problem needs.
 | Situation | What to do | What it costs |
 |---|---|---|
 | A migration fails part-way | Each file runs as one transaction. Stop and keep the error message. The failed file left nothing behind, and the earlier files are safe to keep, because the live app works with them. | Nothing |
-| Checks fail, or the live app breaks after migrating | Apply your saved `restore-<date>.sql`, using the same exact-SQL wording. It restores today's security rules and functions. It keeps the new columns, which the live app ignores. Then run `post-migration-checks.sql`: the checks should now read false, and the counts should be unchanged. | No user data lost |
+| Checks fail, or the live app breaks after migrating | Apply your saved `restore-<date>.sql`, using the same exact-SQL wording. It restores today's security rules, functions and grants. It deliberately keeps the new columns and discovery tokens, which the live app ignores. **To verify the restore**, run `security-fingerprint.sql` again: every row, including the `overall` digest on the first row, must be identical to `fingerprint-before-<date>.txt`. Also run `pre-migration-counts.sql`: no count may be lower than before. Don't use `post-migration-checks.sql` for this: the column and token checks stay true after a restore by design. | No user data lost |
 | A problem shows up in Lists V2 on TestFlight | Don't submit. The database stays migrated, which is harmless for the live app. Fix the problem, rebuild and retest. | Nothing |
 | Data is damaged (not expected: the migrations never change rows) | Restore only the affected rows from your Export project data file, or as a last resort restore Lovable's daily backup. The daily backup replaces the whole database, can't be undone, and loses everything written after it. | Restoring the daily backup loses everything users wrote after it |
 

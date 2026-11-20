@@ -1,7 +1,11 @@
 -- READ ONLY. Run in production BEFORE applying the five Lists V2 migrations.
--- It changes nothing: it returns one text value, a ready-to-run SQL script that puts back exactly
--- today's security rules and functions that the five migrations replace. Save that output
--- (copy it into docs/release/lists-v2/restore-<date>.sql on your Mac); it is the rollback.
+-- It changes nothing. It returns one row with three columns:
+--   restore_sql  a ready-to-run SQL script that puts back exactly today's security rules and
+--                functions that the five migrations replace; save it as restore-<date>.sql on your Mac
+--   characters   the script's exact length
+--   md5          the script's checksum
+-- The script's last line is "-- END OF LISTS V2 ROLLBACK". Check the saved file is complete before
+-- migrating (RELEASE_RUNBOOK.md, step 1.4): a chat window can silently cut a long value short.
 --
 -- Scope = everything the five migrations replace or add:
 --   policies on custom_lists, custom_list_items, custom_list_types, custom_list_statuses,
@@ -11,6 +15,8 @@
 -- The new columns (custom_lists.visibility, custom_lists.discovery_token,
 -- content_reports.via_anonymous) are deliberately KEPT by the restore: the current app ignores
 -- them, and dropping them would throw away settings people made in Lists V2.
+WITH
+script AS (
 WITH
 tabs(schemaname, tablename) AS (VALUES
   ('public', 'custom_lists'), ('public', 'custom_list_items'), ('public', 'custom_list_types'),
@@ -66,5 +72,8 @@ END $do$;$$,
      FROM pg_proc p
      WHERE p.oid IN (SELECT oid FROM old_fn)
         OR (p.pronamespace = 'public'::regnamespace AND p.proname IN (SELECT proname FROM existing_new))),
-  'COMMIT;'
-) AS restore_sql;
+  'COMMIT;',
+  '-- END OF LISTS V2 ROLLBACK'
+) AS restore_sql
+)
+SELECT restore_sql, length(restore_sql) AS characters, md5(restore_sql) AS md5 FROM script;
