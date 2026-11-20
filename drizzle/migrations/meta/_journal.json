@@ -50,6 +50,13 @@
       "when": 1795218685209,
       "tag": "0006_custom_list_items_owner_check",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795219010263,
+      "tag": "0007_list_visibility_and_anonymous_discovery",
+      "breakpoints": true
     }
   ]
 }

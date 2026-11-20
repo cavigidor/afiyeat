@@ -205,6 +205,7 @@ export type Database = {
           reporter_id: string
           reviewed_at: string | null
           status: string
+          via_anonymous: boolean
         }
         Insert: {
           alerted_at?: string | null
@@ -219,6 +220,7 @@ export type Database = {
           reporter_id: string
           reviewed_at?: string | null
           status?: string
+          via_anonymous?: boolean
         }
         Update: {
           alerted_at?: string | null
@@ -233,6 +235,7 @@ export type Database = {
           reporter_id?: string
           reviewed_at?: string | null
           status?: string
+          via_anonymous?: boolean
         }
         Relationships: []
       }
@@ -439,6 +442,7 @@ export type Database = {
         Row: {
           color: string
           created_at: string
+          discovery_token: string
           icon: string
           id: string
           name: string
@@ -454,10 +458,12 @@ export type Database = {
           status_todo_label: string
           updated_at: string
           user_id: string
+          visibility: string
         }
         Insert: {
           color?: string
           created_at?: string
+          discovery_token?: string
           icon?: string
           id?: string
           name: string
@@ -473,10 +479,12 @@ export type Database = {
           status_todo_label?: string
           updated_at?: string
           user_id: string
+          visibility?: string
         }
         Update: {
           color?: string
           created_at?: string
+          discovery_token?: string
           icon?: string
           id?: string
           name?: string
@@ -492,6 +500,7 @@ export type Database = {
           status_todo_label?: string
           updated_at?: string
           user_id?: string
+          visibility?: string
         }
         Relationships: []
       }
@@ -1328,6 +1337,10 @@ export type Database = {
         }[]
       }
       auth_user_id_by_email: { Args: { p_email: string }; Returns: string }
+      can_view_custom_list: {
+        Args: { p_author?: string; p_list_id: string }
+        Returns: boolean
+      }
       can_view_profile: { Args: { profile_user_id: string }; Returns: boolean }
       claim_device_token: {
         Args: { p_platform: string; p_token: string }
@@ -1342,12 +1355,20 @@ export type Database = {
         }
         Returns: Json
       }
+      custom_list_anonymous_view: { Args: { p_list_id: string }; Returns: Json }
       generate_referral_code: { Args: never; Returns: string }
+      get_discoverable_list: { Args: { p_token: string }; Returns: Json }
       get_explore_lists: {
-        Args: { p_mode?: string }
+        Args: {
+          p_limit?: number
+          p_mode?: string
+          p_offset?: number
+          p_query?: string
+        }
         Returns: {
           avatar_color: string
           avatar_emoji: string
+          discovery_token: string
           display_name: string
           is_anonymous: boolean
           item_count: number
@@ -1374,6 +1395,7 @@ export type Database = {
           rating_count: number
         }[]
       }
+      get_list_discovery_preview: { Args: { p_list_id: string }; Returns: Json }
       get_passport_summary: { Args: never; Returns: Json }
       get_place_comments: {
         Args: { p_mode?: string; p_place_id: string }
@@ -1467,6 +1489,10 @@ export type Database = {
         }[]
       }
       purge_expired_place_cache: { Args: never; Returns: undefined }
+      report_discoverable_list: {
+        Args: { p_description?: string; p_reason: string; p_token: string }
+        Returns: string
+      }
       seed_default_folders: { Args: { p_user_id: string }; Returns: undefined }
       send_daily_prompt: { Args: never; Returns: undefined }
       send_good_morning_treat: { Args: never; Returns: undefined }
