@@ -19,10 +19,22 @@ const types = [
 
 describe('presets', () => {
   it('six V2 presets, older presets kept, every icon unique', () => {
-    expect(V2_PRESETS.map((p) => p.key)).toEqual(['restaurants', 'drinks', 'coffee_beans', 'coffee_shops', 'stores', 'travel']);
-    expect(MORE_PRESETS.map((p) => p.label)).toEqual(['Movies', 'Shows', 'Books', 'Concerts', 'Wines', 'Beers']);
+    expect(V2_PRESETS.map((p) => p.key)).toEqual(['restaurants', 'drinks', 'coffee_beans', 'movies', 'stores', 'travel']);
+    expect(MORE_PRESETS.map((p) => p.label)).toEqual(['Coffee Shops', 'Shows', 'Books', 'Concerts', 'Wines', 'Beers']);
     const icons = [...V2_PRESETS, ...MORE_PRESETS].map((p) => p.icon);
     expect(new Set(icons).size).toBe(icons.length);
+  });
+  it('moving Movies and Coffee Shops between groups keeps both presets and existing lists exactly as they were', async () => {
+    const before = await import('./fixtures/listPresets-c41a888');
+    const all = [...V2_PRESETS, ...MORE_PRESETS];
+    const old = [...before.V2_PRESETS, ...before.MORE_PRESETS];
+    for (const key of ['movies', 'coffee_shops']) {
+      expect(all.find((p) => p.key === key)).toEqual(old.find((p) => p.key === key));
+    }
+    // Saved lists are matched by icon, so the move can't change how an existing list is shown.
+    expect(presetForIcon('🎬')?.key).toBe('movies');
+    expect(presetForIcon('☕')?.key).toBe('coffee_shops');
+    expect(all.map((p) => p.key).sort()).toEqual(old.map((p) => p.key).sort());
   });
   it('only Travel overrides the default audience', () => {
     expect(V2_PRESETS.filter((p) => p.visibility).map((p) => [p.key, p.visibility])).toEqual([['travel', 'private']]);

@@ -72,11 +72,11 @@ export const V2_PRESETS: ListPresetDef[] = [
     defaultView: 'list', summary: 'Want to Try · Tried · light, medium, dark roast',
   },
   {
-    key: 'coffee_shops', label: 'Coffee Shops', hint: 'Cafés to visit', icon: '☕', color: '#8D6E63',
-    suggestedName: 'Coffee Shops', layout: 'places', itemNoun: { one: 'café', many: 'cafés' }, addPrompt: 'Search a café',
-    config: { ...PLACE, show_price: true, price_mode: 'dollar', show_rating: true, rating_mode: 'scale_10' },
-    statuses: ['Want to Go', 'Been'], categories: [], defaultView: 'list',
-    summary: 'Want to Go · Been · map and price',
+    key: 'movies', label: 'Movies', hint: 'To watch', icon: '🎬', color: '#3949AB',
+    suggestedName: 'Movies', layout: 'collection', itemNoun: { one: 'movie', many: 'movies' }, addPrompt: 'Add a movie',
+    config: { show_location: false, show_price: false, price_mode: 'dollar', show_rating: true, rating_mode: 'stars_5', show_notes: true, show_photos: false },
+    statuses: ['Want to Watch', 'Watched'], categories: [], defaultView: 'list',
+    summary: 'Want to Watch · Watched · stars',
   },
   {
     key: 'stores', label: 'Stores', hint: 'Shops, wishlists', icon: '🛍️', color: '#1F7A80',
@@ -98,10 +98,16 @@ export const V2_PRESETS: ListPresetDef[] = [
   },
 ];
 
-// The presets that existed before V2, offered under "More presets" exactly as they were.
+// Offered under "More presets". Moving a preset between the two groups changes only where it shows in
+// the picker: saved lists are matched to their preset by icon (presetForIcon), never by group.
 export const MORE_PRESETS: ListPresetDef[] = [
-  { key: 'movies', label: 'Movies', hint: 'To watch', icon: '🎬', color: '#3949AB', suggestedName: 'Movies', layout: 'collection', itemNoun: { one: 'movie', many: 'movies' }, addPrompt: 'Add a movie',
-    config: { show_location: false, show_price: false, price_mode: 'dollar', show_rating: true, rating_mode: 'stars_5', show_notes: true, show_photos: false }, statuses: ['Want to Watch', 'Watched'], categories: [], defaultView: 'list', summary: 'Want to Watch · Watched · stars' },
+  {
+    key: 'coffee_shops', label: 'Coffee Shops', hint: 'Cafés to visit', icon: '☕', color: '#8D6E63',
+    suggestedName: 'Coffee Shops', layout: 'places', itemNoun: { one: 'café', many: 'cafés' }, addPrompt: 'Search a café',
+    config: { ...PLACE, show_price: true, price_mode: 'dollar', show_rating: true, rating_mode: 'scale_10' },
+    statuses: ['Want to Go', 'Been'], categories: [], defaultView: 'list',
+    summary: 'Want to Go · Been · map and price',
+  },
   { key: 'shows', label: 'Shows', hint: 'Series', icon: '📺', color: '#5E35B1', suggestedName: 'Shows', layout: 'collection', itemNoun: { one: 'show', many: 'shows' }, addPrompt: 'Add a show',
     config: { show_location: false, show_price: false, price_mode: 'dollar', show_rating: true, rating_mode: 'stars_5', show_notes: true, show_photos: false }, statuses: ['Want to Watch', 'Watching', 'Finished'], categories: [], defaultView: 'list', summary: 'Want to Watch · Watching · Finished' },
   { key: 'books', label: 'Books', hint: 'To read', icon: '📚', color: '#455A64', suggestedName: 'Books', layout: 'collection', itemNoun: { one: 'book', many: 'books' }, addPrompt: 'Add a book',

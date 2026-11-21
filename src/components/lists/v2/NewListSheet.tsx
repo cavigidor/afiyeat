@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMyShareIdentity } from '@/hooks/useMyShareIdentity';
+import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 import { blockedByContentFilter } from '@/lib/contentFilter';
 import { createListFromPreset } from '@/lib/listCreate';
 import { MORE_PRESETS, V2_PRESETS, type ListPresetDef } from '@/lib/listPresets';
@@ -38,8 +39,9 @@ function uniqueName(base: string, taken: string[]): string {
 }
 
 /**
- * New list in three taps: open, pick a starting point, Create. The name is filled in and selected, so
- * typing replaces it; nothing else is required. Everything stays editable from the list afterwards.
+ * New list in three taps: open, pick a starting point, Create. The name is filled in, so nothing else is
+ * required. The keyboard opens only when the person taps the name field; nothing focuses it for them.
+ * Everything stays editable from the list afterwards.
  */
 export function NewListSheet({ open, onOpenChange, existingNames, onBlankList, onSharedList }: NewListSheetProps) {
   const { user } = useAuth();
@@ -53,7 +55,8 @@ export function NewListSheet({ open, onOpenChange, existingNames, onBlankList, o
   const [failed, setFailed] = useState(false);
   // One id per attempt at creating this list, kept across retries so a lost answer can't make two.
   const attemptId = useRef(newId());
-  const inputRef = useRef<HTMLInputElement>(null);
+  // Keeps the sheet (and its Create button) above the keyboard when the name field is tapped.
+  const keyboardInset = useKeyboardInset(open);
 
   useEffect(() => {
     if (!open) {
@@ -66,8 +69,6 @@ export function NewListSheet({ open, onOpenChange, existingNames, onBlankList, o
     setPreset(p);
     setFailed(false);
     setName(uniqueName(p.suggestedName, existingNames));
-    // Focus once the step has rendered; selecting all means typing replaces the suggestion.
-    requestAnimationFrame(() => { inputRef.current?.focus(); inputRef.current?.select(); });
   };
 
   const audience = useMemo(() => {
@@ -77,7 +78,7 @@ export function NewListSheet({ open, onOpenChange, existingNames, onBlankList, o
 
   const create = async () => {
     if (!user || !preset || saving) return;
-    if (!name.trim()) { inputRef.current?.focus(); return; }
+    if (!name.trim()) return;
     if (blockedByContentFilter(name)) return;
     setSaving(true);
     setFailed(false);
@@ -102,8 +103,9 @@ export function NewListSheet({ open, onOpenChange, existingNames, onBlankList, o
         side="bottom"
         className="rounded-t-3xl px-4 pt-3 sm:mx-auto sm:max-w-lg"
         showCloseButton={false}
-        // Don't land focus (and a focus ring) on the first preset; the name step focuses its own input.
+        // Don't land focus (and a focus ring, or the keyboard) on anything when the sheet opens.
         onOpenAutoFocus={(e) => e.preventDefault()}
+        style={keyboardInset ? { bottom: keyboardInset, maxHeight: `calc(100dvh - ${keyboardInset}px)` } : undefined}
       >
         <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-muted" aria-hidden />
         {!preset ? (
@@ -117,7 +119,7 @@ export function NewListSheet({ open, onOpenChange, existingNames, onBlankList, o
               <button type="button" aria-label="More presets" className="flex w-full items-center gap-3 px-4 py-3 text-left active-press" onClick={() => setShowMore((s) => !s)} aria-expanded={showMore}>
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium">More presets</span>
-                  <span className="block truncate text-xs text-muted-foreground">Movies, Shows, Books, Concerts, Wines, Beers</span>
+                  <span className="block truncate text-xs text-muted-foreground">{MORE_PRESETS.map((p) => p.label).join(', ')}</span>
                 </span>
                 <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', showMore && 'rotate-180')} />
               </button>
@@ -150,13 +152,13 @@ export function NewListSheet({ open, onOpenChange, existingNames, onBlankList, o
               <ListGlyph icon={preset.icon} color={preset.color} size="lg" />
               <div className="min-w-0">
                 <SheetTitle className="truncate text-xl font-bold">{preset.label}</SheetTitle>
-                <SheetDescription className="truncate text-sm">{preset.summary}</SheetDescription>
+                <SheetDescription className="line-clamp-2 text-sm">{preset.hint}</SheetDescription>
               </div>
             </div>
+            <PresetDetails preset={preset} audience={audience} />
             <label htmlFor="new-list-name" className="mt-4 block text-sm font-medium text-muted-foreground">List name</label>
             <Input
               id="new-list-name"
-              ref={inputRef}
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={60}
@@ -164,14 +166,6 @@ export function NewListSheet({ open, onOpenChange, existingNames, onBlankList, o
               autoComplete="off"
               className="mt-1.5 h-12 rounded-xl text-base"
             />
-            <p className="mt-3 flex items-start gap-2 text-sm text-muted-foreground">
-              {audience.private ? <Lock className="mt-0.5 h-4 w-4 shrink-0" /> : <Users className="mt-0.5 h-4 w-4 shrink-0" />}
-              <span>
-                {audience.private
-                  ? 'Starts as Only me. Change it any time from the list.'
-                  : `${audience.label}, like your other lists. Change it any time from the list.`}
-              </span>
-            </p>
             {failed && (
               <p role="alert" className="mt-3 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 Couldn’t create the list. Check your connection and tap Create again — it won’t be made twice.
@@ -204,5 +198,49 @@ function PresetTile({ preset, onClick, compact }: { preset: ListPresetDef; onCli
         <span className="mt-0.5 block truncate text-xs leading-tight text-muted-foreground">{preset.hint}</span>
       </span>
     </button>
+  );
+}
+
+/** What the chosen preset sets up, shown right under its name so it stays in view above the keyboard. */
+function PresetDetails({ preset, audience }: { preset: ListPresetDef; audience: { private: boolean; label: string } }) {
+  return (
+    <div className="mt-3 space-y-2 rounded-2xl bg-muted/50 p-3 text-sm" data-testid="preset-details">
+      <DetailRow label="Statuses" items={preset.statuses.map((s) => ({ name: s }))} />
+      {preset.categories.length > 0 && <DetailRow label="Categories" items={preset.categories} />}
+      <DetailRow label="Tracks" items={trackedFields(preset).map((name) => ({ name }))} />
+      <p className="flex items-start gap-2 text-muted-foreground">
+        {audience.private ? <Lock className="mt-0.5 h-4 w-4 shrink-0" /> : <Users className="mt-0.5 h-4 w-4 shrink-0" />}
+        <span>
+          {audience.private
+            ? 'Starts as Only me. Change it any time from the list.'
+            : `${audience.label}, like your other lists. Change it any time from the list.`}
+        </span>
+      </p>
+    </div>
+  );
+}
+
+function trackedFields({ config: c }: ListPresetDef): string[] {
+  return [
+    c.show_location && 'Location',
+    c.show_price && 'Price',
+    c.show_rating && ({ stars_5: 'Stars', scale_10: 'Rating 1–10', manual: 'Rating' } as const)[c.rating_mode],
+    c.show_photos && 'Photos',
+    c.show_notes && 'Notes',
+  ].filter((f): f is string => Boolean(f));
+}
+
+function DetailRow({ label, items }: { label: string; items: { name: string; icon?: string }[] }) {
+  return (
+    <div className="flex items-start gap-2">
+      <span className="w-20 shrink-0 pt-0.5 text-xs font-medium text-muted-foreground">{label}</span>
+      <ul className="flex min-w-0 flex-wrap gap-1.5" aria-label={label}>
+        {items.map((i) => (
+          <li key={i.name} className="rounded-full border bg-background px-2 py-0.5 text-xs">
+            {i.icon ? `${i.icon} ` : ''}{i.name}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
