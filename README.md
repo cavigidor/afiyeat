@@ -14,6 +14,7 @@ Save the restaurants you want to try and the ones you've loved, see them on your
 | Shipping a release to the App Store | [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) |
 | Testing on a phone before release | [`docs/USER_TEST_CHECKLIST.md`](docs/USER_TEST_CHECKLIST.md) |
 | App Store text, review notes, privacy answers | `docs/APP_STORE_METADATA.md`, `docs/APP_REVIEW_NOTES.md`, `docs/APP_PRIVACY_LABELS.md` |
+| Saving recipes from ChatGPT (MCP connector) | [`docs/CHATGPT_INTEGRATION.md`](docs/CHATGPT_INTEGRATION.md) |
 
 ## Working on it
 

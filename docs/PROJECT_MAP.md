@@ -78,7 +78,9 @@ afiyeat-app/
 │   ├── migrations/               SQL migrations; Lovable-generated ones have UUID names
 │   ├── functions/                apple-maps, report-alert, parse-recipe-image, send-push,
 │   │                             send-otp, verify-otp, create-account, reset-password,
-│   │                             delete-account, search-events, generate-news (off)
+│   │                             delete-account, search-events, generate-news (off),
+│   │                             afiyeat-mcp (ChatGPT connector, docs/CHATGPT_INTEGRATION.md)
+│   ├── tests/afiyeat-mcp/        local tests for afiyeat-mcp
 │   └── config.toml
 ├── drizzle/                      Lovable's own record of applied migrations (don't edit)
 ├── ios/App/
@@ -110,6 +112,7 @@ afiyeat-app/
 | `/invite/:code` | Invite | Stores the referral code, then goes to sign-up |
 | `/passport` | Passport | Invite screen, history, milestones |
 | `/terms`, `/privacy` | | Privacy policy is out of date (Dec 2024) |
+| `/oauth/consent` | OAuthConsent | Supabase OAuth server consent screen (connecting ChatGPT) |
 
 ---
 
