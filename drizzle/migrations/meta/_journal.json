@@ -57,6 +57,13 @@
       "when": 1795219010263,
       "tag": "0007_list_visibility_and_anonymous_discovery",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795221248608,
+      "tag": "0008_discovery_places",
+      "breakpoints": true
     }
   ]
 }

@@ -1358,6 +1358,24 @@ export type Database = {
       custom_list_anonymous_view: { Args: { p_list_id: string }; Returns: Json }
       generate_referral_code: { Args: never; Returns: string }
       get_discoverable_list: { Args: { p_token: string }; Returns: Json }
+      get_discovery_places: {
+        Args: { p_mode?: string }
+        Returns: {
+          address: string
+          apple_place_id: string
+          avg_rating: number
+          category: string
+          contributor_count: number
+          latitude: number
+          longitude: number
+          name: string
+          place_id: string
+          price_level: number
+          rating_count: number
+          saved_count: number
+          type_names: string[]
+        }[]
+      }
       get_explore_lists: {
         Args: {
           p_limit?: number
