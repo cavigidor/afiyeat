@@ -39,6 +39,10 @@ import type { ManagedListType } from '@/hooks/useListTypeManagement';
 import type { ManagedListStatus } from '@/hooks/useListStatusManagement';
 import { blockedByContentFilter } from '@/lib/contentFilter';
 import { Spinner } from '@/components/ui/spinner';
+import { DetailsFields } from '@/components/lists/v2/DetailsFields';
+import { NAME_LABELS, visibleFields, type FieldDef } from '@/lib/presetFields';
+import { saveItemValues, validateValues, type FieldValue, type ItemValues } from '@/lib/itemDetails';
+import { presetForIcon } from '@/lib/listPresets';
 
 const PRICE_LABELS = ['<$30', '<$50', '<$100', '$100+'];
 
@@ -81,6 +85,10 @@ interface AddCustomListItemDialogProps {
   onSuccess: () => void;
   // Presence of this triggers edit mode (same fields, pre-filled).
   editItem?: CustomListItem | null;
+  /** The list's preset fields (owner-only); null or absent when it has none or they aren't available. */
+  fields?: FieldDef[] | null;
+  /** The edited item's saved field values, when it has a row (undefined when it has none). */
+  itemValues?: ItemValues;
 }
 
 export function AddCustomListItemDialog({
@@ -91,6 +99,8 @@ export function AddCustomListItemDialog({
   statuses,
   onSuccess,
   editItem,
+  fields = null,
+  itemValues,
 }: AddCustomListItemDialogProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -118,6 +128,20 @@ export function AddCustomListItemDialog({
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [existingImages, setExistingImages] = useState<{ id: string; image_url: string }[]>([]);
   const [removedImageIds, setRemovedImageIds] = useState<string[]>([]);
+  // Every saved value, hidden fields included, so saving never drops one the form doesn't show.
+  const [details, setDetails] = useState<ItemValues>({});
+  const [detailErrors, setDetailErrors] = useState<Record<string, string>>({});
+  const presetKey = presetForIcon(list.icon)?.key ?? null;
+  const categoryNames = types.filter((t) => typeIds.includes(t.id)).map((t) => t.name);
+  const shownFields = fields ? visibleFields(fields, presetKey, categoryNames) : [];
+  const setDetail = (key: string, value: FieldValue | undefined) => {
+    setDetails((prev) => {
+      const next = { ...prev };
+      if (value === undefined) delete next[key]; else next[key] = value;
+      return next;
+    });
+    setDetailErrors((prev) => { if (!prev[key]) return prev; const next = { ...prev }; delete next[key]; return next; });
+  };
 
   const isEditing = !!editItem;
 
@@ -176,6 +200,8 @@ export function AddCustomListItemDialog({
     setImagePreviews([]);
     setRemovedImageIds([]);
     setPicked(null);
+    setDetails(editItem && itemValues ? { ...itemValues } : {});
+    setDetailErrors({});
     resetSearch();
   }, [open, editItem]);
 
@@ -208,9 +234,16 @@ export function AddCustomListItemDialog({
       return;
     }
     if (blockedByContentFilter(name, notes)) return;
+    if (fields) {
+      const errors = validateValues(fields, details);
+      if (Object.keys(errors).length) { setDetailErrors(errors); toast.error('Check the highlighted details'); return; }
+      const texts = Object.values(details).flatMap((v) => (Array.isArray(v) ? v : typeof v === 'string' ? [v] : []));
+      if (texts.length && blockedByContentFilter(...texts)) return;
+    }
     setLoading(true);
     try {
       let photos: PhotoUploadResult = { uploaded: 0, failed: 0 };
+      let savedId: string;
       const fields = {
         statusId,
         typeIds,
@@ -236,12 +269,14 @@ export function AddCustomListItemDialog({
         }
         if (result.status === 'error') throw result.error;
         photos = result.photos;
+        savedId = result.id;
       } else {
         // Only the Apple place ID is stored for a place picked from search;
         // Apple's address and pin are shown from the short-lived cache.
         const location = locationColumns(picked, editItem, { address, latitude, longitude });
         const payload = customListItemPayload(list, location, name, fields);
         const itemId = editItem!.id;
+        savedId = itemId;
         const { error } = await supabase.from('custom_list_items').update(payload).eq('id', itemId);
         if (error) throw error;
         // Warm Apple's details for the saved place so it shows on the map now.
@@ -253,8 +288,16 @@ export function AddCustomListItemDialog({
         if (images.length > 0) photos = await uploadCustomListPhotos(user.id, itemId, images);
       }
 
+      // The item is saved; its details are saved separately and can't undo that.
+      let detailsFailed = false;
+      if (fields) {
+        const res = await saveItemValues(user.id, list.id, savedId, details, isEditing && itemValues !== undefined);
+        detailsFailed = !res.ok;
+      }
+
       const warning = photoUploadWarning(photos);
-      if (warning) toast.warning(warning);
+      if (detailsFailed) toast.warning(`Saved, but its details didn’t save. Open Edit details to try again.${warning ? ` ${warning}` : ''}`);
+      else if (warning) toast.warning(warning);
       else toast.success(isEditing ? 'Item updated!' : `Added to ${list.name}!`);
       onOpenChange(false);
       onSuccess();
@@ -306,8 +349,8 @@ export function AddCustomListItemDialog({
           )}
 
           <div className="space-y-2">
-            <Label>Name</Label>
-            <Input placeholder="Item name" value={name} onChange={(e) => setName(e.target.value)} />
+            <Label htmlFor="item-name">{(presetKey && NAME_LABELS[presetKey]) || 'Name'}</Label>
+            <Input id="item-name" placeholder="Item name" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
 
           {list.show_location && (
@@ -347,6 +390,10 @@ export function AddCustomListItemDialog({
               <Label>Types</Label>
               <TagMultiSelect options={types} value={typeIds} onChange={setTypeIds} />
             </div>
+          )}
+
+          {shownFields.length > 0 && (
+            <DetailsFields fields={shownFields} values={details} onChange={setDetail} errors={detailErrors} />
           )}
 
           {list.show_price && (

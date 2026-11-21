@@ -52,6 +52,7 @@ import { QuickAddBar, QuickAddSheet } from '@/components/lists/v2/QuickAdd';
 import { ItemSheet } from '@/components/lists/v2/ItemSheet';
 import { CustomizeSheet } from '@/components/lists/v2/CustomizeSheet';
 import { cn } from '@/lib/utils';
+import { detailSummary, fetchListFields, fetchListValues } from '@/lib/itemDetails';
 
 
 
@@ -157,6 +158,23 @@ export default function CustomListDetail() {
     enabled: !!listId,
   });
 
+  // Preset fields (owner-only). When the tables aren't there, `available` is false and nothing changes.
+  const { data: fieldsState } = useQuery({
+    queryKey: ['custom_list_fields', listId],
+    queryFn: () => fetchListFields(listId!),
+    enabled: !!listId && !!list,
+    staleTime: 60_000,
+  });
+  const listFields = fieldsState?.available ? fieldsState.fields : null;
+  const valuesQuery = useQuery({
+    queryKey: ['custom_list_values', listId],
+    queryFn: () => fetchListValues(listId!),
+    enabled: !!listId && !!listFields?.length,
+  });
+  const itemValues = valuesQuery.data ?? {};
+  // The editor only offers details once the saved values are in, so saving can't overwrite ones it hasn't seen.
+  const editorFields = listFields?.length && valuesQuery.isSuccess ? listFields : null;
+
   const sortedStatuses = useMemo(
     () =>
       [...statuses].sort((a, b) => {
@@ -196,6 +214,7 @@ export default function CustomListDetail() {
 
   const invalidateItems = () => {
     queryClient.invalidateQueries({ queryKey: ['custom_list_items', listId] });
+    queryClient.invalidateQueries({ queryKey: ['custom_list_values', listId] });
     queryClient.invalidateQueries({ queryKey: ['custom_list_item_counts', user?.id] });
   };
   const invalidateList = () => {
@@ -446,7 +465,7 @@ export default function CustomListDetail() {
               <div className="divide-y">
                 {currentItems.map((item) => (
                   <div key={item.id} className={cn(item.id === focusedItemId && 'bg-primary/5')}>
-                    <ItemRow item={item} list={list} types={types} onOpen={() => openItem(item)} />
+                    <ItemRow item={item} list={list} types={types} onOpen={() => openItem(item)} detail={detailSummary(listFields, itemValues[item.id])} />
                   </div>
                 ))}
               </div>
@@ -469,14 +488,14 @@ export default function CustomListDetail() {
                     <span className="tabular-nums text-muted-foreground">{g.items.length}</span>
                   </h2>
                   <div className="divide-y">
-                    {g.items.map((item) => <ItemRow key={item.id} item={item} list={list} types={types} onOpen={() => openItem(item)} />)}
+                    {g.items.map((item) => <ItemRow key={item.id} item={item} list={list} types={types} onOpen={() => openItem(item)} detail={detailSummary(listFields, itemValues[item.id])} />)}
                   </div>
                 </section>
               ))}
             </div>
           ) : (
             <div key={`list-${activeStatusId}-${categoryId}`} className="divide-y animate-in fade-in-0 duration-200">
-              {currentItems.map((item) => <ItemRow key={item.id} item={item} list={list} types={types} onOpen={() => openItem(item)} />)}
+              {currentItems.map((item) => <ItemRow key={item.id} item={item} list={list} types={types} onOpen={() => openItem(item)} detail={detailSummary(listFields, itemValues[item.id])} />)}
             </div>
           )}
         </div>
@@ -507,6 +526,8 @@ export default function CustomListDetail() {
         onEdit={(item) => { setSheetItemId(null); setEditItem(item); setEditOpen(true); }}
         onDelete={(item) => setDeleteItem(item)}
         onMove={handleMove}
+        fields={listFields}
+        values={sheetItem ? itemValues[sheetItem.id] : undefined}
       />
 
       <AddCustomListItemDialog
@@ -517,6 +538,8 @@ export default function CustomListDetail() {
         statuses={sortedStatuses}
         onSuccess={invalidateItems}
         editItem={editItem}
+        fields={editorFields}
+        itemValues={editItem ? itemValues[editItem.id] : undefined}
       />
 
       <CustomizeSheet
@@ -532,6 +555,8 @@ export default function CustomListDetail() {
         onTypesChanged={invalidateTypes}
         onStatusesChanged={invalidateStatuses}
         onOpenAllSettings={() => { setCustomizeOpen(false); setSettingsOpen(true); }}
+        fieldsState={fieldsState}
+        onFieldsChanged={() => queryClient.invalidateQueries({ queryKey: ['custom_list_fields', listId] })}
       />
 
       <CreateListDialog

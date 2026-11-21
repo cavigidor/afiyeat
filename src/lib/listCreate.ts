@@ -7,14 +7,18 @@
 //   - statuses are required (a list without them can't hold items): one retry, then the half-made
 //     list is removed again and the error reported;
 //   - categories are optional: one retry, then the list is kept and the caller is told which part
-//     is missing, so it can say so instead of claiming everything worked.
+//     is missing, so it can say so instead of claiming everything worked;
+//   - the preset's item fields (owner-only) are optional too, and skipped silently where the tables
+//     don't exist yet. A failure leaves a normal list; fields can be added later from Customize.
 import { supabase } from '@/integrations/supabase/client';
 import type { TablesInsert } from '@/integrations/supabase/types';
 import { DEFAULT_LIST_VISIBILITY, type ListVisibility } from '@/lib/listVisibility';
 import type { ListPresetDef } from '@/lib/listPresets';
+import { fieldsForPreset } from '@/lib/presetFields';
+import { saveListFields } from '@/lib/itemDetails';
 
 export type CreateListResult =
-  | { status: 'created'; id: string; categoriesMissing: boolean }
+  | { status: 'created'; id: string; categoriesMissing: boolean; fieldsSaved: boolean }
   | { status: 'error'; error: unknown };
 
 const newId = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `${Date.now().toString(16)}-0000-4000-8000-${Math.random().toString(16).slice(2, 14).padEnd(12, '0')}`);
@@ -58,9 +62,13 @@ export async function createListFromPreset(
     }
   }
 
-  // 3. Categories (optional).
+  // 3. Item fields (optional; owner-only). Saving the same definitions again on a retry is harmless.
+  const defs = fieldsForPreset(preset.key);
+  const fieldsSaved = defs.length > 0 && (await saveListFields(userId, id, defs)).ok;
+
+  // 4. Categories (optional). Not the ones an item field now stands for.
   const categories = [
-    ...preset.categories,
+    ...(preset.fieldsReplaceCategories && fieldsSaved ? [] : preset.categories),
     ...(options.extraCategories ?? []).map((c) => c.trim()).filter(Boolean).map((c) => ({ name: c, color: preset.color, icon: undefined })),
   ];
   let categoriesMissing = false;
@@ -71,5 +79,5 @@ export async function createListFromPreset(
       categoriesMissing = !!(await insertOnce(() => supabase.from('custom_list_types').insert(typeRows)));
     }
   }
-  return { status: 'created', id, categoriesMissing };
+  return { status: 'created', id, categoriesMissing, fieldsSaved };
 }

@@ -1,6 +1,16 @@
 // Generated from the replayed schema (main + integration stack eea7a96): column lists and literal
 // defaults per table, so demo inserts get the same values a real insert would. Demo build only.
 export const DEMO_SCHEMA: Record<string, { columns: string[]; defaults: Record<string, unknown> }> = {
+ // Item details (db/proposals/lists_v2_owner_fields.sql, not in production yet). Owner-only there; the demo
+ // has one user, so it doesn't emulate the policies.
+ "custom_list_owner_settings": {
+  "columns": ["list_id", "user_id", "fields", "updated_at"],
+  "defaults": { "fields": [], "updated_at": "__now__" }
+ },
+ "custom_list_item_owner_values": {
+  "columns": ["item_id", "list_id", "user_id", "values", "updated_at"],
+  "defaults": { "values": {}, "updated_at": "__now__" }
+ },
  "blocked_users": {
   "columns": [
    "id",

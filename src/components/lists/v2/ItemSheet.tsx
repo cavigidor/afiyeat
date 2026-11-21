@@ -13,6 +13,8 @@ import { GetDirectionsButton } from '@/components/shared/GetDirectionsButton';
 import { ItemThumb, RatingBadge } from './ListItems';
 import { categoriesOf } from '@/lib/listItemDisplay';
 import { cn } from '@/lib/utils';
+import type { FieldDef } from '@/lib/presetFields';
+import { formatValue, type ItemValues } from '@/lib/itemDetails';
 
 interface ItemSheetProps {
   item: CustomListItem | null;
@@ -23,10 +25,13 @@ interface ItemSheetProps {
   onEdit: (item: CustomListItem) => void;
   onDelete: (item: CustomListItem) => void;
   onMove: (item: CustomListItem, statusId: string) => Promise<boolean>;
+  /** The list's preset fields and this item's values (owner-only). Only filled, shown fields appear. */
+  fields?: FieldDef[] | null;
+  values?: ItemValues;
 }
 
 /** One item, read at a glance, with the two things people do most: move it to another status, and edit it. */
-export function ItemSheet({ item, list, types, statuses, onClose, onEdit, onDelete, onMove }: ItemSheetProps) {
+export function ItemSheet({ item, list, types, statuses, onClose, onEdit, onDelete, onMove, fields, values }: ItemSheetProps) {
   const [moving, setMoving] = useState<string | null>(null);
   const photos = list.show_photos ? item?.images ?? [] : [];
   const { signedUrls } = useSignedImageUrls(photos.map((p) => p.image_url), 'custom-list-images');
@@ -34,6 +39,9 @@ export function ItemSheet({ item, list, types, statuses, onClose, onEdit, onDele
   const cats = categoriesOf(item, types);
   const rating = formatRatingOf(item, list);
   const price = formatPriceOf(item, list);
+  const details = (fields ?? []).filter((f) => !f.hidden)
+    .map((f) => ({ key: f.key, label: f.label, text: formatValue(f, values?.[f.key]) }))
+    .filter((d): d is { key: string; label: string; text: string } => !!d.text);
 
   const move = async (statusId: string) => {
     if (statusId === item.status_id || moving) return;
@@ -81,6 +89,17 @@ export function ItemSheet({ item, list, types, statuses, onClose, onEdit, onDele
               </button>
             ))}
           </div>
+        )}
+
+        {details.length > 0 && (
+          <dl className="mt-4 divide-y rounded-2xl border bg-card text-sm" aria-label="Details">
+            {details.map((d) => (
+              <div key={d.key} className="flex gap-3 px-3 py-2.5">
+                <dt className="w-28 shrink-0 text-muted-foreground">{d.label}</dt>
+                <dd className="min-w-0 flex-1 [overflow-wrap:anywhere]">{d.text}</dd>
+              </div>
+            ))}
+          </dl>
         )}
 
         {list.show_location && item.address && (

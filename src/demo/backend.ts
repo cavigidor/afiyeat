@@ -38,8 +38,12 @@ const CASCADES: Record<string, { table: string; fk: string; action: 'delete' | '
     { table: 'custom_list_items', fk: 'list_id', action: 'delete' },
     { table: 'custom_list_statuses', fk: 'list_id', action: 'delete' },
     { table: 'custom_list_types', fk: 'list_id', action: 'delete' },
+    { table: 'custom_list_owner_settings', fk: 'list_id', action: 'delete' },
   ],
-  custom_list_items: [{ table: 'custom_list_item_images', fk: 'item_id', action: 'delete' }],
+  custom_list_items: [
+    { table: 'custom_list_item_images', fk: 'item_id', action: 'delete' },
+    { table: 'custom_list_item_owner_values', fk: 'item_id', action: 'delete' },
+  ],
   custom_list_statuses: [{ table: 'custom_list_items', fk: 'status_id', action: 'null' }],
   custom_list_types: [{ table: 'custom_list_items', fk: 'type_id', action: 'null' }],
   restaurants: [{ table: 'restaurant_images', fk: 'restaurant_id', action: 'delete' }],

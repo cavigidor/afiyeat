@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight, ChevronLeft, Lock, Users, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -17,6 +17,8 @@ import { visibilityChip } from '@/lib/listVisibility';
 import { hapticSuccess } from '@/lib/haptics';
 import { ListGlyph } from './ListGlyph';
 import { cn } from '@/lib/utils';
+import { detailsAvailable } from '@/lib/itemDetails';
+import { fieldsForPreset, uiOf } from '@/lib/presetFields';
 
 interface NewListSheetProps {
   open: boolean;
@@ -57,6 +59,7 @@ export function NewListSheet({ open, onOpenChange, existingNames, onBlankList, o
   const attemptId = useRef(newId());
   // Keeps the sheet (and its Create button) above the keyboard when the name field is tapped.
   const keyboardInset = useKeyboardInset(open);
+  const { data: withDetails = false } = useQuery({ queryKey: ['details-available'], queryFn: detailsAvailable, enabled: open, staleTime: 10 * 60_000 });
 
   useEffect(() => {
     if (!open) {
@@ -155,7 +158,7 @@ export function NewListSheet({ open, onOpenChange, existingNames, onBlankList, o
                 <SheetDescription className="line-clamp-2 text-sm">{preset.hint}</SheetDescription>
               </div>
             </div>
-            <PresetDetails preset={preset} audience={audience} />
+            <PresetDetails preset={preset} audience={audience} withDetails={withDetails} />
             <label htmlFor="new-list-name" className="mt-4 block text-sm font-medium text-muted-foreground">List name</label>
             <Input
               id="new-list-name"
@@ -202,11 +205,14 @@ function PresetTile({ preset, onClick, compact }: { preset: ListPresetDef; onCli
 }
 
 /** What the chosen preset sets up, shown right under its name so it stays in view above the keyboard. */
-function PresetDetails({ preset, audience }: { preset: ListPresetDef; audience: { private: boolean; label: string } }) {
+function PresetDetails({ preset, audience, withDetails }: { preset: ListPresetDef; audience: { private: boolean; label: string }; withDetails: boolean }) {
+  const details = withDetails ? fieldsForPreset(preset.key).filter((f) => uiOf(f).tier === 'main' && !uiOf(f).forCategories) : [];
+  const showCategories = preset.categories.length > 0 && !(withDetails && preset.fieldsReplaceCategories);
   return (
     <div className="mt-3 space-y-2 rounded-2xl bg-muted/50 p-3 text-sm" data-testid="preset-details">
       <DetailRow label="Statuses" items={preset.statuses.map((s) => ({ name: s }))} />
-      {preset.categories.length > 0 && <DetailRow label="Categories" items={preset.categories} />}
+      {showCategories && <DetailRow label="Categories" items={preset.categories} />}
+      {details.length > 0 && <DetailRow label="Details" items={details.map((f) => ({ name: f.label }))} />}
       <DetailRow label="Tracks" items={trackedFields(preset).map((name) => ({ name }))} />
       <p className="flex items-start gap-2 text-muted-foreground">
         {audience.private ? <Lock className="mt-0.5 h-4 w-4 shrink-0" /> : <Users className="mt-0.5 h-4 w-4 shrink-0" />}

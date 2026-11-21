@@ -42,10 +42,12 @@ export function RatingBadge({ value, className }: { value: string | null; classN
   );
 }
 
-export const ItemRow = memo(function ItemRow({ item, list, types, onOpen }: {
+export const ItemRow = memo(function ItemRow({ item, list, types, onOpen, detail }: {
   item: CustomListItem; list: CustomList; types: ManagedListType[]; onOpen: () => void;
+  /** A short line from the item's preset fields, e.g. "Tide Roasters · Light"; goes first. */
+  detail?: string;
 }) {
-  const subtitle = subtitleOf(item, list, types);
+  const subtitle = [detail, subtitleOf(item, list, types)].filter(Boolean).join(' · ');
   return (
     <button type="button" onClick={onOpen} className="flex w-full min-w-0 items-center gap-3 px-1 py-2.5 text-left transition-colors hover:bg-muted/40 active-press">
       <ItemThumb item={item} list={list} types={types} />

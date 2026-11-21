@@ -37,6 +37,12 @@ export interface ListPresetDef {
   defaultView: ListView;
   /** One line under the name in the create step. */
   summary: string;
+  /**
+   * The categories stand in for an item field (Coffee Beans: roast). When item details are available the
+   * field is used instead and these categories aren't created, so there is one roast control, not two.
+   * Lists that already have them keep them.
+   */
+  fieldsReplaceCategories?: boolean;
 }
 
 const PLACE = { show_location: true, show_notes: true, show_photos: true } as const;
@@ -69,7 +75,7 @@ export const V2_PRESETS: ListPresetDef[] = [
     categories: [
       { name: 'Light roast', color: '#C99A62' }, { name: 'Medium roast', color: '#9A5B2E' }, { name: 'Dark roast', color: '#4E342E' },
     ],
-    defaultView: 'list', summary: 'Want to Try · Tried · light, medium, dark roast',
+    defaultView: 'list', summary: 'Want to Try · Tried · light, medium, dark roast', fieldsReplaceCategories: true,
   },
   {
     key: 'movies', label: 'Movies', hint: 'To watch', icon: '🎬', color: '#3949AB',

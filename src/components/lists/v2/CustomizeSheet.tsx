@@ -17,7 +17,10 @@ import { ListVisibilityControl } from '@/components/lists/ListVisibilityControl'
 import { useMyShareIdentity } from '@/hooks/useMyShareIdentity';
 import { blockedByContentFilter } from '@/lib/contentFilter';
 import { DEFAULT_LIST_VISIBILITY, visibilityChip, type ListVisibility } from '@/lib/listVisibility';
-import { layoutOf, type ListView, type ViewOption } from '@/lib/listPresets';
+import { layoutOf, presetForIcon, type ListView, type ViewOption } from '@/lib/listPresets';
+import { useAuth } from '@/contexts/AuthContext';
+import { mergePresetFields, PRESET_FIELDS, type FieldDef } from '@/lib/presetFields';
+import { saveListFields, type ListFieldsState } from '@/lib/itemDetails';
 import { VIEW_ICONS } from './viewIcons';
 import { ListGlyph } from './ListGlyph';
 import { cn } from '@/lib/utils';
@@ -37,6 +40,9 @@ interface CustomizeSheetProps {
   onTypesChanged: () => void;
   onStatusesChanged: () => void;
   onOpenAllSettings: () => void;
+  /** The list's preset fields; undefined while loading, `available: false` when the feature isn't live. */
+  fieldsState?: ListFieldsState;
+  onFieldsChanged?: () => void;
 }
 
 type FieldKey = 'show_location' | 'show_price' | 'show_rating' | 'show_notes' | 'show_photos';
@@ -54,7 +60,7 @@ const FIELDS: { key: FieldKey; label: string; hint: string }[] = [
  * existing managers (add, rename, reorder, delete). The view is remembered on this device.
  */
 export function CustomizeSheet(props: CustomizeSheetProps) {
-  const { open, onOpenChange, list, types, statuses, view, viewOptions, onViewChange, onListChanged, onTypesChanged, onStatusesChanged, onOpenAllSettings } = props;
+  const { open, onOpenChange, list, types, statuses, view, viewOptions, onViewChange, onListChanged, onTypesChanged, onStatusesChanged, onOpenAllSettings, fieldsState, onFieldsChanged } = props;
   const [page, setPage] = useState<Page>('main');
   const [name, setName] = useState(list.name);
   const [pending, setPending] = useState<string | null>(null);
@@ -147,7 +153,7 @@ export function CustomizeSheet(props: CustomizeSheetProps) {
                 ))}
               </div>
               <p className="mt-3 px-1 text-sm text-muted-foreground">Turning a field off hides it. Values already saved are kept, and switching between styles keeps both.</p>
-              <p className="mt-2 px-1 text-xs text-muted-foreground">Fields of your own (text, numbers, dates, tags) need a database change that is waiting for approval.</p>
+              <DetailFieldsSection list={list} types={types} state={fieldsState} onChanged={onFieldsChanged} />
             </>
           )}
 
@@ -244,6 +250,61 @@ function VisibilityPage({ list, isPrivateAccount, onSaved }: { list: CustomList;
       <Button className="h-12 w-full rounded-xl" disabled={saving || value === current} onClick={() => void save()}>
         {saving ? <><Spinner className="mr-2 h-4 w-4 animate-spin" />Saving…</> : value === current ? 'No change' : 'Save'}
       </Button>
+    </div>
+  );
+}
+
+/**
+ * The preset's own item fields (Roaster, Vintage, Author...): add them to a list, and show or hide each one.
+ * Hiding keeps every saved value; nothing here deletes a value.
+ */
+function DetailFieldsSection({ list, types, state, onChanged }: { list: CustomList; types: ManagedListType[]; state?: ListFieldsState; onChanged?: () => void }) {
+  const { user } = useAuth();
+  const [saving, setSaving] = useState<string | null>(null);
+  const preset = presetForIcon(list.icon);
+  if (!state) return null;
+  if (!state.available) {
+    return <p className="mt-2 px-1 text-xs text-muted-foreground">Item details such as Roaster or Vintage need a database change that isn’t live yet.</p>;
+  }
+  const fields = state.fields ?? [];
+  const missing = preset ? (PRESET_FIELDS[preset.key] ?? []).filter((k) => !fields.some((f) => f.key === k)).length : 0;
+
+  const save = async (key: string, next: FieldDef[], done?: string) => {
+    if (!user) return;
+    setSaving(key);
+    const res = await saveListFields(user.id, list.id, next);
+    setSaving(null);
+    if (!res.ok) { toast.error('Couldn’t save that change. Nothing was changed.'); return; }
+    if (done) toast.success(done);
+    onChanged?.();
+  };
+  const addPresetFields = () => preset && void save('add', mergePresetFields(fields, preset.key, types.map((t) => t.name)), `${preset.label} details added`);
+
+  return (
+    <div className="mt-5">
+      <h3 className="px-1 text-sm font-semibold">Item details</h3>
+      <p className="px-1 text-xs text-muted-foreground">Only you see these, whoever can see the list.</p>
+      {fields.length > 0 && (
+        <div className="mt-2 divide-y overflow-hidden rounded-2xl border bg-card">
+          {fields.map((f) => (
+            <label key={f.key} className="flex items-center gap-3 px-4 py-3">
+              <span className={cn('min-w-0 flex-1 font-medium', f.hidden && 'text-muted-foreground')}>{f.label}</span>
+              {saving === f.key && <Spinner className="h-4 w-4 animate-spin" />}
+              <Switch checked={!f.hidden} disabled={!!saving} aria-label={`Show ${f.label}`}
+                onCheckedChange={(on) => void save(f.key, fields.map((x) => (x.key === f.key ? { ...x, hidden: !on } : x)))} />
+            </label>
+          ))}
+        </div>
+      )}
+      {missing > 0 && (
+        <Button variant="outline" className="mt-2 h-11 w-full rounded-xl" disabled={!!saving} onClick={addPresetFields}>
+          {saving === 'add' && <Spinner className="mr-2 h-4 w-4 animate-spin" />}
+          {fields.length ? `Add ${missing} more ${preset!.label} field${missing === 1 ? '' : 's'}` : `Add ${preset!.label} details`}
+        </Button>
+      )}
+      {fields.length === 0 && missing === 0 && (
+        <p className="mt-2 px-1 text-sm text-muted-foreground">This list has no extra item details.</p>
+      )}
     </div>
   );
 }

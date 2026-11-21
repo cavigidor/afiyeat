@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { NAME_LABELS } from '@/lib/presetFields';
+import { presetForIcon } from '@/lib/listPresets';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -533,7 +535,7 @@ export function AddItemDialog({ open, onOpenChange, preferredDestination = null,
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="add-item-name">Name</Label>
+            <Label htmlFor="add-item-name">{(list && NAME_LABELS[presetForIcon(list.icon)?.key ?? '']) || 'Name'}</Label>
             <Input
               id="add-item-name"
               placeholder={hasLocation ? 'Place name' : 'Item name'}
