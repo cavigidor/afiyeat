@@ -1,0 +1,14 @@
+{
+  "name": "afiyeat-e0",
+  "private": true,
+  "type": "module",
+  "description": "Lists V2 checkpoint E0: schema proposals under test and isolated-backend tooling. Not part of the app build.",
+  "scripts": {
+    "test": "node --test schema/tests/*.test.mjs",
+    "test:concurrency": "./concurrency/start-local-pg.sh && node --test concurrency/*.local.test.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.13",
+    "pg": "8.23.1"
+  }
+}
