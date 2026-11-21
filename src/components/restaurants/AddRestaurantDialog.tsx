@@ -31,6 +31,7 @@ import { isNative, capturePhoto } from '@/lib/native';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { uploadRestaurantPhotos, photoUploadWarning } from '@/lib/photoUpload';
 import { validateImageFile, compressImage, MAX_IMAGES_PER_RESTAURANT } from '@/lib/imageValidation';
 import { isDuplicateRestaurant } from '@/lib/duplicateRestaurant';
 import { PriceLevelPicker } from './PriceLevelPicker';
@@ -233,7 +234,14 @@ export function AddRestaurantDialog({
     // Downscale/re-encode before it ever touches state or gets uploaded, so
     // normal multi-megabyte phone photos don't trip size limits or bloat
     // storage - see compressImage() for details.
-    const compressed = await Promise.all(toAdd.map((file) => compressImage(file)));
+    let compressed: File[];
+    try {
+      compressed = await Promise.all(toAdd.map((file) => compressImage(file)));
+    } catch (err) {
+      console.error('Photo preparation failed:', err);
+      toast.error("Couldn't prepare that photo. Try a different one.");
+      return;
+    }
 
     setImages((prev) => [...prev, ...compressed]);
 
@@ -311,32 +319,13 @@ export function AddRestaurantDialog({
       // place appears on lists and maps straight away.
       if (restaurant.apple_place_id) void resolveApplePlaces([restaurant.apple_place_id]);
 
-      if (images.length > 0) {
-        for (const image of images) {
-          const fileExt = image.name.split('.').pop();
-          const fileName = `${user.id}/${restaurant.id}/${crypto.randomUUID()}.${fileExt}`;
-          
-          const { error: uploadError } = await supabase.storage
-            .from('restaurant-images')
-            .upload(fileName, image);
-
-          if (uploadError) {
-            console.error('Image upload error:', uploadError);
-            continue;
-          }
-
-          const storagePath = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/restaurant-images/${fileName}`;
-
-          await supabase.from('restaurant_images').insert({
-            restaurant_id: restaurant.id,
-            user_id: user.id,
-            image_url: storagePath,
-          });
-        }
-      }
-
+      // The place is saved; photo failures are reported, never turned into a
+      // save error (retrying would hit the duplicate check).
+      const photos = await uploadRestaurantPhotos(user.id, restaurant.id, images);
+      const photoWarning = photoUploadWarning(photos);
 
       toast.success('Restaurant added successfully!');
+      if (photoWarning) toast.error(photoWarning);
       form.reset();
       setImages([]);
       setImagePreviews([]);
