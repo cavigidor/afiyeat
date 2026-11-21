@@ -4,13 +4,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NewListSheet } from '@/components/lists/v2/NewListSheet';
-import { createListFromPreset } from '@/lib/listCreate';
+import { createListFromPreset, savePresetFields } from '@/lib/listCreate';
+import { toast } from 'sonner';
 
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 'owner' } }) }));
 vi.mock('@/hooks/useMyShareIdentity', () => ({ useMyShareIdentity: () => ({ referralCode: null, isPrivate: false }) }));
 vi.mock('@/lib/haptics', () => ({ hapticSuccess: vi.fn() }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), warning: vi.fn(), error: vi.fn() } }));
-vi.mock('@/lib/listCreate', () => ({ createListFromPreset: vi.fn() }));
+vi.mock('@/lib/listCreate', () => ({ createListFromPreset: vi.fn(), savePresetFields: vi.fn() }));
 
 function renderSheet() {
   const qc = new QueryClient();
@@ -65,7 +66,7 @@ describe('NewListSheet', () => {
   });
 
   it('creates with the suggested name without ever touching the field', async () => {
-    vi.mocked(createListFromPreset).mockResolvedValue({ status: 'created', id: 'new', categoriesMissing: false } as never);
+    vi.mocked(createListFromPreset).mockResolvedValue({ status: 'created', id: 'new', categoriesMissing: false, fields: 'saved' } as never);
     renderSheet();
     await userEvent.click(screen.getByRole('button', { name: 'Movies' }));
     await userEvent.click(screen.getByRole('button', { name: 'Create list' }));
@@ -93,5 +94,31 @@ describe('NewListSheet', () => {
     } finally {
       Object.defineProperty(window, 'visualViewport', { configurable: true, value: undefined });
     }
+  });
+
+  it('a real failure to save the preset\'s item fields is reported with a working Try again', async () => {
+    vi.mocked(createListFromPreset).mockResolvedValue({ status: 'created', id: 'new', categoriesMissing: false, fields: 'failed' } as never);
+    vi.mocked(savePresetFields).mockResolvedValue('saved');
+    vi.mocked(toast.warning).mockClear();
+    renderSheet();
+    await userEvent.click(screen.getByRole('button', { name: 'Coffee Beans' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Create list' }));
+    expect(toast.success).not.toHaveBeenCalledWith('Coffee Beans created');
+    const [message, opts] = vi.mocked(toast.warning).mock.calls[0] as [string, { action: { label: string; onClick: () => void } }];
+    expect(message).toBe('Coffee Beans created, but its item details (like Roaster) didn’t save.');
+    expect(opts.action.label).toBe('Try again');
+    await act(async () => { opts.action.onClick(); });
+    expect(savePresetFields).toHaveBeenCalledWith('owner', 'new', expect.objectContaining({ key: 'coffee_beans' }), ['Light roast', 'Medium roast', 'Dark roast']);
+    expect(toast.success).toHaveBeenCalledWith('Coffee Beans details added to Coffee Beans');
+  });
+
+  it('where item details aren\'t available (production today) creating a list says nothing extra', async () => {
+    vi.mocked(createListFromPreset).mockResolvedValue({ status: 'created', id: 'new', categoriesMissing: false, fields: 'unavailable' } as never);
+    vi.mocked(toast.warning).mockClear();
+    renderSheet();
+    await userEvent.click(screen.getByRole('button', { name: 'Coffee Beans' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Create list' }));
+    expect(toast.warning).not.toHaveBeenCalled();
+    expect(toast.success).toHaveBeenCalledWith('Coffee Beans created');
   });
 });

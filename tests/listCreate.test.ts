@@ -73,17 +73,42 @@ describe('createListFromPreset', () => {
 
   it('saves the preset\'s item fields with the list, and Coffee Beans gets one roast control, not two', async () => {
     const r = await createListFromPreset(USER, preset('coffee_beans'), 'Beans');
-    expect(r).toMatchObject({ status: 'created', categoriesMissing: false, fieldsSaved: true });
+    expect(r).toMatchObject({ status: 'created', categoriesMissing: false, fields: 'saved' });
     const fields = (db.custom_list_owner_settings[0] as { fields: { key: string; options?: string[] }[] }).fields;
     expect(fields.map((f) => f.key)).toContain('c_roast');
     expect(fields.find((f) => f.key === 'c_roast')?.options).toEqual(['Light', 'Light-Medium', 'Medium', 'Medium-Dark', 'Dark', 'Extra Dark']);
     expect(db.custom_list_types.filter((t) => /roast/i.test(String(t.name)))).toHaveLength(0);
   });
 
+  it('a genuine failure to save the item fields is reported (after one retry); the list falls back to roast categories', async () => {
+    failures.custom_list_owner_settings = 2;
+    const r = await createListFromPreset(USER, preset('coffee_beans'), 'Beans');
+    expect(r).toMatchObject({ status: 'created', categoriesMissing: false, fields: 'failed' });
+    expect(db.custom_lists).toHaveLength(1);
+    expect(db.custom_list_types.map((t) => t.name)).toEqual(['Light roast', 'Medium roast', 'Dark roast']);
+    expect(db.custom_list_owner_settings).toHaveLength(0);
+  });
+
+  it('one dropped answer is retried and the fields still save', async () => {
+    failures.custom_list_owner_settings = 1;
+    const r = await createListFromPreset(USER, preset('coffee_beans'), 'Beans');
+    expect(r).toMatchObject({ fields: 'saved' });
+    expect(db.custom_list_owner_settings).toHaveLength(1);
+  });
+
+  it('the retry offered afterwards adds the fields with Roast hidden, so the roast categories stay the only roast control', async () => {
+    failures.custom_list_owner_settings = 2;
+    const r = await createListFromPreset(USER, preset('coffee_beans'), 'Beans');
+    const { savePresetFields } = await import('@/lib/listCreate');
+    expect(await savePresetFields(USER, (r as { id: string }).id, preset('coffee_beans'), ['Light roast', 'Medium roast', 'Dark roast'])).toBe('saved');
+    const fields = (db.custom_list_owner_settings[0] as { fields: { key: string; hidden?: boolean }[] }).fields;
+    expect(fields.find((f) => f.key === 'c_roast')?.hidden).toBe(true);
+  });
+
   it('where item details don\'t exist yet (production today), lists are made exactly as before', async () => {
     missingTables.add('custom_list_owner_settings');
     const r = await createListFromPreset(USER, preset('coffee_beans'), 'Beans');
-    expect(r).toMatchObject({ status: 'created', categoriesMissing: false, fieldsSaved: false });
+    expect(r).toMatchObject({ status: 'created', categoriesMissing: false, fields: 'unavailable' });
     expect(db.custom_list_types.map((t) => t.name)).toEqual(['Light roast', 'Medium roast', 'Dark roast']);
   });
 

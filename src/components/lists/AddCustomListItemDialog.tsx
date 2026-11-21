@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePhotoPicker } from '@/hooks/usePhotoPicker';
 import { PhotoCapNote } from '@/components/shared/PhotoCapNote';
 import {
@@ -41,7 +41,7 @@ import { blockedByContentFilter } from '@/lib/contentFilter';
 import { Spinner } from '@/components/ui/spinner';
 import { DetailsFields } from '@/components/lists/v2/DetailsFields';
 import { NAME_LABELS, visibleFields, type FieldDef } from '@/lib/presetFields';
-import { saveItemValues, validateValues, type FieldValue, type ItemValues } from '@/lib/itemDetails';
+import { clearDetailsDraft, readDetailsDraft, saveDetailsDraft, saveItemValues, validateValues, type FieldValue, type ItemValues } from '@/lib/itemDetails';
 import { presetForIcon } from '@/lib/listPresets';
 
 const PRICE_LABELS = ['<$30', '<$50', '<$100', '$100+'];
@@ -131,6 +131,10 @@ export function AddCustomListItemDialog({
   // Every saved value, hidden fields included, so saving never drops one the form doesn't show.
   const [details, setDetails] = useState<ItemValues>({});
   const [detailErrors, setDetailErrors] = useState<Record<string, string>>({});
+  // The item saved but its details didn't: only the details are retried, so the item is never made twice.
+  const [detailsRetry, setDetailsRetry] = useState<{ itemId: string; itemName: string; hadRow: boolean } | null>(null);
+  const [restoredDraft, setRestoredDraft] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
   const presetKey = presetForIcon(list.icon)?.key ?? null;
   const categoryNames = types.filter((t) => typeIds.includes(t.id)).map((t) => t.name);
   const shownFields = fields ? visibleFields(fields, presetKey, categoryNames) : [];
@@ -200,8 +204,11 @@ export function AddCustomListItemDialog({
     setImagePreviews([]);
     setRemovedImageIds([]);
     setPicked(null);
-    setDetails(editItem && itemValues ? { ...itemValues } : {});
+    const draft = editItem && fields ? readDetailsDraft(editItem.id) : null;
+    setDetails(draft ?? (editItem && itemValues ? { ...itemValues } : {}));
+    setRestoredDraft(!!draft);
     setDetailErrors({});
+    setDetailsRetry(null);
     resetSearch();
   }, [open, editItem]);
 
@@ -227,8 +234,29 @@ export function AddCustomListItemDialog({
   };
 
   const totalPhotoCount = existingImages.length + imagePreviews.length;
+  /** Save just the details of an item that is already saved. */
+  const retryDetails = async () => {
+    if (!user || !detailsRetry || !fields) return;
+    const errors = validateValues(fields, details);
+    if (Object.keys(errors).length) { setDetailErrors(errors); return; }
+    setLoading(true);
+    const res = await saveItemValues(user.id, list.id, detailsRetry.itemId, details, detailsRetry.hadRow);
+    setLoading(false);
+    if (!res.ok) {
+      saveDetailsDraft(detailsRetry.itemId, details);
+      toast.error('Details still didn’t save. Check your connection and try again.');
+      return;
+    }
+    clearDetailsDraft(detailsRetry.itemId);
+    toast.success(`Details saved for ${detailsRetry.itemName}`);
+    setDetailsRetry(null);
+    onOpenChange(false);
+    onSuccess();
+  };
+
   const handleSubmit = async () => {
     if (!user) return;
+    if (detailsRetry) { await retryDetails(); return; }
     if (!name.trim()) {
       toast.error('Add a name');
       return;
@@ -289,15 +317,22 @@ export function AddCustomListItemDialog({
       }
 
       // The item is saved; its details are saved separately and can't undo that.
-      let detailsFailed = false;
-      if (fields) {
-        const res = await saveItemValues(user.id, list.id, savedId, details, isEditing && itemValues !== undefined);
-        detailsFailed = !res.ok;
-      }
-
       const warning = photoUploadWarning(photos);
-      if (detailsFailed) toast.warning(`Saved, but its details didn’t save. Open Edit details to try again.${warning ? ` ${warning}` : ''}`);
-      else if (warning) toast.warning(warning);
+      if (fields) {
+        const hadRow = isEditing && itemValues !== undefined;
+        const res = await saveItemValues(user.id, list.id, savedId, details, hadRow);
+        if (!res.ok) {
+          // Keep what was typed (here and on this device), say exactly what saved, and offer a retry of
+          // the details alone. The list refreshes so the saved item shows.
+          saveDetailsDraft(savedId, details);
+          setDetailsRetry({ itemId: savedId, itemName: name.trim(), hadRow });
+          toast.warning(`${name.trim()} is saved, but its details didn’t save yet.${warning ? ` ${warning}` : ''}`);
+          onSuccess();
+          return;
+        }
+        clearDetailsDraft(savedId);
+      }
+      if (warning) toast.warning(warning);
       else toast.success(isEditing ? 'Item updated!' : `Added to ${list.name}!`);
       onOpenChange(false);
       onSuccess();
@@ -310,14 +345,37 @@ export function AddCustomListItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent
+        ref={contentRef}
+        className="sm:max-w-[500px]"
+        // Focus the dialog itself, not its first field, so the iPhone keyboard opens only when a field is
+        // tapped. Focus still moves into the dialog (and stays trapped there) for keyboards and VoiceOver.
+        onOpenAutoFocus={(e) => { e.preventDefault(); contentRef.current?.focus(); }}
+      >
         <DialogHeader>
           <DialogTitle>
             {isEditing ? 'Edit Item' : `Add to ${list.name}`}
           </DialogTitle>
         </DialogHeader>
 
+        {detailsRetry ? (
+          <div className="space-y-4">
+            <div role="alert" className="rounded-xl bg-amber-500/10 px-3 py-2.5 text-sm">
+              <p className="font-medium">{detailsRetry.itemName} is saved. Its details aren’t saved yet.</p>
+              <p className="mt-1 text-muted-foreground">Everything you typed is still here. Try again now, or close and come back: it’s kept on this device until it saves.</p>
+            </div>
+            <DetailsFields fields={shownFields} values={details} onChange={setDetail} errors={detailErrors} />
+            <Button className="w-full" onClick={() => void retryDetails()} disabled={loading}>
+              {loading && <Spinner className="mr-2 h-4 w-4 animate-spin" />}
+              Try saving details again
+            </Button>
+            <Button variant="ghost" className="w-full" onClick={() => onOpenChange(false)} disabled={loading}>Close and keep for later</Button>
+          </div>
+        ) : (
         <div className="space-y-4">
+          {restoredDraft && (
+            <p role="status" className="rounded-xl bg-muted px-3 py-2 text-sm">Restored details that didn’t save last time. Save to keep them.</p>
+          )}
           {list.show_location && (
             <div className="space-y-2 relative">
               <Label>Search</Label>
@@ -542,6 +600,7 @@ export function AddCustomListItemDialog({
             {isEditing ? 'Save Changes' : 'Add Item'}
           </Button>
         </div>
+        )}
       </DialogContent>
     </Dialog>
   );

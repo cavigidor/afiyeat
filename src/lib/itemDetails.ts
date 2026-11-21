@@ -159,3 +159,27 @@ export function detailSummary(fields: FieldDef[] | null | undefined, values: Ite
     .slice(0, 2)
     .join(' · ');
 }
+
+// --- Unsaved details kept on this device -------------------------------------------------------------
+// If an item saves but its details don't, what was typed is kept here until it saves, so closing the
+// editor (or the app) never loses it. Only on this device, only for the signed-in owner's own items.
+const draftKey = (itemId: string) => `afiyeat-details-draft:${itemId}`;
+
+export function saveDetailsDraft(itemId: string, values: ItemValues) {
+  try { localStorage.setItem(draftKey(itemId), JSON.stringify(values)); } catch { /* storage unavailable */ }
+}
+
+export function readDetailsDraft(itemId: string): ItemValues | null {
+  try {
+    const raw = localStorage.getItem(draftKey(itemId));
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as ItemValues) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearDetailsDraft(itemId: string) {
+  try { localStorage.removeItem(draftKey(itemId)); } catch { /* storage unavailable */ }
+}
+

@@ -13,7 +13,12 @@ import { fieldsForPreset, PRESET_FIELDS } from '@/lib/presetFields';
 import { MORE_PRESETS, V2_PRESETS } from '@/lib/listPresets';
 
 const SQL = readFileSync(new URL('../db/proposals/lists_v2_owner_fields.sql', import.meta.url), 'utf8');
-const ROLLBACK = readFileSync(new URL('../db/proposals/lists_v2_owner_fields_rollback.sql', import.meta.url), 'utf8');
+const proposal = (f: string) => readFileSync(new URL(`../db/proposals/${f}`, import.meta.url), 'utf8');
+const ROLLBACK = proposal('lists_v2_owner_fields_rollback.sql');
+const PRECHECK = proposal('lists_v2_owner_fields_precheck.sql');
+const POSTCHECK = proposal('lists_v2_owner_fields_postcheck.sql');
+const PARK = proposal('lists_v2_owner_fields_park.sql');
+const UNPARK = proposal('lists_v2_owner_fields_unpark.sql');
 
 const id = (n: number) => `70000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const OWNER = id(1), FOLLOWER = id(2), STRANGER = id(3);
@@ -64,6 +69,8 @@ const functions = () => q(`SELECT p.oid::regprocedure::text AS f, md5(pg_get_fun
 const items = () => q(`SELECT * FROM custom_list_items ORDER BY id`);
 
 let before: { shape: unknown; policies: unknown; functions: unknown };
+let precheck: { check_name: string; ok: boolean }[] = [];
+let postcheck: { check_name: string; ok: boolean }[] = [];
 
 beforeAll(async () => {
   db = await replayMigrations();
@@ -85,10 +92,32 @@ beforeAll(async () => {
     ($9, $10, $11, 'Their bean', NULL, NULL)`,
   [I_HALO, L_BEANS, OWNER, I_PERU, I_RIOJA, L_WINES, I_ANON, L_ANON, I_THEIRS, L_THEIRS, STRANGER]);
   before = { shape: await shape(), policies: await policies(), functions: await functions() };
+  precheck = await q(PRECHECK);
   await db.exec(SQL);
+  postcheck = await q(POSTCHECK);
 }, 120_000);
 
 afterAll(async () => { await db?.close(); });
+
+describe('the production plan\'s read-only checks', () => {
+  it('every precheck passes on today\'s schema, before applying', () => {
+    expect(precheck.length).toBe(6);
+    for (const c of precheck) expect(c.ok, c.check_name).toBe(true);
+  });
+  it('every postcheck passes right after applying, including the exact-text digest', () => {
+    expect(postcheck.length).toBe(9);
+    for (const c of postcheck) expect(c.ok, c.check_name).toBe(true);
+  });
+  it('the exact-text check catches a copy whose line breaks were changed in transit', async () => {
+    const t = await db.transaction(async (tx) => {
+      await tx.exec(SQL.replace(/\n/g, '\n\n'));
+      const r = (await tx.query<{ check_name: string; ok: boolean }>(POSTCHECK)).rows;
+      await tx.rollback();
+      return r;
+    });
+    expect(t.find((c) => c.check_name.startsWith('applied exactly'))?.ok).toBe(false);
+  });
+});
 
 describe('applying it', () => {
   it('creates the two tables and nothing for brews or layout, and can run a second time', async () => {
@@ -265,6 +294,36 @@ describe('privacy: owner only (decision O2)', () => {
   });
 });
 
+describe('recovery that keeps saved details (park / unpark)', () => {
+  it('parking hides both tables from the app and keeps every row; unparking brings them back unchanged', async () => {
+    const valuesBefore = await q(`SELECT * FROM custom_list_item_owner_values ORDER BY item_id`);
+    const settingsBefore = await q(`SELECT * FROM custom_list_owner_settings ORDER BY list_id`);
+    expect(valuesBefore.length).toBeGreaterThan(0);
+    await db.exec(PARK);
+    await db.exec(PARK); // safe twice
+    // The app's reads now fail as "no such table", which the app treats as "details not available".
+    await refused(as(OWNER, () => q(`SELECT * FROM custom_list_item_owner_values`)), /does not exist/);
+    await refused(as(OWNER, () => q(`SELECT * FROM lv2_parked.custom_list_item_owner_values`)), /permission denied/);
+    await refused(as(OWNER, () => q(`SELECT public.export_my_list_owner_data()`)), /permission denied/);
+    expect(await q(`SELECT * FROM lv2_parked.custom_list_item_owner_values ORDER BY item_id`)).toEqual(valuesBefore);
+    // Lists and items keep working while parked.
+    expect(await readAs(FOLLOWER, `SELECT name FROM custom_list_items WHERE id = $1`, [I_HALO])).toEqual([{ name: 'Halo Beriti' }]);
+    await db.exec(UNPARK);
+    await db.exec(UNPARK);
+    expect(await q(`SELECT * FROM custom_list_item_owner_values ORDER BY item_id`)).toEqual(valuesBefore);
+    expect(await q(`SELECT * FROM custom_list_owner_settings ORDER BY list_id`)).toEqual(settingsBefore);
+    const mine = await as(OWNER, () => q<{ values: Record<string, unknown> }>(`SELECT "values" FROM custom_list_item_owner_values WHERE item_id = $1`, [I_HALO]));
+    expect(mine[0].values.c_roaster).toBe(SECRET);
+    expect(await readAs(FOLLOWER, `SELECT * FROM custom_list_item_owner_values`)).toEqual([]); // still owner-only
+  });
+
+  it('the full rollback refuses while saved details exist, unless a backup is confirmed', async () => {
+    await refused(db.exec(ROLLBACK), /refusing to delete/);
+    await db.exec('ROLLBACK').catch(() => {});
+    expect((await q<{ r: string | null }>(`SELECT to_regclass('public.custom_list_item_owner_values')::text AS r`))[0].r).toBe('custom_list_item_owner_values');
+  });
+});
+
 describe('removal', () => {
   it('deleting an item or a list removes its values with it', async () => {
     await as(OWNER, () => q(`DELETE FROM custom_list_items WHERE id = $1`, [I_ANON]));
@@ -273,8 +332,8 @@ describe('removal', () => {
     expect(await q(`SELECT 1 FROM custom_list_owner_settings WHERE list_id = $1`, [L_ANON])).toEqual([]);
   });
 
-  it('the rollback removes only what was added, and the existing schema is as before', async () => {
-    await db.exec(ROLLBACK);
+  it('the rollback (backup confirmed) removes only what was added, and the existing schema is as before', async () => {
+    await db.exec(`SET lv2.confirm_delete_saved_details = 'backup-taken'; ${ROLLBACK}`);
     for (const t of NEW_TABLES) expect((await q<{ r: string | null }>(`SELECT to_regclass($1)::text AS r`, [`public.${t}`]))[0].r).toBeNull();
     expect(await shape()).toEqual(before.shape);
     expect(await policies()).toEqual(before.policies);

@@ -11,7 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMyShareIdentity } from '@/hooks/useMyShareIdentity';
 import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 import { blockedByContentFilter } from '@/lib/contentFilter';
-import { createListFromPreset } from '@/lib/listCreate';
+import { createListFromPreset, savePresetFields } from '@/lib/listCreate';
 import { MORE_PRESETS, V2_PRESETS, type ListPresetDef } from '@/lib/listPresets';
 import { visibilityChip } from '@/lib/listVisibility';
 import { hapticSuccess } from '@/lib/haptics';
@@ -94,8 +94,27 @@ export function NewListSheet({ open, onOpenChange, existingNames, onBlankList, o
     void hapticSuccess();
     queryClient.invalidateQueries({ queryKey: ['custom_lists', user.id] });
     queryClient.invalidateQueries({ queryKey: ['custom_list_item_counts', user.id] });
-    if (result.categoriesMissing) toast.warning("List created, but its categories didn't save. Add them from Customize.");
-    else toast.success(`${name.trim()} created`);
+    const listName = name.trim();
+    if (result.fields === 'failed') {
+      // The list is fine; only its item details (Roaster, Vintage...) aren't set up. Say so and offer a retry.
+      const listId = result.id;
+      const retry = async () => {
+        // The list fell back to its plain categories (e.g. Coffee Beans roasts); keep them the only roast control.
+        const again = await savePresetFields(user.id, listId, preset, result.categoriesMissing ? [] : preset.categories.map((c) => c.name));
+        if (again === 'saved') {
+          toast.success(`${preset.label} details added to ${listName}`);
+          void queryClient.invalidateQueries({ queryKey: ['custom_list_fields', listId] });
+        } else {
+          toast.error(`Still couldn’t add them. Try later from Customize › Fields › Add ${preset.label} details.`);
+        }
+      };
+      toast.warning(`${listName} created, but its item details (like ${fieldsForPreset(preset.key)[0]?.label ?? 'extra fields'}) didn’t save.`, {
+        description: `Try again now, or later from Customize › Fields.${result.categoriesMissing ? ' Its categories didn’t save either; add them from Customize.' : ''}`,
+        action: { label: 'Try again', onClick: () => void retry() },
+        duration: 20000,
+      });
+    } else if (result.categoriesMissing) toast.warning("List created, but its categories didn't save. Add them from Customize.");
+    else toast.success(`${listName} created`);
     onOpenChange(false);
     navigate(`/my-lists/${result.id}`);
   };

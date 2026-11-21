@@ -47,8 +47,8 @@ $$;
 
 -- Field definitions: an array of at most 30 objects {key, label, type, options?, hidden?}.
 --   text | number | date | tags   free values of that type
---   choice                         one of `options`
---   multi                          any number of `options` (e.g. Coffee "Best for")
+--   choice                         one of "options"
+--   multi                          any number of "options" (e.g. Coffee "Best for")
 CREATE OR REPLACE FUNCTION public.lv2_fields_ok(f jsonb)
 RETURNS boolean LANGUAGE plpgsql IMMUTABLE AS $$
 DECLARE d jsonb; keys text[] := '{}';

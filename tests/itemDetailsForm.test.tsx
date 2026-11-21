@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AddCustomListItemDialog, type CustomListItem } from '@/components/lists/AddCustomListItemDialog';
 import { ItemSheet } from '@/components/lists/v2/ItemSheet';
-import { saveItemValues } from '@/lib/itemDetails';
+import { readDetailsDraft, saveItemValues } from '@/lib/itemDetails';
+import { toast } from 'sonner';
 import { saveCustomListItem } from '@/lib/listItemSave';
 import { fieldsForPreset } from '@/lib/presetFields';
 import type { CustomList } from '@/components/lists/CreateListDialog';
@@ -48,7 +49,11 @@ function edit(values: Record<string, unknown> | undefined = saved) {
     editItem={item} fields={fields} itemValues={values as never} />);
 }
 
-beforeEach(() => { vi.mocked(saveItemValues).mockClear(); update.mockClear(); vi.mocked(saveCustomListItem).mockReset(); });
+beforeEach(() => {
+  vi.mocked(saveItemValues).mockReset();
+  vi.mocked(saveItemValues).mockResolvedValue({ ok: true });
+  update.mockClear(); vi.mocked(saveCustomListItem).mockReset(); localStorage.clear();
+});
 
 describe('item details in the editor', () => {
   it('is compact: main fields first, the rest under More details, which opens when one of them has a value', async () => {
@@ -119,3 +124,74 @@ describe('item details on the item page', () => {
     expect(within(details).queryByText('Origin')).toBeNull(); // empty
   });
 });
+
+describe('when the details fail to save after the item saved', () => {
+  const fail = { ok: false as const, error: { message: 'network' } };
+
+  it('editing: says exactly what saved, keeps everything typed, and Try again saves only the details', async () => {
+    vi.mocked(saveItemValues).mockResolvedValueOnce(fail).mockResolvedValueOnce({ ok: true });
+    const onOpenChange = vi.fn(), onSuccess = vi.fn();
+    render(<AddCustomListItemDialog open onOpenChange={onOpenChange} list={beans} statuses={statuses as never} onSuccess={onSuccess}
+      editItem={item} fields={fields} itemValues={saved as never} />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Medium-Dark' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    expect(await screen.findByText('Halo Beriti is saved. Its details aren’t saved yet.')).toBeTruthy();
+    expect(toast.warning).toHaveBeenCalledWith('Halo Beriti is saved, but its details didn’t save yet.');
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    expect(onSuccess).toHaveBeenCalledTimes(1); // the list refreshes: the item itself did save
+    expect(screen.getByRole('radio', { name: 'Medium-Dark' }).getAttribute('aria-checked')).toBe('true');
+    expect(readDetailsDraft('halo')).toMatchObject({ c_roast: 'Medium-Dark', c_roaster: 'Tide Roasters' });
+    fireEvent.click(screen.getByRole('button', { name: 'Try saving details again' }));
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+    expect(saveItemValues).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(saveItemValues).mock.calls[1]).toEqual(vi.mocked(saveItemValues).mock.calls[0]);
+    expect(update).toHaveBeenCalledTimes(1); // the item was written once
+    expect(readDetailsDraft('halo')).toBeNull();
+  });
+
+  it('adding: the retry never creates the item a second time', async () => {
+    vi.mocked(saveCustomListItem).mockResolvedValue({ status: 'saved', id: 'new-1', photos: { uploaded: 0, failed: 0 } });
+    vi.mocked(saveItemValues).mockResolvedValueOnce(fail).mockResolvedValueOnce(fail).mockResolvedValueOnce({ ok: true });
+    render(<AddCustomListItemDialog open onOpenChange={vi.fn()} list={beans} statuses={statuses as never} onSuccess={vi.fn()} fields={fields} />);
+    fireEvent.change(screen.getByLabelText('Coffee name'), { target: { value: 'La Esperanza' } });
+    fireEvent.click(screen.getByRole('radio', { name: 'Light' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Item' }));
+    await screen.findByRole('button', { name: 'Try saving details again' });
+    fireEvent.click(screen.getByRole('button', { name: 'Try saving details again' }));
+    await waitFor(() => expect(saveItemValues).toHaveBeenCalledTimes(2));
+    expect(await screen.findByRole('button', { name: 'Try saving details again' })).toBeTruthy(); // still failing: still offered
+    fireEvent.click(screen.getByRole('button', { name: 'Try saving details again' }));
+    await waitFor(() => expect(saveItemValues).toHaveBeenCalledTimes(3));
+    expect(saveCustomListItem).toHaveBeenCalledTimes(1);
+    for (const call of vi.mocked(saveItemValues).mock.calls) expect(call.slice(2)).toEqual(['new-1', { c_roast: 'Light' }, false]);
+  });
+
+  it('closing keeps the typed details on this device, and the next Edit restores them', async () => {
+    vi.mocked(saveItemValues).mockResolvedValueOnce(fail);
+    const { unmount } = render(<AddCustomListItemDialog open onOpenChange={vi.fn()} list={beans} statuses={statuses as never} onSuccess={vi.fn()}
+      editItem={item} fields={fields} itemValues={saved as never} />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Extra Dark' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await screen.findByRole('button', { name: 'Close and keep for later' });
+    unmount();
+    edit(); // reopened later, with the old saved values from the server
+    expect(screen.getByText('Restored details that didn’t save last time. Save to keep them.')).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Extra Dark' }).getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await waitFor(() => expect(saveItemValues).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(saveItemValues).mock.calls[1][3]).toMatchObject({ c_roast: 'Extra Dark', c_roaster: 'Tide Roasters' });
+    await waitFor(() => expect(readDetailsDraft('halo')).toBeNull());
+  });
+});
+
+describe('Edit Item and the iPhone keyboard', () => {
+  it('opening the editor focuses the dialog, not a text field; tapping a field still focuses it', async () => {
+    edit();
+    await waitFor(() => expect(document.activeElement?.getAttribute('role')).toBe('dialog'));
+    expect(['INPUT', 'TEXTAREA']).not.toContain(document.activeElement?.tagName);
+    const nameField = screen.getByLabelText('Coffee name');
+    await userEvent.click(nameField);
+    expect(document.activeElement).toBe(nameField);
+  });
+});
+
