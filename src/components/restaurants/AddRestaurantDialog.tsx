@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -27,11 +27,17 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ImagePlus, X, Search, Camera } from 'lucide-react';
-import { isNative, capturePhoto } from '@/lib/native';
+import { isNative, capturePhoto, pickGalleryPhotos } from '@/lib/native';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { validateImageFile, compressImage, MAX_IMAGES_PER_RESTAURANT } from '@/lib/imageValidation';
+import {
+  validateImageFile,
+  compressImages,
+  photoLimitError,
+  MAX_IMAGES_PER_RESTAURANT,
+} from '@/lib/imageValidation';
+import { PhotoCapNote } from '@/components/shared/PhotoCapNote';
 import { isDuplicateRestaurant } from '@/lib/duplicateRestaurant';
 import { PriceLevelPicker } from './PriceLevelPicker';
 import { usePlaceAutocomplete } from '@/hooks/usePlaceAutocomplete';
@@ -150,6 +156,8 @@ export function AddRestaurantDialog({
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [addingPhotos, setAddingPhotos] = useState(false);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   // Metadata for the selected place, used to dedupe/aggregate this entry
   // with other users' entries for the same place on the Explore map. Not
   // shown in the form UI, so it's tracked separately rather than as a
@@ -208,9 +216,13 @@ export function AddRestaurantDialog({
   });
 
   const addFiles = async (incoming: File[]) => {
-    const remainingSlots = MAX_IMAGES_PER_RESTAURANT - images.length;
-    if (remainingSlots <= 0) {
-      toast.error(`You can add up to ${MAX_IMAGES_PER_RESTAURANT} photos per place.`);
+    if (incoming.length === 0 || addingPhotos) return;
+
+    // Check the count first, before touching any of the files: picking too
+    // many gets an immediate error instead of a long "buffering" pause.
+    const limitError = photoLimitError(incoming.length, images.length, MAX_IMAGES_PER_RESTAURANT);
+    if (limitError) {
+      toast.error(limitError);
       return;
     }
 
@@ -222,32 +234,54 @@ export function AddRestaurantDialog({
       }
       return true;
     });
+    if (validated.length === 0) return;
 
-    if (validated.length > remainingSlots) {
-      toast.error(
-        `Only ${remainingSlots} more photo${remainingSlots === 1 ? '' : 's'} can be added (max ${MAX_IMAGES_PER_RESTAURANT}).`,
-      );
+    setAddingPhotos(true);
+    try {
+      // Downscale/re-encode before it ever touches state or gets uploaded, so
+      // normal multi-megabyte phone photos don't trip size limits or bloat
+      // storage - see compressImage() for details.
+      const compressed = await compressImages(validated);
+
+      setImages((prev) => [...prev, ...compressed]);
+
+      compressed.forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setImagePreviews((prev) => [...prev, e.target?.result as string]);
+        };
+        reader.readAsDataURL(file);
+      });
+    } finally {
+      setAddingPhotos(false);
     }
-    const toAdd = validated.slice(0, remainingSlots);
-
-    // Downscale/re-encode before it ever touches state or gets uploaded, so
-    // normal multi-megabyte phone photos don't trip size limits or bloat
-    // storage - see compressImage() for details.
-    const compressed = await Promise.all(toAdd.map((file) => compressImage(file)));
-
-    setImages((prev) => [...prev, ...compressed]);
-
-    compressed.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreviews((prev) => [...prev, e.target?.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    addFiles(Array.from(e.target.files || []));
+    const files = Array.from(e.target.files || []);
+    // Clear it so picking the same photos again still fires onChange.
+    e.target.value = '';
+    addFiles(files);
+  };
+
+  // On the iPhone app, open the native photo picker capped at the photos
+  // still allowed, so it's impossible to select too many in the first place.
+  // On the web (or if the native picker fails) use the file input instead.
+  const handlePickFromGallery = async () => {
+    if (addingPhotos) return;
+    if (!isNative()) {
+      // Called straight from the tap so the browser lets the picker open.
+      galleryInputRef.current?.click();
+      return;
+    }
+    const remaining = MAX_IMAGES_PER_RESTAURANT - images.length;
+    if (remaining <= 0) {
+      toast.error(photoLimitError(1, images.length, MAX_IMAGES_PER_RESTAURANT) ?? '');
+      return;
+    }
+    const result = await pickGalleryPhotos(remaining);
+    if (result.status === 'picked') addFiles(result.files);
+    else if (result.status === 'unavailable') galleryInputRef.current?.click();
   };
 
   const handleTakePhoto = async () => {
@@ -566,6 +600,7 @@ export function AddRestaurantDialog({
               <FormLabel>
                 Photos ({imagePreviews.length}/{MAX_IMAGES_PER_RESTAURANT})
               </FormLabel>
+              <PhotoCapNote count={imagePreviews.length} max={MAX_IMAGES_PER_RESTAURANT} />
               <div className="grid grid-cols-4 gap-2">
                 {imagePreviews.map((preview, index) => (
                   <div key={index} className="relative aspect-square">
@@ -584,21 +619,36 @@ export function AddRestaurantDialog({
                   </div>
                 ))}
                 {imagePreviews.length < MAX_IMAGES_PER_RESTAURANT && (
-                  <label className="aspect-square border-2 border-dashed border-muted rounded-lg flex items-center justify-center cursor-pointer hover:border-primary transition-colors">
+                  <>
+                    <button
+                      type="button"
+                      onClick={handlePickFromGallery}
+                      disabled={addingPhotos}
+                      aria-busy={addingPhotos}
+                      aria-label="Choose photos"
+                      className="aspect-square border-2 border-dashed border-muted rounded-lg flex items-center justify-center cursor-pointer hover:border-primary transition-colors disabled:cursor-default disabled:opacity-60"
+                    >
+                      {addingPhotos ? (
+                        <Spinner className="h-5 w-5 animate-spin text-muted-foreground" />
+                      ) : (
+                        <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                      )}
+                    </button>
                     <input
+                      ref={galleryInputRef}
                       type="file"
                       accept="image/*"
                       multiple
                       onChange={handleImageChange}
                       className="hidden"
                     />
-                    <ImagePlus className="h-6 w-6 text-muted-foreground" />
-                  </label>
+                  </>
                 )}
                 {isNative() && imagePreviews.length < MAX_IMAGES_PER_RESTAURANT && (
                   <button
                     type="button"
                     onClick={handleTakePhoto}
+                    disabled={addingPhotos}
                     className="aspect-square border-2 border-dashed border-muted rounded-lg flex items-center justify-center cursor-pointer hover:border-primary transition-colors"
                     aria-label="Take photo"
                   >

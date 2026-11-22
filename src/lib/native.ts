@@ -2,53 +2,6 @@ import { Capacitor } from '@capacitor/core';
 
 export const isNative = (): boolean => Capacitor.isNativePlatform();
 
-/**
- * Registers this device for push and hands the token to `onToken`.
- *
- * By default this never shows the system permission prompt: it only
- * registers if the user has already said yes. It used to prompt on every
- * sign-in, which meant a brand-new user's first moment in the app was an
- * iOS dialog asking to send notifications before they'd seen anything -
- * exactly what Apple asks apps not to do, and a reliable way to collect a
- * "Don't Allow" that can never be asked again. Pass `prompt: true` only in
- * response to something the user just did (see lib/pushPrompt.ts).
- */
-export async function initPushNotifications(
-  onToken?: (token: string) => void | Promise<void>,
-  opts: { prompt?: boolean } = {},
-): Promise<void> {
-  if (!isNative()) return;
-  try {
-    const { PushNotifications } = await import('@capacitor/push-notifications');
-    let perm = await PushNotifications.checkPermissions();
-    if (perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') {
-      if (!opts.prompt) return;
-      perm = await PushNotifications.requestPermissions();
-    }
-    if (perm.receive !== 'granted') return;
-    // This can legitimately run more than once per app session (e.g. the
-    // auth listener firing SIGNED_IN again on token refresh), and each call
-    // used to stack a fresh pair of listeners on top of any still attached
-    // from a previous call - so a single real token event would fire the
-    // (Supabase-upserting) callback once per past call, growing over the
-    // session. Clear out anything previously attached first.
-    await PushNotifications.removeAllListeners();
-    // Listeners must be attached before register() is called - otherwise the
-    // native 'registration' event (with the token) can fire and resolve
-    // before the JS side is listening for it, silently dropping the token
-    // and leaving device_tokens empty even though registration "succeeded".
-    PushNotifications.addListener('registration', (token) => {
-      void onToken?.(token.value);
-    });
-    PushNotifications.addListener('registrationError', (err) => {
-      console.error('Push registration error:', err);
-    });
-    await PushNotifications.register();
-  } catch (err) {
-    console.error('initPushNotifications failed:', err);
-  }
-}
-
 // There is intentionally no "request permissions at startup" helper here any
 // more. The app used to ask for location on every cold launch, before the
 // user had done anything that needed it. Every permission is now requested
@@ -57,7 +10,8 @@ export async function initPushNotifications(
 //     opening Explore (see useLocationPermission / getCurrentPosition)
 //   - camera/photos: choosing to add a photo (the Camera plugin prompts
 //     itself inside capturePhoto)
-//   - notifications: offered after following someone (lib/pushPrompt.ts)
+//   - notifications: Apple's dialog once on first launch (lib/pushPermission.ts),
+//     the one deliberate exception (PM decision 2026-11-18)
 // Screens that merely benefit from location, rather than being about it,
 // use getCurrentPositionIfGranted() below, which never prompts.
 
@@ -105,6 +59,77 @@ export async function configureStatusBar(): Promise<void> {
 export interface Coords {
   latitude: number;
   longitude: number;
+}
+
+export type PushPermission = 'granted' | 'denied' | 'not-asked' | 'unsupported';
+
+/** This device's notification permission, without ever prompting. */
+export async function getPushPermission(): Promise<PushPermission> {
+  if (!isNative()) return 'unsupported';
+  try {
+    const { PushNotifications } = await import('@capacitor/push-notifications');
+    const { receive } = await PushNotifications.checkPermissions();
+    if (receive === 'granted') return 'granted';
+    if (receive === 'denied') return 'denied';
+    return 'not-asked';
+  } catch {
+    return 'unsupported';
+  }
+}
+
+export type GalleryPick =
+  | { status: 'picked'; files: File[] }
+  | { status: 'cancelled' }
+  | { status: 'unavailable' };
+
+/**
+ * Opens the iPhone's own photo picker with a hard cap on how many photos
+ * can be selected (iOS greys out the rest and shows "Select up to N").
+ *
+ * With a plain <input type="file" multiple>, iOS lets people select any
+ * number of photos and converts every one of them before the app even sees
+ * them, so picking 12 photos meant a long wait just to be told "max 5".
+ * Here the picker itself stops at `limit`, and photos come back already
+ * resized to 1600px JPEGs, so they're quick to hand over.
+ *
+ * Uses Camera.pickImages: deprecated in @capacitor/camera 8 in favour of
+ * chooseFromGallery, but pickImages is the one that uses Apple's standard
+ * picker (PHPicker, no photo-library permission prompt) and resizes
+ * natively. Revisit when upgrading the plugin.
+ *
+ * 'unavailable' means the native picker couldn't be used (web, or the
+ * plugin failed); callers fall back to the file input.
+ */
+export async function pickGalleryPhotos(limit: number): Promise<GalleryPick> {
+  if (!isNative() || limit <= 0) return { status: 'unavailable' };
+  try {
+    const { Camera } = await import('@capacitor/camera');
+    const { photos } = await Camera.pickImages({
+      limit,
+      quality: 82,
+      width: 1600,
+      height: 1600,
+      correctOrientation: true,
+    });
+    const files: File[] = [];
+    // Older Android ignores `limit`; the caller's own count check still
+    // rejects an over-limit selection with the error message.
+    for (const [i, photo] of photos.entries()) {
+      const blob = await (await fetch(photo.webPath)).blob();
+      const ext = photo.format || 'jpeg';
+      files.push(
+        new File([blob], `photo_${Date.now()}_${i}.${ext === 'jpeg' ? 'jpg' : ext}`, {
+          type: blob.type || `image/${ext}`,
+        }),
+      );
+    }
+    return { status: 'picked', files };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (/cancel/i.test(message)) return { status: 'cancelled' };
+    console.warn('pickGalleryPhotos failed, falling back to file input:', err);
+    return { status: 'unavailable' };
+  }
 }
 
 export async function capturePhoto(): Promise<File | null> {

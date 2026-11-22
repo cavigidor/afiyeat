@@ -3,10 +3,12 @@ import { ImagePlus, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { validateImageFile, compressImage, MAX_IMAGES_PER_RESTAURANT } from '@/lib/imageValidation';
+import { validateImageFile, compressImages, photoLimitError, MAX_IMAGES_PER_RESTAURANT } from '@/lib/imageValidation';
+import { PhotoCapNote } from '@/components/shared/PhotoCapNote';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import { Spinner } from '@/components/ui/spinner';
 import { errorMessage } from '@/lib/utils';
+import { isNative, pickGalleryPhotos } from '@/lib/native';
 
 interface ExistingImage {
   id: string;
@@ -54,37 +56,50 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || !user) return;
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    uploadFiles(Array.from(e.target.files || []));
+  };
 
-    const remainingSlots = MAX_IMAGES_PER_RESTAURANT - existingImages.length;
-    if (remainingSlots <= 0) {
-      toast.error(`You can add up to ${MAX_IMAGES_PER_RESTAURANT} photos per place.`);
+  // On the iPhone app, open the native photo picker capped at the photos
+  // still allowed, so it's impossible to select too many in the first place.
+  // On the web (or if the native picker fails) use the file input instead.
+  const handlePickPhotos = async () => {
+    if (uploading) return;
+    if (!isNative()) {
+      fileInputRef.current?.click();
+      return;
+    }
+    const result = await pickGalleryPhotos(MAX_IMAGES_PER_RESTAURANT - existingImages.length);
+    if (result.status === 'picked') uploadFiles(result.files);
+    else if (result.status === 'unavailable') fileInputRef.current?.click();
+  };
+
+  const uploadFiles = async (fileArray: File[]) => {
+    if (!user || fileArray.length === 0) return;
+
+    // Check the count first, before touching any of the files: picking too
+    // many gets an immediate error instead of a long "buffering" pause.
+    const limitError = photoLimitError(fileArray.length, existingImages.length, MAX_IMAGES_PER_RESTAURANT);
+    if (limitError) {
+      toast.error(limitError);
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
-    const fileArray = Array.from(files);
     for (const file of fileArray) {
       const error = validateImageFile(file);
       if (error) {
         toast.error(error);
+        if (fileInputRef.current) fileInputRef.current.value = '';
         return;
       }
     }
-
-    if (fileArray.length > remainingSlots) {
-      toast.error(
-        `Only ${remainingSlots} more photo${remainingSlots === 1 ? '' : 's'} can be added (max ${MAX_IMAGES_PER_RESTAURANT}).`,
-      );
-    }
-    const toUpload = fileArray.slice(0, remainingSlots);
+    const toUpload = fileArray;
 
     setUploading(true);
     try {
       // Downscale/re-encode before upload - see compressImage() for why.
-      const compressedFiles = await Promise.all(toUpload.map((file) => compressImage(file)));
+      const compressedFiles = await compressImages(toUpload);
       for (const file of compressedFiles) {
         const ext = file.name.split('.').pop();
         const path = `${user.id}/${restaurantId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
@@ -135,6 +150,7 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
       <label className="text-sm font-medium">
         Photos ({existingImages.length}/{MAX_IMAGES_PER_RESTAURANT})
       </label>
+      <PhotoCapNote count={existingImages.length} max={MAX_IMAGES_PER_RESTAURANT} />
       <div className="grid grid-cols-4 gap-2">
         {existingImages.map((img) => (
           <ImageThumbnail key={img.id} image={img} onDelete={handleDeleteImage} />
@@ -142,7 +158,7 @@ export function ImageUploadSection({ restaurantId, existingImages, onImagesChang
         {existingImages.length < MAX_IMAGES_PER_RESTAURANT && (
           <button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={handlePickPhotos}
             disabled={uploading}
             className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center hover:border-primary/50 transition-colors"
           >
