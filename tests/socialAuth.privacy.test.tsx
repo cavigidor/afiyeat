@@ -8,7 +8,7 @@ const m = vi.hoisted(() => ({
   update: vi.fn(),
   init: vi.fn(async (onToken: (t: string) => Promise<void>) => { await onToken('device-token'); }),
   signOut: vi.fn(async () => undefined),
-  credentialState: vi.fn(async () => ({ state: 'authorized' })),
+  credentialState: vi.fn(async (_options?: unknown) => ({ state: 'authorized' })),
   resume: [] as Array<() => void>,
   native: true,
 }));
