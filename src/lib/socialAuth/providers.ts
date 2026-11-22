@@ -2,10 +2,14 @@ import { useEffect, useState } from 'react';
 import { isNative } from '@/lib/native';
 import { APPLE_ON_IOS, APPLE_ON_WEB, type SocialProvider } from './config';
 
-// Which social buttons to show. The backend's public auth settings
-// endpoint says which providers are switched on, so a button appears only
-// once its provider has been configured in Lovable Cloud - merging this
-// code before the setup is finished shows nothing new and breaks nothing.
+// Which social buttons to show. A button appears only when BOTH:
+//   - the backend's public auth settings say the provider is switched on
+//     (configured in Lovable Cloud), and
+//   - the backend has the account-setup pieces new accounts need
+//     (public.social_sign_in_ready() answers - the SQL proposal in the
+//     backend PR is applied).
+// So merging this code, or enabling a provider, before the rest is in
+// place shows nothing new and can't strand a new account at setup.
 //
 // The last answer is remembered so the buttons don't pop in late on the
 // next visit; a fresh answer replaces it in the background.
@@ -61,18 +65,32 @@ function writeCache(value: EnabledProviders): void {
 
 let inflight: Promise<EnabledProviders | null> | null = null;
 
+/** The readiness probe's answer: only 'v1' (or later) counts as ready. */
+export function parseReadiness(status: number, body: unknown): boolean {
+  return status === 200 && typeof body === 'string' && /^v\d+$/.test(body);
+}
+
 export function fetchEnabledProviders(): Promise<EnabledProviders | null> {
   if (inflight) return inflight;
   inflight = (async () => {
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const base = import.meta.env.VITE_SUPABASE_URL;
     try {
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/settings`, {
-        headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
-        signal: controller.signal,
-      });
-      if (!res.ok) return null;
-      const value = parseAuthSettings(await res.json());
+      const [settings, ready] = await Promise.all([
+        fetch(`${base}/auth/v1/settings`, { headers: { apikey: key }, signal: controller.signal }),
+        fetch(`${base}/rest/v1/rpc/social_sign_in_ready`, {
+          method: 'POST',
+          headers: { apikey: key, authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+          body: '{}',
+          signal: controller.signal,
+        }),
+      ]);
+      if (!settings.ok) return null;
+      const enabled = parseAuthSettings(await settings.json());
+      const backendReady = parseReadiness(ready.status, await ready.json().catch(() => null));
+      const value = backendReady ? enabled : NONE;
       writeCache(value);
       return value;
     } catch {

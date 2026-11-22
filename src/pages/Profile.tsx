@@ -43,6 +43,7 @@ import { Pencil, Save, LogOut, Lock, Check, X, UserPlus, Trash2, Stamp, LifeBuoy
 import { buildLabel } from '@/lib/buildInfo';
 import { BlockedAccountsCard } from '@/components/moderation/BlockedAccountsCard';
 import { SignInMethodsCard } from '@/components/auth/SignInMethodsCard';
+import { useAccountDeletion } from '@/components/auth/useAccountDeletion';
 import { PassportBadge } from '@/components/passport/PassportBadge';
 import { toast } from 'sonner';
 import { blockedByContentFilter } from '@/lib/contentFilter';
@@ -374,21 +375,18 @@ export default function Profile() {
     }
   };
 
+  // Accounts with Sign in with Apple are asked to confirm with Apple so
+  // Afiyeat's Apple authorization is revoked too (see useAccountDeletion).
+  const accountDeletion = useAccountDeletion(async () => {
+    toast.success('Your account has been deleted.');
+    await signOut();
+    navigate('/');
+  });
+
   const handleDeleteAccount = async () => {
     setDeletingAccount(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('delete-account');
-      if (error || (data && data.error)) {
-        throw error || new Error(data.error);
-      }
-      toast.success('Your account has been deleted.');
-      await signOut();
-      navigate('/');
-    } catch (err) {
-      console.error('Account deletion failed:', err);
-      toast.error('Failed to delete account. Please try again.');
-      setDeletingAccount(false);
-    }
+    const deleted = await accountDeletion.run('delete');
+    if (!deleted) setDeletingAccount(false);
   };
 
   if (authLoading || profileLoading) {
@@ -672,6 +670,8 @@ export default function Profile() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {accountDeletion.dialog}
 
       {/* Followers Dialog */}
       <Dialog open={followersDialogOpen} onOpenChange={setFollowersDialogOpen}>

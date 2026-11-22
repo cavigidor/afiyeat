@@ -39,6 +39,7 @@ public class AfiyeatAuthPlugin: CAPPlugin, CAPBridgedPlugin,
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "signInWithApple", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openAuthSession", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getAppleCredentialState", returnType: CAPPluginReturnPromise),
     ]
 
     // Touched only on the main queue.
@@ -87,6 +88,9 @@ public class AfiyeatAuthPlugin: CAPPlugin, CAPBridgedPlugin,
         }
 
         var result: [String: Any] = ["identityToken": token, "user": credential.user]
+        // The Apple client id this code was issued to; the server must use the
+        // same one to exchange and revoke it (account deletion).
+        if let bundleId = Bundle.main.bundleIdentifier { result["clientId"] = bundleId }
         if let codeData = credential.authorizationCode, let code = String(data: codeData, encoding: .utf8) {
             result["authorizationCode"] = code
         }
@@ -125,6 +129,29 @@ public class AfiyeatAuthPlugin: CAPPlugin, CAPBridgedPlugin,
 
     public func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
         return currentAnchor()
+    }
+
+    // MARK: Credential state
+
+    /// Apple TN3194: when someone stops using Sign in with Apple for the app in
+    /// Settings, the app should return to a signed-out state. The page calls
+    /// this on launch and when the app comes back to the foreground.
+    @objc func getAppleCredentialState(_ call: CAPPluginCall) {
+        guard let user = call.getString("user"), !user.isEmpty else {
+            call.reject("An Apple user id is required.", "FAILED")
+            return
+        }
+        ASAuthorizationAppleIDProvider().getCredentialState(forUserID: user) { state, _ in
+            let name: String
+            switch state {
+            case .authorized: name = "authorized"
+            case .revoked: name = "revoked"
+            case .notFound: name = "notFound"
+            case .transferred: name = "transferred"
+            @unknown default: name = "unknown"
+            }
+            call.resolve(["state": name])
+        }
     }
 
     // MARK: System browser sheet (Google)

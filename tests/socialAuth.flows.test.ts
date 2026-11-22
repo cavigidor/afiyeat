@@ -38,7 +38,7 @@ vi.mock('@/lib/socialAuth/pkceClient', () => ({
   forgetPkceSession: mocks.forgetPkceSession,
 }));
 
-import { completeWebCallback, linkProvider, signInWithProvider, CALLBACK_PAYLOAD_KEY } from '@/lib/socialAuth/socialAuth';
+import { clearSocialAuthLeftovers, completeWebCallback, forgetAppleName, linkProvider, readAppleName, signInWithProvider, CALLBACK_PAYLOAD_KEY } from '@/lib/socialAuth/socialAuth';
 import { SocialAuthCancelled } from '@/lib/socialAuth/callback';
 import { NATIVE_REDIRECT_URL } from '@/lib/socialAuth/config';
 
@@ -51,18 +51,26 @@ beforeEach(() => {
 describe('iPhone: Sign in with Apple (native sheet)', () => {
   it('sends Apple a nonce and the backend the same raw nonce with the token', async () => {
     mocks.plugin.signInWithApple.mockResolvedValue({ identityToken: 'apple.jwt', user: 'apple-user', givenName: 'Ada', familyName: 'L' });
+    mocks.main.signInWithIdToken.mockResolvedValueOnce({ data: { user: { id: 'new-1' } }, error: null } as never);
     await signInWithProvider('apple');
     expect(mocks.plugin.signInWithApple).toHaveBeenCalledWith({ nonce: 'n'.repeat(64) });
     expect(mocks.main.signInWithIdToken).toHaveBeenCalledWith({ provider: 'apple', token: 'apple.jwt', nonce: 'n'.repeat(64) });
-    // Apple's one-time name is kept for the setup screen.
-    expect(mocks.main.updateUser).toHaveBeenCalledWith({ data: { full_name: 'Ada L' } });
   });
 
-  it("doesn't overwrite a name that's already saved", async () => {
-    mocks.plugin.signInWithApple.mockResolvedValue({ identityToken: 't', user: 'u', givenName: 'New' });
-    mocks.main.getUser.mockResolvedValueOnce({ data: { user: { id: 'me', user_metadata: { full_name: 'Kept' } } } });
+  it("keeps Apple's one-time name on this device only - nothing is written to the account before setup", async () => {
+    mocks.plugin.signInWithApple.mockResolvedValue({ identityToken: 't', user: 'u', givenName: 'Ada', familyName: 'L' });
+    mocks.main.signInWithIdToken.mockResolvedValueOnce({ data: { user: { id: 'new-2' } }, error: null } as never);
     await signInWithProvider('apple');
     expect(mocks.main.updateUser).not.toHaveBeenCalled();
+    expect(readAppleName('new-2')).toBe('Ada L');
+    forgetAppleName('new-2');
+    expect(readAppleName('new-2')).toBe('');
+  });
+
+  it('sign-out forgets any name kept from Apple', async () => {
+    window.sessionStorage.setItem('afiyeat-apple-name:x', 'Someone');
+    clearSocialAuthLeftovers();
+    expect(readAppleName('x')).toBe('');
   });
 
   it('cancel signs nobody in and is reported as a cancellation', async () => {
@@ -77,11 +85,12 @@ describe('iPhone: Sign in with Apple (native sheet)', () => {
     await expect(signInWithProvider('apple')).rejects.toThrow(/audience/);
   });
 
-  it('connecting Apple links the token to the signed-in account', async () => {
-    mocks.plugin.signInWithApple.mockResolvedValue({ identityToken: 'apple.jwt', user: 'u' });
+  it('connecting Apple links the token to the signed-in account (and writes no name)', async () => {
+    mocks.plugin.signInWithApple.mockResolvedValue({ identityToken: 'apple.jwt', user: 'u', givenName: 'Ada' });
     await linkProvider('apple');
     expect(mocks.main.linkIdentity).toHaveBeenCalledWith({ provider: 'apple', token: 'apple.jwt', nonce: 'n'.repeat(64) });
     expect(mocks.main.signInWithIdToken).not.toHaveBeenCalled();
+    expect(mocks.main.updateUser).not.toHaveBeenCalled();
   });
 });
 

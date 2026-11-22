@@ -9,6 +9,10 @@ import type { User } from '@supabase/supabase-js';
 // (app_metadata.provider). An existing email account that later signs in
 // with Google keeps provider 'email', so it is never sent through setup,
 // and nothing changes for anyone who signed up with email.
+//
+// Acceptance is recorded server-side (public.terms_acceptances, written
+// only by the complete_account_setup() function with the server's clock),
+// not in the account's own editable metadata.
 
 const SOCIAL = new Set(['apple', 'google']);
 
@@ -17,25 +21,26 @@ export function createdWithSocialProvider(user: Pick<User, 'app_metadata'> | nul
   return typeof provider === 'string' && SOCIAL.has(provider);
 }
 
-export function hasAcceptedTerms(user: Pick<User, 'user_metadata'> | null | undefined): boolean {
-  const at = user?.user_metadata?.terms_accepted_at;
-  return typeof at === 'string' && at.length > 0;
-}
-
 export interface SetupNeeds {
   username: boolean;
   terms: boolean;
 }
 
+/** What the server says about the account: saved username, recorded acceptance. */
+export interface SetupRecord {
+  username: string | null;
+  acceptedTerms: boolean;
+}
+
 /** What a signed-in account still has to do, or null when nothing. */
 export function setupNeeds(
-  user: Pick<User, 'app_metadata' | 'user_metadata'> | null | undefined,
-  profile: { username: string | null } | null,
+  user: Pick<User, 'app_metadata'> | null | undefined,
+  record: SetupRecord | null,
 ): SetupNeeds | null {
   if (!user || !createdWithSocialProvider(user)) return null;
   const needs: SetupNeeds = {
-    username: !profile?.username || profile.username.trim().length === 0,
-    terms: !hasAcceptedTerms(user),
+    username: !record?.username || record.username.trim().length === 0,
+    terms: !record?.acceptedTerms,
   };
   return needs.username || needs.terms ? needs : null;
 }
@@ -72,7 +77,12 @@ export function suggestUsername(user: Pick<User, 'email' | 'user_metadata'> | nu
   return fromName.length >= 3 ? fromName : '';
 }
 
-export function suggestDisplayName(user: Pick<User, 'user_metadata'> | null | undefined): string {
+/**
+ * `appleName` is the name Apple shared at sign-in, kept on the device only
+ * (Apple never puts it in the token, and nothing is saved before setup).
+ */
+export function suggestDisplayName(user: Pick<User, 'user_metadata'> | null | undefined, appleName = ''): string {
+  if (appleName.trim()) return appleName.trim().slice(0, 50);
   const meta = user?.user_metadata ?? {};
   const name = typeof meta.full_name === 'string' ? meta.full_name : typeof meta.name === 'string' ? meta.name : '';
   return name.trim().slice(0, 50);
@@ -93,4 +103,11 @@ export function canDiscardNewAccount(
   if (Array.isArray(providers) && providers.includes('email')) return false;
   if (user.identities?.some((identity) => identity.provider === 'email')) return false;
   return true;
+}
+
+/** PostgREST/Postgres codes for "that table or function doesn't exist (yet)". */
+export function isMissingBackend(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  return ['PGRST202', 'PGRST205', '42P01', '42883'].includes(error.code ?? '')
+    || /could not find the (table|function)/i.test(error.message ?? '');
 }

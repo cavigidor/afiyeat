@@ -14,6 +14,7 @@ import { PersistentTabs } from "@/components/layout/PersistentTabs";
 import { AccountBoundary } from "@/components/layout/AccountBoundary";
 import { AccountSetupProvider, useAccountSetup } from "@/contexts/AccountSetupContext";
 import { AccountSetupGate } from "@/components/auth/AccountSetupGate";
+import { AppleCredentialWatcher } from "@/components/auth/AppleCredentialWatcher";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import AuthCallback from "./pages/AuthCallback";
@@ -192,6 +193,7 @@ const App = () => {
       <NativeLaunchGate />
       <ReferralClaimer />
       <PushNotificationManager />
+      <AppleCredentialWatcher />
       <TooltipProvider>
         <Sonner />
         <BrowserRouter>

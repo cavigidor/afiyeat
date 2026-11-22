@@ -3,6 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import { initPushNotifications, isNative } from '@/lib/native';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAccountSetup } from '@/contexts/AccountSetupContext';
 
 // Tracked so AuthContext.signOut() can remove just *this* device's token
 // row (rather than every token belonging to the user, which would also
@@ -13,6 +14,11 @@ export function getCurrentDeviceToken(): string | null {
   return currentDeviceToken;
 }
 
+// False while no one is signed in or a new Apple/Google account is still in
+// setup, so no path (including lib/pushPrompt.ts) can register this device
+// for an account that hasn't accepted the Terms yet.
+let accountReadyForPush = false;
+
 /**
  * Registers this device and saves its token.
  *
@@ -22,7 +28,7 @@ export function getCurrentDeviceToken(): string | null {
  * something that makes notifications worth having.
  */
 export async function registerForPush({ prompt = false }: { prompt?: boolean } = {}): Promise<void> {
-  if (!isNative()) return;
+  if (!isNative() || !accountReadyForPush) return;
   const platform = Capacitor.getPlatform() === 'android' ? 'android' : 'ios';
 
   await initPushNotifications(
@@ -52,7 +58,13 @@ export async function registerForPush({ prompt = false }: { prompt?: boolean } =
  */
 export function PushNotificationManager() {
   const { user } = useAuth();
-  const userId = user?.id;
+  // A new Apple/Google account registers nothing and writes nothing until
+  // it has finished setup and accepted the Terms (AccountSetupGate). For
+  // every other account this is true as soon as they're signed in.
+  const { status: setupStatus } = useAccountSetup();
+  const ready = setupStatus === 'complete';
+  const userId = ready ? user?.id : undefined;
+  accountReadyForPush = !!userId;
 
   // Keeps profiles.timezone reasonably fresh so server-side crons (e.g. the
   // daily good-morning nudge) can fire at 8am in each user's own timezone

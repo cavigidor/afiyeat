@@ -17,19 +17,26 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Spinner } from '@/components/ui/spinner';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAccountSetup } from '@/contexts/AccountSetupContext';
 import { supabase } from '@/integrations/supabase/client';
 import { blockedByContentFilter } from '@/lib/contentFilter';
-import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError';
 import {
   canDiscardNewAccount,
+  isMissingBackend,
   suggestDisplayName,
   suggestUsername,
   validateUsername,
 } from '@/lib/accountSetup';
-import { PROVIDER_LABEL, TERMS_VERSION } from '@/lib/socialAuth/config';
+import { PRIVACY_VERSION, PROVIDER_LABEL, TERMS_VERSION } from '@/lib/socialAuth/config';
+import { forgetAppleName, readAppleName } from '@/lib/socialAuth/socialAuth';
+import { useAccountDeletion } from '@/components/auth/useAccountDeletion';
 import logo from '@/assets/logo.png';
+
+// complete_account_setup() isn't in the generated types until the backend
+// proposal is applied and Lovable regenerates them.
+const db = supabase as unknown as SupabaseClient;
 
 // Screens a new Apple/Google account can still open before finishing
 // setup: the documents it's asked to accept, help, and the sign-in
@@ -69,17 +76,40 @@ function AccountSetupScreen() {
   const navigate = useNavigate();
 
   const [username, setUsername] = useState(() => savedUsername ?? suggestUsername(user));
-  const [displayName, setDisplayName] = useState(() => suggestDisplayName(user));
+  const [displayName, setDisplayName] = useState(() => suggestDisplayName(user, user ? readAppleName(user.id) : ''));
   const [accepted, setAccepted] = useState(false);
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [termsError, setTermsError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
-  const [discarding, setDiscarding] = useState(false);
+  // "Already have an Afiyeat account?": the server removes the new account
+  // only if it's brand new and untouched (delete-account discard_new_account),
+  // and disconnects Sign in with Apple first for Apple accounts.
+  const discardFlow = useAccountDeletion(async () => {
+    setDiscardOpen(false);
+    await signOut().catch(() => supabase.auth.signOut({ scope: 'local' }));
+    toast.success(
+      `Done. Sign in to your existing account with email, then connect ${providerName} in Profile › Sign-in methods.`,
+      { duration: 8000 },
+    );
+    navigate('/auth', { replace: true });
+  });
+  const discarding = discardFlow.busy;
 
   const provider = user?.app_metadata?.provider === 'apple' ? 'apple' : 'google';
   const providerName = PROVIDER_LABEL[provider];
   const canDiscard = canDiscardNewAccount(user, needs);
+
+  if (status === 'unavailable') {
+    return (
+      <SetupShell
+        title="Almost ready"
+        description={`Signing up with ${providerName} isn't switched on yet. Please sign out and use email for now.`}
+      >
+        <Button className="w-full" onClick={() => void signOut()}>Sign out</Button>
+      </SetupShell>
+    );
+  }
 
   if (status === 'error') {
     return (
@@ -106,33 +136,24 @@ function AccountSetupScreen() {
 
     setSaving(true);
     try {
-      const values = { username: name, display_name: shownName || name };
-      const { data: updated, error } = await supabase
-        .from('profiles')
-        .update(values)
-        .eq('user_id', user.id)
-        .select('id');
-      let saveError = error;
-      if (!saveError && (!updated || updated.length === 0)) {
-        // The sign-up trigger normally creates the row; make it if it didn't.
-        ({ error: saveError } = await supabase.from('profiles').insert({ user_id: user.id, ...values }));
-      }
-      if (saveError) {
-        if (saveError.code === '23505') {
-          setUsernameError('This username is already taken');
-        } else {
-          toast.error("Couldn't save your profile. Please try again.");
-        }
-        return;
-      }
-
-      const { error: termsSaveError } = await supabase.auth.updateUser({
-        data: { terms_accepted_at: new Date().toISOString(), terms_version: TERMS_VERSION },
+      // One server call saves the username/display name AND records that
+      // the current Terms and Privacy Policy were accepted, with the
+      // server's clock. A taken username saves nothing at all.
+      const { error } = await db.rpc('complete_account_setup', {
+        p_username: name,
+        p_display_name: shownName,
+        p_terms_version: TERMS_VERSION,
+        p_privacy_version: PRIVACY_VERSION,
       });
-      if (termsSaveError) {
-        toast.error("Couldn't save that you agreed to the Terms. Please try again.");
+      if (error) {
+        if (error.code === '23505') setUsernameError('This username is already taken');
+        else if (/invalid_username/.test(error.message)) setUsernameError('Username must be 3-20 characters');
+        else if (/terms_version_mismatch/.test(error.message)) toast.error('The Terms were just updated. Please close and reopen Afiyeat, then try again.');
+        else if (isMissingBackend(error)) toast.error("Signing up this way isn't switched on yet. Please sign out and use email.");
+        else toast.error("Couldn't save your profile. Please try again.");
         return;
       }
+      forgetAppleName(user.id);
       refresh();
       toast.success('Welcome to Afiyeat!');
     } finally {
@@ -141,23 +162,10 @@ function AccountSetupScreen() {
   };
 
   const discard = async () => {
-    setDiscarding(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('delete-account');
-      if (error) throw new Error(await getEdgeFunctionErrorMessage(error, "Couldn't remove the new sign-in"));
-      if (data?.error) throw new Error(data.error);
-      await signOut().catch(() => supabase.auth.signOut({ scope: 'local' }));
-      setDiscardOpen(false);
-      toast.success(
-        `Done. Sign in to your existing account with email, then connect ${providerName} in Profile › Sign-in methods.`,
-        { duration: 8000 },
-      );
-      navigate('/auth', { replace: true });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't remove the new sign-in");
-    } finally {
-      setDiscarding(false);
-    }
+    // Close this dialog first: Apple's sheet, or the "Disconnect Sign in
+    // with Apple" choice, may need the screen next.
+    setDiscardOpen(false);
+    await discardFlow.run('discard_new_account');
   };
 
   return (
@@ -226,7 +234,8 @@ function AccountSetupScreen() {
 
       <div className="mt-6 space-y-2 text-center">
         {canDiscard && (
-          <Button variant="link" className="text-sm h-auto py-1" onClick={() => setDiscardOpen(true)}>
+          <Button variant="link" className="text-sm h-auto py-1" onClick={() => setDiscardOpen(true)} disabled={discarding}>
+            {discarding && <Spinner className="mr-2 h-4 w-4" label="Removing the new sign-in" />}
             Already have an Afiyeat account?
           </Button>
         )}
@@ -235,6 +244,7 @@ function AccountSetupScreen() {
         </div>
       </div>
 
+      {discardFlow.dialog}
       <AlertDialog open={discardOpen} onOpenChange={(open) => !discarding && setDiscardOpen(open)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -244,6 +254,7 @@ function AccountSetupScreen() {
               email on your existing one ({providerName === 'Apple' ? 'Hide My Email does this' : 'a different email address does this'}).
               We'll remove this new empty account. Then sign in with your email and connect {providerName} in
               Profile › Sign-in methods, so both open the same account with all your lists and photos.
+              {provider === 'apple' && ' You may be asked to confirm with Apple, so Apple disconnects Afiyeat from this sign-in too.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

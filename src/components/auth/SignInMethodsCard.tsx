@@ -41,6 +41,12 @@ export function SignInMethodsCard() {
   if (!user) return null;
 
   const has = (provider: string) => identities?.some((identity) => identity.provider === provider) ?? false;
+  // Shown so people can find the address Afiyeat has for them - for Apple
+  // that may be a Hide My Email relay address (Apple HIG: let people view it).
+  const emailFor = (provider: string) => {
+    const email = identities?.find((identity) => identity.provider === provider)?.identity_data?.email;
+    return typeof email === 'string' ? email : undefined;
+  };
   const hasEmail = has('email') || (!!user.email && (user.app_metadata?.providers ?? []).includes('email'));
   const rows: SocialProvider[] = (['apple', 'google'] as SocialProvider[]).filter(
     (provider) => has(provider) || offered.includes(provider),
@@ -84,6 +90,7 @@ export function SignInMethodsCard() {
                 key={provider}
                 icon={provider === 'apple' ? <AppleLogo className="h-[18px] w-[18px]" /> : <GoogleLogo className="h-[18px] w-[18px]" />}
                 name={PROVIDER_LABEL[provider]}
+                detail={has(provider) ? emailFor(provider) : undefined}
               >
                 {has(provider) ? (
                   <ConnectedMark />

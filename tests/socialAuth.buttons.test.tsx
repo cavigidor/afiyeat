@@ -50,4 +50,19 @@ describe('SocialSignInButtons', () => {
     render(<SocialSignInButtons mode="signin" providers={['google']} onSignIn={vi.fn()} disabled />);
     expect((screen.getByRole('button', { name: 'Continue with Google' }) as HTMLButtonElement).disabled).toBe(true);
   });
+
+  it('follows each provider\'s button rules: Apple title at 43% of a 44pt button in the system font, Google 14/20', () => {
+    render(<SocialSignInButtons mode="signin" providers={['apple', 'google']} onSignIn={vi.fn()} />);
+    const apple = screen.getByRole('button', { name: 'Sign in with Apple' });
+    const google = screen.getByRole('button', { name: 'Continue with Google' });
+    expect(apple.className).toMatch(/\bh-11\b/);
+    expect(apple.style.fontSize).toBe('19px');
+    expect(apple.style.fontFamily).toMatch(/-apple-system/);
+    expect(apple.className).toMatch(/bg-black/);
+    expect(google.style.fontSize).toBe('14px');
+    expect(google.style.lineHeight).toBe('20px');
+    expect(google.style.fontFamily).toMatch(/Google Sans/);
+    expect(google.className).toMatch(/border-\[#747775\]/);
+    expect(google.className).toMatch(/\bh-11\b/);
+  });
 });

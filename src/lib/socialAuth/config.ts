@@ -57,8 +57,22 @@ export const APPLE_ON_WEB = import.meta.env.VITE_APPLE_SIGN_IN_WEB !== 'off';
 /** A browser sign-in that hasn't come back within this long is abandoned. */
 export const PENDING_FLOW_TTL_MS = 15 * 60 * 1000;
 
-/** Version stamp recorded when a new social account accepts the Terms. */
+/**
+ * The Terms of Service and Privacy Policy versions ("Last updated" dates on
+ * /terms and /privacy) a new Apple/Google account accepts at setup. The
+ * backend's complete_account_setup() accepts only these exact values, so
+ * when either document changes, update both places together.
+ */
 export const TERMS_VERSION = '2026-10-07';
+export const PRIVACY_VERSION = '2026-10-07';
+
+/**
+ * The website's Apple Services ID. Used only on afiyeat.com to ask the
+ * person to confirm with Apple (Sign in with Apple JS) before deleting an
+ * account that has Apple connected, so its authorization can be revoked.
+ * VITE_APPLE_SERVICES_ID overrides it at build time.
+ */
+export const APPLE_SERVICES_ID: string = import.meta.env.VITE_APPLE_SERVICES_ID || 'com.afiyeat.web';
 
 export const PROVIDER_LABEL: Record<SocialProvider, string> = {
   apple: 'Apple',

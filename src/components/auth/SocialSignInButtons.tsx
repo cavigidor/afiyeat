@@ -5,6 +5,13 @@ import { cn } from '@/lib/utils';
 import { friendlyAuthError, isCancellation } from '@/lib/socialAuth/callback';
 import { providerButtonLabel, type SocialProvider } from '@/lib/socialAuth/config';
 
+// BEFORE APP STORE SUBMISSION: replace this glyph with Apple's own logo
+// artwork from Apple Design Resources ("Sign in with Apple" logo files, SVG,
+// black and white). Apple's guidelines allow only that artwork in a custom
+// Sign in with Apple button ("never create a custom Apple logo"), and the
+// file's height should match the button's (it includes its own padding).
+// The download needs the developer account's agreement to Apple's terms, so
+// it can't be added from here. See docs/social-sign-in/OWNER_SETUP.md.
 export function AppleLogo({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="currentColor">
@@ -32,13 +39,29 @@ interface SocialButtonProps {
   onClick: () => void;
 }
 
-/**
- * One provider button, drawn to each provider's own rules: Apple's is
- * black with the Apple logo (Human Interface Guidelines), Google's is
- * white with the four-colour "G" and a grey outline (Google Identity
- * branding guidelines). Both are full width and 44pt tall, the iOS
- * minimum touch target.
- */
+// Each provider's custom-button rules, checked against their current docs:
+// - Apple (HIG, "Creating a custom Sign in with Apple button"): black fill
+//   with white logo and title; title "Sign in/up with Apple" or "Continue
+//   with Apple"; system font preferred, title size 43% of the button height
+//   (19pt in a 44pt button); at least 140x30pt; margin around >= 1/10 of
+//   the height; no smaller than other sign-in buttons, and shown first.
+// - Google (Sign in with Google branding guidelines): white fill, 1px
+//   #747775 stroke, #1F1F1F text in Google Sans Medium (Roboto as the
+//   fallback the older guidelines named) at 14/20; standard-colour "G" on
+//   white, size unchanged; iOS padding 16 left of the logo, 12 between logo
+//   and text, 16 after the text.
+const APPLE_TITLE = {
+  fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif',
+  fontSize: '19px',
+  lineHeight: '23px',
+} as const;
+const GOOGLE_TITLE = {
+  fontFamily: '"Google Sans", Roboto, Arial, sans-serif',
+  fontSize: '14px',
+  lineHeight: '20px',
+} as const;
+
+/** One provider button, 44pt tall (the iOS recommended touch target). */
 export function SocialButton({ provider, label, busy, disabled, onClick }: SocialButtonProps) {
   return (
     <button
@@ -46,13 +69,14 @@ export function SocialButton({ provider, label, busy, disabled, onClick }: Socia
       onClick={onClick}
       disabled={disabled}
       aria-busy={busy}
+      style={provider === 'apple' ? APPLE_TITLE : GOOGLE_TITLE}
       className={cn(
-        'active-press relative flex h-11 w-full items-center justify-center gap-2 rounded-md px-4 text-[15px] font-medium',
+        'active-press relative flex h-11 w-full min-w-[140px] items-center justify-center rounded-md px-4 font-medium',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         'disabled:cursor-not-allowed disabled:opacity-60',
         provider === 'apple'
-          ? 'bg-black text-white'
-          : 'border border-[#747775] bg-white text-[#1F1F1F]',
+          ? 'gap-1.5 bg-black text-white'
+          : 'gap-3 border border-[#747775] bg-white text-[#1F1F1F]',
       )}
     >
       {busy ? (

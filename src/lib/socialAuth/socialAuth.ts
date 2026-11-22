@@ -79,7 +79,7 @@ function throwIfError(result: CallbackResult): asserts result is { kind: 'code';
 
 // ---------------------------------------------------------------- Apple
 
-async function nativeAppleCredential(): Promise<{ credential: AppleCredential; nonce: string }> {
+export async function nativeAppleCredential(): Promise<{ credential: AppleCredential; nonce: string }> {
   const nonce = randomNonce();
   try {
     const credential = await AfiyeatAuth.signInWithApple({ nonce });
@@ -91,28 +91,52 @@ async function nativeAppleCredential(): Promise<{ credential: AppleCredential; n
   }
 }
 
+const APPLE_NAME_KEY = (userId: string) => `afiyeat-apple-name:${userId}`;
+
 /**
  * Apple shares the person's name only the first time they authorise the
- * app, and never puts it in the token. Keep it so account setup can
- * suggest it as the display name. Never overwrites a name already there.
+ * app, and never puts it in the token. It's kept on this device only (this
+ * tab's sessionStorage) so account setup can suggest it as the display
+ * name - nothing is written to the account before setup is finished and
+ * the Terms are accepted. It's forgotten after setup or on sign-out.
  */
-async function rememberAppleName(credential: AppleCredential): Promise<void> {
+function rememberAppleName(userId: string | undefined, credential: AppleCredential): void {
   const fullName = [credential.givenName, credential.familyName].filter(Boolean).join(' ').trim();
-  if (!fullName) return;
-  const { data } = await supabase.auth.getUser();
-  if (data.user?.user_metadata?.full_name) return;
-  await supabase.auth.updateUser({ data: { full_name: fullName } }).catch(() => undefined);
+  if (!userId || !fullName) return;
+  try {
+    window.sessionStorage.setItem(APPLE_NAME_KEY(userId), fullName.slice(0, 50));
+  } catch {
+    /* only a suggestion */
+  }
+}
+
+/** The name Apple shared at sign-in for this account, if any. */
+export function readAppleName(userId: string): string {
+  try {
+    return window.sessionStorage.getItem(APPLE_NAME_KEY(userId)) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+/** Forgets that name (after setup saves the profile, or on sign-out). */
+export function forgetAppleName(userId: string): void {
+  try {
+    window.sessionStorage.removeItem(APPLE_NAME_KEY(userId));
+  } catch {
+    /* nothing stored */
+  }
 }
 
 async function nativeAppleSignIn(): Promise<void> {
   const { credential, nonce } = await nativeAppleCredential();
-  const { error } = await supabase.auth.signInWithIdToken({
+  const { data, error } = await supabase.auth.signInWithIdToken({
     provider: 'apple',
     token: credential.identityToken,
     nonce,
   });
   if (error) throw error;
-  await rememberAppleName(credential);
+  rememberAppleName(data?.user?.id, credential);
 }
 
 async function nativeAppleLink(): Promise<void> {
@@ -123,7 +147,6 @@ async function nativeAppleLink(): Promise<void> {
     nonce,
   });
   if (error) throw error;
-  await rememberAppleName(credential);
 }
 
 // ------------------------------------------------- browser-based (PKCE)
@@ -255,6 +278,12 @@ export function clearSocialAuthLeftovers(): void {
   try {
     window.sessionStorage.removeItem(PENDING_KEY);
     window.sessionStorage.removeItem(CALLBACK_PAYLOAD_KEY);
+    const names: string[] = [];
+    for (let i = 0; i < window.sessionStorage.length; i++) {
+      const key = window.sessionStorage.key(i);
+      if (key?.startsWith('afiyeat-apple-name:')) names.push(key);
+    }
+    names.forEach((key) => window.sessionStorage.removeItem(key));
   } catch {
     /* nothing stored */
   }
