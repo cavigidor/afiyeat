@@ -204,7 +204,7 @@ export function createDeleteAccountHandler(deps: DeleteAccountDeps) {
               console.error('Apple revocation request invalid:', reauth);
             } else {
               const result = await revokeAppleAuthorization(reauth, appleSubjects, deps.appleConfig, deps.fetch);
-              if (!result.ok) {
+              if (result.ok === false) {
                 console.error(`Apple revocation failed (${result.error}):`, result.detail);
                 const status = result.error === 'apple_revoke_failed' ? 502
                   : result.error === 'apple_not_configured' ? 503 : 400;
