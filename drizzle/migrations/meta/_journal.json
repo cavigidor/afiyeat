@@ -78,6 +78,13 @@
       "when": 1795221465942,
       "tag": "0010_photo_records_owner_check",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795320171917,
+      "tag": "0011_lists_v2_owner_fields",
+      "breakpoints": true
     }
   ]
 }
