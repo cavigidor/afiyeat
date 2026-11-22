@@ -11,14 +11,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMyShareIdentity } from '@/hooks/useMyShareIdentity';
 import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 import { blockedByContentFilter } from '@/lib/contentFilter';
-import { createListFromPreset, savePresetFields } from '@/lib/listCreate';
+import { createListFromPreset, savePresetFields, type PresetSelection } from '@/lib/listCreate';
 import { MORE_PRESETS, V2_PRESETS, type ListPresetDef } from '@/lib/listPresets';
 import { visibilityChip } from '@/lib/listVisibility';
 import { hapticSuccess } from '@/lib/haptics';
 import { ListGlyph } from './ListGlyph';
 import { cn } from '@/lib/utils';
 import { detailsAvailable } from '@/lib/itemDetails';
-import { fieldsForPreset, uiOf } from '@/lib/presetFields';
+import { FIELD_CATALOGUE, fieldsForPreset } from '@/lib/presetFields';
 
 interface NewListSheetProps {
   open: boolean;
@@ -32,6 +32,20 @@ interface NewListSheetProps {
 }
 
 const newId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(16)}-0000-4000-8000-000000000000`;
+
+type Track = 'show_location' | 'show_price' | 'show_rating' | 'show_photos' | 'show_notes';
+const TRACKS: Track[] = ['show_location', 'show_price', 'show_rating', 'show_photos', 'show_notes'];
+/** The field an item detail replaces categories with (Coffee Beans: Roast instead of roast categories). */
+const REPLACING_FIELD = 'c_roast';
+
+/** What's selected on the create step. Starts as the preset's defaults. */
+interface Picks { statuses: string[]; categories: string[]; fields: string[]; tracks: Record<Track, boolean> }
+const defaultsOf = (p: ListPresetDef): Picks => ({
+  statuses: [...p.statuses],
+  categories: p.categories.map((c) => c.name),
+  fields: fieldsForPreset(p.key).map((f) => f.key),
+  tracks: Object.fromEntries(TRACKS.map((t) => [t, p.config[t]])) as Record<Track, boolean>,
+});
 
 function uniqueName(base: string, taken: string[]): string {
   const lower = new Set(taken.map((t) => t.trim().toLowerCase()));
@@ -55,6 +69,7 @@ export function NewListSheet({ open, onOpenChange, existingNames, onBlankList, o
   const [showMore, setShowMore] = useState(false);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [picks, setPicks] = useState<Picks | null>(null);
   // One id per attempt at creating this list, kept across retries so a lost answer can't make two.
   const attemptId = useRef(newId());
   // Keeps the sheet (and its Create button) above the keyboard when the name field is tapped.
@@ -70,6 +85,7 @@ export function NewListSheet({ open, onOpenChange, existingNames, onBlankList, o
   const choose = (p: ListPresetDef) => {
     attemptId.current = newId();
     setPreset(p);
+    setPicks(defaultsOf(p));
     setFailed(false);
     setName(uniqueName(p.suggestedName, existingNames));
   };
@@ -79,13 +95,35 @@ export function NewListSheet({ open, onOpenChange, existingNames, onBlankList, o
     return { private: v === 'private', label: visibilityChip(v, identity.isPrivate).label };
   }, [preset, identity.isPrivate]);
 
+  // Coffee Beans with item details: its roast categories are replaced by the Roast field and not offered.
+  const categoriesReplaced = !!preset?.fieldsReplaceCategories && withDetails;
+  const selection = (p: ListPresetDef, k: Picks): PresetSelection => {
+    const fieldKeys = withDetails ? k.fields : [];
+    return {
+      statuses: k.statuses,
+      categories: categoriesReplaced ? [] : k.categories,
+      // Only if the fields can't be saved, and only while Roast is selected, fall back to roast categories.
+      categoriesIfNoFields: categoriesReplaced ? (fieldKeys.includes(REPLACING_FIELD) ? p.categories.map((c) => c.name) : []) : undefined,
+      fieldKeys,
+      tracks: k.tracks,
+    };
+  };
+  const toggle = (part: 'statuses' | 'categories' | 'fields', value: string) => setPicks((k) => {
+    if (!k) return k;
+    const list = k[part];
+    return { ...k, [part]: list.includes(value) ? list.filter((v) => v !== value) : [...list, value] };
+  });
+  const toggleTrack = (t: Track) => setPicks((k) => (k ? { ...k, tracks: { ...k.tracks, [t]: !k.tracks[t] } } : k));
+  const noStatus = !!picks && picks.statuses.length === 0;
+
   const create = async () => {
-    if (!user || !preset || saving) return;
-    if (!name.trim()) return;
+    if (!user || !preset || !picks || saving) return;
+    if (!name.trim() || noStatus) return;
     if (blockedByContentFilter(name)) return;
     setSaving(true);
     setFailed(false);
-    const result = await createListFromPreset(user.id, preset, name, { id: attemptId.current });
+    const sel = selection(preset, picks);
+    const result = await createListFromPreset(user.id, preset, name, { id: attemptId.current, selection: sel });
     setSaving(false);
     if (result.status === 'error') {
       setFailed(true);
@@ -100,7 +138,9 @@ export function NewListSheet({ open, onOpenChange, existingNames, onBlankList, o
       const listId = result.id;
       const retry = async () => {
         // The list fell back to its plain categories (e.g. Coffee Beans roasts); keep them the only roast control.
-        const again = await savePresetFields(user.id, listId, preset, result.categoriesMissing ? [] : preset.categories.map((c) => c.name));
+        // Only the fields that were kept selected. If the list fell back to its roast categories, Roast is added
+        // hidden so they stay the only roast control.
+        const again = await savePresetFields(user.id, listId, preset, result.categoryNames, sel.fieldKeys);
         if (again === 'saved') {
           toast.success(`${preset.label} details added to ${listName}`);
           void queryClient.invalidateQueries({ queryKey: ['custom_list_fields', listId] });
@@ -108,7 +148,8 @@ export function NewListSheet({ open, onOpenChange, existingNames, onBlankList, o
           toast.error(`Still couldn’t add them. Try later from Customize › Fields › Add ${preset.label} details.`);
         }
       };
-      toast.warning(`${listName} created, but its item details (like ${fieldsForPreset(preset.key)[0]?.label ?? 'extra fields'}) didn’t save.`, {
+      const firstField = fieldsForPreset(preset.key).find((f) => sel.fieldKeys?.includes(f.key))?.label ?? 'extra fields';
+      toast.warning(`${listName} created, but its item details (like ${firstField}) didn’t save.`, {
         description: `Try again now, or later from Customize › Fields.${result.categoriesMissing ? ' Its categories didn’t save either; add them from Customize.' : ''}`,
         action: { label: 'Try again', onClick: () => void retry() },
         duration: 20000,
@@ -177,7 +218,10 @@ export function NewListSheet({ open, onOpenChange, existingNames, onBlankList, o
                 <SheetDescription className="line-clamp-2 text-sm">{preset.hint}</SheetDescription>
               </div>
             </div>
-            <PresetDetails preset={preset} audience={audience} withDetails={withDetails} />
+            {picks && (
+              <PresetDetails preset={preset} audience={audience} withDetails={withDetails} categoriesReplaced={categoriesReplaced}
+                picks={picks} onToggle={toggle} onToggleTrack={toggleTrack} disabled={saving} />
+            )}
             <label htmlFor="new-list-name" className="mt-4 block text-sm font-medium text-muted-foreground">List name</label>
             <Input
               id="new-list-name"
@@ -193,7 +237,7 @@ export function NewListSheet({ open, onOpenChange, existingNames, onBlankList, o
                 Couldn’t create the list. Check your connection and tap Create again — it won’t be made twice.
               </p>
             )}
-            <Button type="submit" className="mt-4 h-12 w-full rounded-xl text-base font-semibold" disabled={saving || !name.trim()}>
+            <Button type="submit" className="mt-4 h-12 w-full rounded-xl text-base font-semibold" disabled={saving || !name.trim() || noStatus}>
               {saving ? <><Spinner className="mr-2 h-4 w-4 animate-spin" />Creating…</> : failed ? 'Try again' : 'Create list'}
             </Button>
           </form>
@@ -223,16 +267,35 @@ function PresetTile({ preset, onClick, compact }: { preset: ListPresetDef; onCli
   );
 }
 
-/** What the chosen preset sets up, shown right under its name so it stays in view above the keyboard. */
-function PresetDetails({ preset, audience, withDetails }: { preset: ListPresetDef; audience: { private: boolean; label: string }; withDetails: boolean }) {
-  const details = withDetails ? fieldsForPreset(preset.key).filter((f) => uiOf(f).tier === 'main' && !uiOf(f).forCategories) : [];
-  const showCategories = preset.categories.length > 0 && !(withDetails && preset.fieldsReplaceCategories);
+/**
+ * What the chosen preset sets up, shown right under its name so it stays in view above the keyboard. Every
+ * chip is a toggle, starting from the preset's defaults; only what stays selected is created.
+ */
+function PresetDetails({ preset, audience, withDetails, categoriesReplaced, picks, onToggle, onToggleTrack, disabled }: {
+  preset: ListPresetDef; audience: { private: boolean; label: string }; withDetails: boolean; categoriesReplaced: boolean;
+  picks: Picks; onToggle: (part: 'statuses' | 'categories' | 'fields', value: string) => void; onToggleTrack: (t: Track) => void; disabled: boolean;
+}) {
+  const fields = withDetails ? fieldsForPreset(preset.key) : [];
+  const showCategories = preset.categories.length > 0 && !categoriesReplaced;
   return (
     <div className="mt-3 space-y-2 rounded-2xl bg-muted/50 p-3 text-sm" data-testid="preset-details">
-      <DetailRow label="Statuses" items={preset.statuses.map((s) => ({ name: s }))} />
-      {showCategories && <DetailRow label="Categories" items={preset.categories} />}
-      {details.length > 0 && <DetailRow label="Details" items={details.map((f) => ({ name: f.label }))} />}
-      <DetailRow label="Tracks" items={trackedFields(preset).map((name) => ({ name }))} />
+      <ChipRow label="Statuses" disabled={disabled}
+        items={preset.statuses.map((s) => ({ key: s, name: s, on: picks.statuses.includes(s) }))} onToggle={(k) => onToggle('statuses', k)} />
+      {picks.statuses.length === 0 && (
+        <p role="alert" className="pl-[5.5rem] text-xs font-medium text-destructive">Keep at least one status: every item needs one.</p>
+      )}
+      {showCategories && (
+        <ChipRow label="Categories" disabled={disabled}
+          items={preset.categories.map((c) => ({ key: c.name, name: c.name, icon: c.icon, on: picks.categories.includes(c.name) }))}
+          onToggle={(k) => onToggle('categories', k)} />
+      )}
+      {fields.length > 0 && (
+        <ChipRow label="Details" disabled={disabled}
+          items={fields.map((f) => ({ key: f.key, name: FIELD_CATALOGUE[f.key]?.chipLabel ?? f.label, on: picks.fields.includes(f.key) }))}
+          onToggle={(k) => onToggle('fields', k)} />
+      )}
+      <ChipRow label="Tracks" disabled={disabled}
+        items={TRACKS.map((t) => ({ key: t, name: trackLabel(preset, t), on: picks.tracks[t] }))} onToggle={(k) => onToggleTrack(k as Track)} />
       <p className="flex items-start gap-2 text-muted-foreground">
         {audience.private ? <Lock className="mt-0.5 h-4 w-4 shrink-0" /> : <Users className="mt-0.5 h-4 w-4 shrink-0" />}
         <span>
@@ -245,27 +308,35 @@ function PresetDetails({ preset, audience, withDetails }: { preset: ListPresetDe
   );
 }
 
-function trackedFields({ config: c }: ListPresetDef): string[] {
-  return [
-    c.show_location && 'Location',
-    c.show_price && 'Price',
-    c.show_rating && ({ stars_5: 'Stars', scale_10: 'Rating 1–10', manual: 'Rating' } as const)[c.rating_mode],
-    c.show_photos && 'Photos',
-    c.show_notes && 'Notes',
-  ].filter((f): f is string => Boolean(f));
+function trackLabel({ config: c }: ListPresetDef, t: Track): string {
+  if (t === 'show_rating') return ({ stars_5: 'Stars', scale_10: 'Rating 1–10', manual: 'Rating' } as const)[c.rating_mode];
+  return ({ show_location: 'Location', show_price: 'Price', show_photos: 'Photos', show_notes: 'Notes' } as const)[t];
 }
 
-function DetailRow({ label, items }: { label: string; items: { name: string; icon?: string }[] }) {
+/** A row of toggle chips: selected ones in the primary colour (like Create list), the rest white. */
+function ChipRow({ label, items, onToggle, disabled }: {
+  label: string; items: { key: string; name: string; icon?: string; on: boolean }[]; onToggle: (key: string) => void; disabled: boolean;
+}) {
   return (
     <div className="flex items-start gap-2">
-      <span className="w-20 shrink-0 pt-0.5 text-xs font-medium text-muted-foreground">{label}</span>
-      <ul className="flex min-w-0 flex-wrap gap-1.5" aria-label={label}>
+      <span className="w-20 shrink-0 pt-1.5 text-xs font-medium text-muted-foreground">{label}</span>
+      <div className="flex min-w-0 flex-wrap gap-1.5" role="group" aria-label={label}>
         {items.map((i) => (
-          <li key={i.name} className="rounded-full border bg-background px-2 py-0.5 text-xs">
+          <button
+            key={i.key}
+            type="button"
+            aria-pressed={i.on}
+            disabled={disabled}
+            onClick={() => onToggle(i.key)}
+            className={cn(
+              'min-h-[30px] rounded-full border px-2.5 py-1 text-xs transition-colors active-press disabled:opacity-60',
+              i.on ? 'border-primary bg-primary font-medium text-primary-foreground' : 'border-border bg-background text-foreground',
+            )}
+          >
             {i.icon ? `${i.icon} ` : ''}{i.name}
-          </li>
+          </button>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }

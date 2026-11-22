@@ -35,6 +35,8 @@ export const SCENES = [
   { name: 'new-list-more', path: '/my-lists', steps: all(tap('New list'), tap('More presets')), fullPage: false },
   { name: 'new-list-drinks', path: '/my-lists', steps: all(tap('New list'), tap('Drinks')) },
   { name: 'new-list-travel', path: '/my-lists', steps: all(tap('New list'), tap('Travel')) },
+  { name: 'new-list-coffee', path: '/my-lists', steps: all(tap('New list'), tap('Coffee Beans')) },
+  { name: 'new-list-coffee-toggled', path: '/my-lists', steps: all(tap('New list'), tap('Coffee Beans'), tap('Roast'), tap('Best for'), tap('Photos')) },
   { name: 'created-drinks', path: '/my-lists', steps: all(tap('New list'), tap('Drinks'), tap('Create list')), settle: 1500 },
   { name: 'home', path: '/' },
   { name: 'lists', path: '/my-lists' },

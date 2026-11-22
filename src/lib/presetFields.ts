@@ -31,6 +31,8 @@ export interface FieldUi {
   unit?: string;
   /** Drinks: only shown when the item has one of these categories (matched by name, case-insensitively). */
   forCategories?: string[];
+  /** A clearer name where the label alone repeats another field's (the New list sheet's Details chips). */
+  chipLabel?: string;
 }
 
 type CatalogueEntry = Omit<FieldDef, 'hidden'> & FieldUi;
@@ -58,10 +60,10 @@ export const FIELD_CATALOGUE: Record<string, CatalogueEntry> = {
   c_roast_date: { key: 'c_roast_date', label: 'Roast date', type: 'date', tier: 'more' },
 
   // Wine (Wines preset, and Drinks items in a "Wine" category). Colour and style are separate.
-  c_wine_color: { key: 'c_wine_color', label: 'Colour', type: 'choice', options: WINE_COLORS, tier: 'main', forCategories: WINE },
+  c_wine_color: { key: 'c_wine_color', label: 'Colour', type: 'choice', options: WINE_COLORS, tier: 'main', forCategories: WINE, chipLabel: 'Wine colour' },
   c_producer: { key: 'c_producer', label: 'Producer', type: 'text', tier: 'main', placeholder: 'Winery or producer', forCategories: WINE },
   c_vintage: { key: 'c_vintage', label: 'Vintage', type: 'number', tier: 'main', ...YEAR, placeholder: 'e.g. 2019', forCategories: WINE },
-  c_wine_style: { key: 'c_wine_style', label: 'Style', type: 'choice', options: WINE_STYLES, tier: 'more', forCategories: WINE },
+  c_wine_style: { key: 'c_wine_style', label: 'Style', type: 'choice', options: WINE_STYLES, tier: 'more', forCategories: WINE, chipLabel: 'Wine style' },
   c_wine_name: { key: 'c_wine_name', label: 'Wine name', type: 'text', tier: 'more', placeholder: 'Name on the label', forCategories: WINE },
   c_vineyard: { key: 'c_vineyard', label: 'Vineyard', type: 'text', tier: 'more', forCategories: WINE },
   c_grapes: { key: 'c_grapes', label: 'Grapes', type: 'tags', tier: 'more', suggestions: ['Cabernet Sauvignon', 'Merlot', 'Pinot Noir', 'Syrah', 'Chardonnay', 'Sauvignon Blanc', 'Riesling'], forCategories: WINE },
@@ -69,10 +71,10 @@ export const FIELD_CATALOGUE: Record<string, CatalogueEntry> = {
 
   // Beer (Beers preset, and Drinks items in a "Beer" category)
   c_brewery: { key: 'c_brewery', label: 'Brewery', type: 'text', tier: 'main', forCategories: BEER },
-  c_beer_style: { key: 'c_beer_style', label: 'Style', type: 'choice', options: BEER_STYLES, tier: 'main', forCategories: BEER },
+  c_beer_style: { key: 'c_beer_style', label: 'Style', type: 'choice', options: BEER_STYLES, tier: 'main', forCategories: BEER, chipLabel: 'Beer style' },
   c_abv: { key: 'c_abv', label: 'ABV', type: 'number', tier: 'more', min: 0, max: 100, unit: '%' },
   c_ibu: { key: 'c_ibu', label: 'IBU', type: 'number', tier: 'more', integer: true, min: 0, max: 200, forCategories: BEER },
-  c_beer_taste: { key: 'c_beer_taste', label: 'Taste', type: 'tags', tier: 'more', suggestions: BEER_TASTES, forCategories: BEER },
+  c_beer_taste: { key: 'c_beer_taste', label: 'Taste', type: 'tags', tier: 'more', suggestions: BEER_TASTES, forCategories: BEER, chipLabel: 'Beer taste' },
 
   // Movies and shows
   c_year: { key: 'c_year', label: 'Year', type: 'number', tier: 'main', ...YEAR },
@@ -123,7 +125,7 @@ export const FIELD_CATALOGUE: Record<string, CatalogueEntry> = {
   c_base_spirit: { key: 'c_base_spirit', label: 'Base spirit', type: 'choice', options: ['Gin', 'Vodka', 'Rum', 'Tequila', 'Whisky', 'Brandy', 'Other'], tier: 'main', forCategories: ['cocktail', 'cocktails'] },
   c_ingredients: { key: 'c_ingredients', label: 'Ingredients', type: 'tags', tier: 'more', forCategories: ['cocktail', 'cocktails'] },
   c_distillery: { key: 'c_distillery', label: 'Distillery', type: 'text', tier: 'main', forCategories: ['spirit', 'spirits'] },
-  c_spirit_kind: { key: 'c_spirit_kind', label: 'Kind', type: 'choice', options: ['Whisky', 'Gin', 'Rum', 'Tequila', 'Mezcal', 'Brandy', 'Liqueur', 'Other'], tier: 'main', forCategories: ['spirit', 'spirits'] },
+  c_spirit_kind: { key: 'c_spirit_kind', label: 'Kind', type: 'choice', options: ['Whisky', 'Gin', 'Rum', 'Tequila', 'Mezcal', 'Brandy', 'Liqueur', 'Other'], tier: 'main', forCategories: ['spirit', 'spirits'], chipLabel: 'Spirit kind' },
 };
 
 /** Which fields each preset gets, in form order. */
