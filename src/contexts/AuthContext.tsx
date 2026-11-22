@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentDeviceToken } from '@/components/shared/PushNotificationManager';
+import { clearSocialAuthLeftovers } from '@/lib/socialAuth/socialAuth';
 
 interface AuthContextType {
   user: User | null;
@@ -74,6 +75,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await supabase.from('device_tokens').delete().eq('token', token);
     }
     await supabase.auth.signOut();
+    // Anything a half-finished Apple/Google sign-in left in this tab.
+    clearSocialAuthLeftovers();
   };
 
   return (

@@ -12,8 +12,11 @@ import { PushNotificationManager } from "@/components/shared/PushNotificationMan
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { PersistentTabs } from "@/components/layout/PersistentTabs";
 import { AccountBoundary } from "@/components/layout/AccountBoundary";
+import { AccountSetupProvider, useAccountSetup } from "@/contexts/AccountSetupContext";
+import { AccountSetupGate } from "@/components/auth/AccountSetupGate";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import AuthCallback from "./pages/AuthCallback";
 import Search from "./pages/Search";
 import PublicProfile from "./pages/PublicProfile";
 import PublicListDetail from "./pages/PublicListDetail";
@@ -67,6 +70,9 @@ function AnimatedRoutes() {
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/auth" element={<Auth />} />
+        {/* Finishes a website Sign in with Apple / Continue with Google
+            (see public/auth-callback.html and lib/socialAuth). */}
+        <Route path="/auth/callback" element={<AuthCallback />} />
         {/* Dashboard.tsx was an earlier, less complete version of this
             same page (no edit-after-mark-visited flow, no duplicate
             check, no type ordering, etc.) that MyList.tsx has since
@@ -128,6 +134,11 @@ function AnimatedRoutes() {
  */
 function ReferralClaimer() {
   const { user } = useAuth();
+  // A new Apple/Google account claims only once it has finished setup, so
+  // an account that's abandoned at setup (or removed there because the
+  // person meant to use an existing one) never uses up the invite.
+  const { status: setupStatus } = useAccountSetup();
+  const setupComplete = setupStatus === 'complete';
   // Set only when the server confirmed the referral - so "X invited you"
   // always names the real inviter.
   const [inviter, setInviter] = useState<ReferrerInfo | null>(null);
@@ -135,7 +146,7 @@ function ReferralClaimer() {
   useEffect(() => {
     // A welcome meant for one account must not linger into the next.
     setInviter(null);
-    if (!user) return;
+    if (!user || !setupComplete) return;
     if (!readPendingReferral()) return;
     void claimPendingReferral().then((result) => {
       if (result.claimed && result.referrer) setInviter(result.referrer);
@@ -143,7 +154,7 @@ function ReferralClaimer() {
     // Keyed on the account id, not the user object: the object is replaced
     // on every token refresh, which would otherwise close the welcome.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, setupComplete]);
 
   return inviter ? <InvitedByDialog inviter={inviter} onClose={() => setInviter(null)} /> : null;
 }
@@ -177,6 +188,7 @@ const App = () => {
   return (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
+      <AccountSetupProvider>
       <NativeLaunchGate />
       <ReferralClaimer />
       <PushNotificationManager />
@@ -189,6 +201,9 @@ const App = () => {
           {/* Drops cached data and remounts everything below when the
               signed-in account changes - see AccountBoundary.tsx. */}
           <AccountBoundary>
+            {/* New Apple/Google accounts pick a username and accept the
+                Terms here before anything else - see AccountSetupGate. */}
+            <AccountSetupGate>
             <BottomTabBar />
             {/* Renders the four bottom-tab pages itself, kept mounted across
                 switches instead of the normal Route mount/unmount cycle below
@@ -197,9 +212,11 @@ const App = () => {
                 falling through to the catch-all NotFound. */}
             <PersistentTabs />
             <AnimatedRoutes />
+            </AccountSetupGate>
           </AccountBoundary>
         </BrowserRouter>
       </TooltipProvider>
+      </AccountSetupProvider>
     </AuthProvider>
   </QueryClientProvider>
   );
