@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="robots" content="noindex" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Signing in… | Afiyeat</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #F7F5F3; color: #3b3a39;
+        font-family: -apple-system, BlinkMacSystemFont, "Poppins", system-ui, sans-serif; }
+      main { min-height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; padding: 24px; box-sizing: border-box; }
+      a { color: #c2410c; }
+    </style>
+    <script>
+      // Where Apple and Google send a website sign-in back to.
+      //
+      // This page deliberately does NOT load the app. It parks the
+      // redirect's parameters (a one-time code, or an error) in this tab's
+      // sessionStorage and replaces itself with /auth/callback, where the
+      // app finishes the sign-in. That keeps the code out of browser
+      // history and out of reach of the main sign-in client's own URL
+      // detection, which would sign a signed-in person out on an error
+      // (for example when they cancel connecting an account).
+      (function () {
+        try {
+          sessionStorage.setItem(
+            'afiyeat-signin-callback',
+            JSON.stringify({ search: location.search, hash: location.hash, at: Date.now() })
+          );
+        } catch (e) {
+          /* storage blocked: /auth/callback explains and offers a retry */
+        }
+        location.replace('/auth/callback');
+      })();
+    </script>
+  </head>
+  <body>
+    <main>
+      <p>Signing you in… <a href="/auth/callback">Continue</a></p>
+    </main>
+  </body>
+</html>

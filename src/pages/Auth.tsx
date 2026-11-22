@@ -28,6 +28,9 @@ import { Seo } from '@/components/Seo';
 import { postAuthDestination } from '@/lib/passport';
 import { Spinner } from '@/components/ui/spinner';
 import { errorMessage } from '@/lib/utils';
+import { SocialSignInButtons } from '@/components/auth/SocialSignInButtons';
+import { useSocialProviders } from '@/lib/socialAuth/providers';
+import { signInWithProvider } from '@/lib/socialAuth/socialAuth';
 
 const signInSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -78,6 +81,11 @@ export default function Auth() {
   );
   const [showOTPVerification, setShowOTPVerification] = useState(false);
   const [pendingSignUp, setPendingSignUp] = useState<PendingSignUp | null>(null);
+  // Sign in with Apple / Continue with Google. Only providers switched on
+  // in the backend are listed, so this is empty until they're set up.
+  // Success needs no handling here: the user effect below moves on, and a
+  // brand-new account is sent through AccountSetupGate first.
+  const socialProviders = useSocialProviders();
 
   useEffect(() => {
     if (user) {
@@ -480,7 +488,13 @@ export default function Auth() {
                 )
               ) : (
               <Form {...signInForm}>
-                <form onSubmit={signInForm.handleSubmit(handleSignIn)} className="space-y-4">
+                <SocialSignInButtons
+                  mode="signin"
+                  providers={socialProviders}
+                  onSignIn={signInWithProvider}
+                  disabled={loading}
+                />
+                <form onSubmit={signInForm.handleSubmit(handleSignIn)} className={socialProviders.length ? 'space-y-4 mt-4' : 'space-y-4'}>
                   <FormField
                     control={signInForm.control}
                     name="email"
@@ -528,7 +542,13 @@ export default function Auth() {
 
             <TabsContent value="signup" className="mt-6">
               <Form {...signUpForm}>
-                <form onSubmit={signUpForm.handleSubmit(handleSignUpSubmit)} className="space-y-4">
+                <SocialSignInButtons
+                  mode="signup"
+                  providers={socialProviders}
+                  onSignIn={signInWithProvider}
+                  disabled={loading}
+                />
+                <form onSubmit={signUpForm.handleSubmit(handleSignUpSubmit)} className={socialProviders.length ? 'space-y-4 mt-4' : 'space-y-4'}>
                   <FormField
                     control={signUpForm.control}
                     name="username"

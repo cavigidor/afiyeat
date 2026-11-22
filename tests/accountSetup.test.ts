@@ -1,0 +1,93 @@
+import { describe, expect, it } from 'vitest';
+import {
+  canDiscardNewAccount,
+  createdWithSocialProvider,
+  isMissingBackend,
+  setupNeeds,
+  suggestDisplayName,
+  suggestUsername,
+  validateUsername,
+} from '@/lib/accountSetup';
+
+const emailUser = { app_metadata: { provider: 'email', providers: ['email'] }, user_metadata: { username: 'old' } };
+const linkedEmailUser = { app_metadata: { provider: 'email', providers: ['email', 'google'] }, user_metadata: {} };
+const newGoogle = {
+  app_metadata: { provider: 'google', providers: ['google'] },
+  user_metadata: { full_name: 'Ada Lovelace', name: 'Ada Lovelace' },
+  email: 'ada.lovelace@gmail.com',
+  identities: [{ provider: 'google' }],
+};
+const newApple = {
+  app_metadata: { provider: 'apple', providers: ['apple'] },
+  user_metadata: {},
+  email: 'x7q2m9@privaterelay.appleid.com',
+  identities: [{ provider: 'apple' }],
+};
+
+describe('who goes through setup', () => {
+  it('never email accounts, even with no username or a linked Google', () => {
+    expect(createdWithSocialProvider(emailUser)).toBe(false);
+    expect(setupNeeds(emailUser, { username: null, acceptedTerms: false })).toBeNull();
+    expect(setupNeeds(linkedEmailUser, { username: null, acceptedTerms: false })).toBeNull();
+  });
+
+  it('new Apple/Google accounts until they have a username and a server-recorded acceptance', () => {
+    expect(setupNeeds(newGoogle, { username: null, acceptedTerms: false })).toEqual({ username: true, terms: true });
+    expect(setupNeeds(newApple, null)).toEqual({ username: true, terms: true });
+    expect(setupNeeds(newGoogle, { username: 'ada', acceptedTerms: false })).toEqual({ username: false, terms: true });
+    expect(setupNeeds(newGoogle, { username: '  ', acceptedTerms: true })).toEqual({ username: true, terms: false });
+    expect(setupNeeds(newGoogle, { username: 'ada', acceptedTerms: true })).toBeNull();
+  });
+
+  it('ignores acceptance claimed in the account\'s own editable metadata', () => {
+    const claimed = { ...newGoogle, user_metadata: { ...newGoogle.user_metadata, terms_accepted_at: '2026-11-22T00:00:00Z' } };
+    expect(setupNeeds(claimed, { username: 'ada', acceptedTerms: false })).toEqual({ username: false, terms: true });
+  });
+
+  it('nobody when signed out', () => {
+    expect(setupNeeds(null, null)).toBeNull();
+  });
+
+  it('recognises a backend that is not set up yet', () => {
+    expect(isMissingBackend({ code: 'PGRST205', message: "Could not find the table 'public.terms_acceptances'" })).toBe(true);
+    expect(isMissingBackend({ code: 'PGRST202', message: 'Could not find the function public.complete_account_setup' })).toBe(true);
+    expect(isMissingBackend({ code: '42501', message: 'permission denied' })).toBe(false);
+    expect(isMissingBackend(null)).toBe(false);
+  });
+});
+
+describe('username', () => {
+  it('uses the same limits as sign-up', () => {
+    expect(validateUsername('ab')).toMatch(/at least 3/);
+    expect(validateUsername('a'.repeat(21))).toMatch(/20/);
+    expect(validateUsername('  ada  ')).toBeNull();
+  });
+
+  it('suggests from a real email, never from Hide My Email', () => {
+    expect(suggestUsername(newGoogle)).toBe('adalovelace');
+    expect(suggestUsername(newApple)).toBe('');
+    expect(suggestUsername({ ...newApple, user_metadata: { full_name: 'José Núñez' } })).toBe('josenunez');
+  });
+
+  it('suggests a display name from the provider name, or the name Apple shared on this device', () => {
+    expect(suggestDisplayName(newGoogle)).toBe('Ada Lovelace');
+    expect(suggestDisplayName(newApple)).toBe('');
+    expect(suggestDisplayName(newApple, ' Grace Hopper ')).toBe('Grace Hopper');
+  });
+});
+
+describe('removing a mistaken new account', () => {
+  it('is offered only for a fresh Apple/Google account without a username', () => {
+    expect(canDiscardNewAccount(newApple, { username: true, terms: true })).toBe(true);
+    expect(canDiscardNewAccount(newApple, { username: false, terms: true })).toBe(false);
+    expect(canDiscardNewAccount(newApple, null)).toBe(false);
+    expect(canDiscardNewAccount(emailUser as never, { username: true, terms: true })).toBe(false);
+  });
+
+  it('never for an account that also has an email sign-in', () => {
+    const mixed = { ...newGoogle, app_metadata: { provider: 'google', providers: ['google', 'email'] } };
+    expect(canDiscardNewAccount(mixed, { username: true, terms: true })).toBe(false);
+    const withEmailIdentity = { ...newGoogle, identities: [{ provider: 'google' }, { provider: 'email' }] };
+    expect(canDiscardNewAccount(withEmailIdentity as never, { username: true, terms: true })).toBe(false);
+  });
+});
