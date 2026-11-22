@@ -6,7 +6,7 @@ isolated local lab only.
 
 | File | What | Status |
 | --- | --- | --- |
-| `lists_v2_owner_fields.sql` | Preset item fields: `custom_list_owner_settings` (a list's field definitions) and `custom_list_item_owner_values` (an item's values). Owner-only RLS, type checks, counted field delete, owner export. The two-table part of PR #24, without brews, layout or Schema A. | Revised 2026-11-21 (table grants before row-level security; one transaction) after Lovable refused the first file. Awaiting PM approval for production. Not applied anywhere hosted. |
+| `lists_v2_owner_fields.sql` | Preset item fields: `custom_list_owner_settings` (a list's field definitions) and `custom_list_item_owner_values` (an item's values). Owner-only RLS, type checks, counted field delete, owner export. The two-table part of PR #24, without brews, layout or Schema A. | Third candidate, 2026-11-21: table grants before row-level security; no transaction statements (Lovable's Drizzle runner supplies the transaction). Lovable refused the first two files before running them. Awaiting PM approval for production. Not applied anywhere hosted. |
 | `lists_v2_owner_fields_precheck.sql` / `_postcheck.sql` | Read-only checks before and after applying (the postcheck includes an exact-text digest). | — |
 | `lists_v2_owner_fields_park.sql` / `_unpark.sql` | Recovery that keeps every saved detail: move both tables out of the app's reach and back. | — |
 | `lists_v2_owner_fields_rollback.sql` | Full removal. Refuses while saved details exist unless a backup is confirmed. | — |

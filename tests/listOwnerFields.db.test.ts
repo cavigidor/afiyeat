@@ -39,6 +39,9 @@ const BEANS_FIELDS = [
 const SECRET = 'Tide Roasters (private)';
 
 let db: PGlite;
+// How Lovable's migration tool runs the file (drizzle-orm's migrator): begin, the whole file as one query,
+// commit; any error rolls the whole run back. scripts/lab/owner-fields-drizzle.mjs checks the real runner.
+const applyLikeRunner = (d: PGlite, sql: string) => d.transaction(async (tx) => { await tx.exec(sql); });
 const q = async <T = Record<string, unknown>>(sql: string, p: unknown[] = []) => (await db.query<T>(sql, p)).rows;
 async function as<T>(uid: string | null, fn: () => Promise<T>): Promise<T> {
   if (uid) await db.exec(`SET ROLE authenticated; SELECT set_config('request.jwt.claim.sub', '${uid}', false); SELECT set_config('request.jwt.claim.role', 'authenticated', false);`);
@@ -93,7 +96,7 @@ beforeAll(async () => {
   [I_HALO, L_BEANS, OWNER, I_PERU, I_RIOJA, L_WINES, I_ANON, L_ANON, I_THEIRS, L_THEIRS, STRANGER]);
   before = { shape: await shape(), policies: await policies(), functions: await functions() };
   precheck = await q(PRECHECK);
-  await db.exec(SQL);
+  await applyLikeRunner(db, SQL);
   postcheck = await q(POSTCHECK);
 }, 120_000);
 
@@ -109,10 +112,9 @@ describe('the production plan\'s read-only checks', () => {
     for (const c of postcheck) expect(c.ok, c.check_name).toBe(true);
   });
   it('the exact-text check catches a copy whose line breaks were changed in transit', async () => {
-    // Its own database: the file commits its own transaction, so it can't be tried and rolled back here.
     const other = await replayMigrations();
     try {
-      await other.exec(SQL.replace(/\n/g, '\n\n'));
+      await applyLikeRunner(other, SQL.replace(/\n/g, '\n\n'));
       const r = (await other.query<{ check_name: string; ok: boolean }>(POSTCHECK)).rows;
       expect(r.find((c) => c.check_name.startsWith('applied exactly'))?.ok).toBe(false);
     } finally { await other.close(); }
@@ -133,7 +135,7 @@ function statements(sql: string) {
   return out;
 }
 
-describe('one transaction (revised file, 2026-11-21)', () => {
+describe('one transaction, supplied by the runner (third candidate, 2026-11-21)', () => {
   const NEW_FUNCTIONS = `SELECT p.oid::regprocedure::text AS f FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace
     AND (p.proname LIKE 'lv2\\_%' OR p.proname IN ('count_custom_list_field_values', 'delete_custom_list_field', 'export_my_list_owner_data'))`;
   const leftovers = async (d: PGlite) => ({
@@ -143,11 +145,12 @@ describe('one transaction (revised file, 2026-11-21)', () => {
     triggers: (await d.query(`SELECT tgname FROM pg_trigger WHERE tgname IN ('lv2_check_owner_values', 'lv2_guard_field_removal')`)).rows,
   });
   const nothing = { tables: [], functions: [], policies: [], triggers: [] };
+  const code = (x: string) => x.split('\n').filter((l) => l.trim() && !l.startsWith('--')).join('\n');
 
-  it('opens with BEGIN and ends with COMMIT, with grants after the tables and before row-level security', () => {
-    const s = statements(SQL).map((x) => x.split('\n').filter((l) => l.trim() && !l.startsWith('--')).join('\n')).filter(Boolean);
-    expect(s[0]).toBe('BEGIN;');
-    expect(s[s.length - 1]).toBe('COMMIT;');
+  it('has no transaction-control statements, and the grants follow the tables and precede row-level security', () => {
+    const s = statements(SQL).map(code).filter(Boolean);
+    expect(s.filter((x) => /^(BEGIN|COMMIT|ROLLBACK|START TRANSACTION|END|SAVEPOINT|RELEASE)\b[^;]*;$/i.test(x))).toEqual([]);
+    expect(s).toHaveLength(35);
     const at = (p: string) => s.findIndex((x) => x.startsWith(p));
     const lastTable = Math.max(...s.map((x, i) => (/^CREATE (TABLE|INDEX)/.test(x) ? i : -1)));
     expect(at('REVOKE ALL ON public.custom_list_owner_settings')).toBe(lastTable + 1);
@@ -157,29 +160,21 @@ describe('one transaction (revised file, 2026-11-21)', () => {
     expect(SQL).not.toMatch(/Do not paste into Lovable|NOT a migration/);
   });
 
-  it('a failure after any statement leaves nothing behind, and the prechecks still pass', async () => {
+  it('a failure after any statement (right after the table grants included) leaves nothing behind', async () => {
     const fresh = await replayMigrations();
     try {
-      const before = await leftovers(fresh);
-      expect(before).toEqual(nothing);
+      expect(await leftovers(fresh)).toEqual(nothing);
       const parts = statements(SQL);
-      const commit = parts.findIndex((p) => /^COMMIT;$/m.test(p));
-      let tried = 0;
-      // Fail after BEGIN, after each statement, and just before COMMIT.
-      for (let cut = 1; cut <= commit; cut++) {
+      const body = parts.filter((p) => code(p)).length;
+      expect(body).toBe(35);
+      for (let cut = 1; cut <= body; cut++) {
         const broken = [...parts.slice(0, cut), 'SELECT 1/0; -- injected failure', ...parts.slice(cut)].join('\n');
-        let err: unknown = null;
-        try { await fresh.exec(broken); } catch (e) { err = e; }
-        expect(err, `failure injected after statement ${cut}`).toBeTruthy();
-        await fresh.exec('ROLLBACK'); // what the session does on error (or on disconnect)
+        await refused(applyLikeRunner(fresh, broken), /division by zero/);
         expect(await leftovers(fresh), `after statement ${cut}`).toEqual(nothing);
-        tried++;
       }
-      expect(tried).toBeGreaterThanOrEqual(36);
       const pre = (await fresh.query<{ ok: boolean }>(PRECHECK)).rows;
       expect(pre.map((c) => c.ok)).toEqual([true, true, true, true, true, true]);
-      // ...and the real file still applies cleanly afterwards.
-      await fresh.exec(SQL);
+      await applyLikeRunner(fresh, SQL); // and the real file still applies cleanly afterwards
       for (const c of (await fresh.query<{ check_name: string; ok: boolean }>(POSTCHECK)).rows) expect(c.ok, c.check_name).toBe(true);
     } finally { await fresh.close(); }
   }, 120_000);
@@ -190,24 +185,28 @@ describe('one transaction (revised file, 2026-11-21)', () => {
       // The privileges block names a role that does not exist: it fails after both tables were created.
       const broken = SQL.replace('TO authenticated;\n-- Not added to supabase_realtime', 'TO no_such_role;\n-- Not added to supabase_realtime');
       expect(broken).not.toBe(SQL);
-      await refused(fresh.exec(broken), /no_such_role/);
-      await fresh.exec('ROLLBACK');
+      await refused(applyLikeRunner(fresh, broken), /no_such_role/);
       expect(await leftovers(fresh)).toEqual(nothing);
     } finally { await fresh.close(); }
   }, 60_000);
 
-  it('also applies when the tool runs it inside its own transaction', async () => {
+  it('control: with a COMMIT embedded after the grants, a later failure does leave objects behind', async () => {
     const fresh = await replayMigrations();
     try {
-      await fresh.exec(`BEGIN;\n${SQL}\nCOMMIT;`); // the inner BEGIN only warns; the file's COMMIT ends it
-      for (const c of (await fresh.query<{ check_name: string; ok: boolean }>(POSTCHECK)).rows) expect(c.ok, c.check_name).toBe(true);
+      const parts = statements(SQL);
+      const grants = parts.findIndex((p) => p.includes('GRANT SELECT, INSERT, UPDATE, DELETE ON public.custom_list_owner_settings'));
+      const broken = [...parts.slice(0, grants + 1), 'COMMIT;', 'SELECT 1/0;', ...parts.slice(grants + 1)].join('\n');
+      await refused(fresh.exec(`BEGIN; ${broken}`));
+      await fresh.exec('ROLLBACK').catch(() => {});
+      expect((await leftovers(fresh)).tables.length).toBe(2); // why the runner refuses transaction statements
     } finally { await fresh.close(); }
   }, 60_000);
 });
 
+
 describe('applying it', () => {
   it('creates the two tables and nothing for brews or layout, and can run a second time', async () => {
-    await db.exec(SQL);
+    await applyLikeRunner(db, SQL);
     for (const t of NEW_TABLES) expect((await q<{ r: string }>(`SELECT to_regclass($1)::text AS r`, [`public.${t}`]))[0].r).toBe(t);
     expect((await q<{ r: string | null }>(`SELECT to_regclass('public.custom_list_item_brews')::text AS r`))[0].r).toBeNull();
     const cols = await q<{ column_name: string }>(`SELECT column_name FROM information_schema.columns WHERE table_name = 'custom_list_owner_settings'`);

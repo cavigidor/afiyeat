@@ -1,0 +1,10 @@
+{
+  "name": "owner-fields-drizzle-lab",
+  "private": true,
+  "description": "Lab only: the Drizzle versions the app's lockfile pins (main), used to apply a migration the way Lovable's migration tool does.",
+  "dependencies": {
+    "drizzle-kit": "0.31.11",
+    "drizzle-orm": "0.45.3",
+    "postgres": "3.4.9"
+  }
+}

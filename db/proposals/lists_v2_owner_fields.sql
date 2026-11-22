@@ -1,6 +1,6 @@
 -- =====================================================================
 -- Afiyeat Lists V2 - PRESET ITEM FIELDS (owner-only) - PRODUCTION MIGRATION
--- Status: revised file awaiting PM approval for production (2026-11-21).
+-- Status: third candidate awaiting PM approval for production (2026-11-21).
 -- Not applied anywhere hosted. Apply only with the PM's approval of this
 -- exact file, following docs/release/lists-v2/FIELDS_MIGRATION_PLAN.md.
 --
@@ -24,14 +24,17 @@
 -- nothing, and no existing function (discovery, previews, anonymous view)
 -- reads these tables.
 --
--- One transaction (BEGIN ... COMMIT): if any statement fails, nothing is
--- kept, and no other session sees the tables before row-level security
--- and their policies are in place. Table grants come right after the
--- tables, before row-level security (Lovable's migration rule, 2026-11-21).
+-- One transaction, supplied by the runner: Lovable's migration tool
+-- (Drizzle) runs the whole file inside its own transaction and refuses
+-- transaction-control statements, so the file has none. If any statement
+-- fails, nothing is kept, and no other session sees the tables before
+-- row-level security and their policies are in place. Run it only through
+-- such a runner (or psql --single-transaction), never statement by statement.
+-- Table grants come right after the tables, before row-level security
+-- (Lovable's migration rule, 2026-11-21).
 --
 -- Safe to run twice. Rollback: lists_v2_owner_fields_rollback.sql.
 -- =====================================================================
-BEGIN;
 
 -- ---------------------------------------------------------------------
 -- 1. Validation helpers (pure)
@@ -280,5 +283,3 @@ REVOKE ALL ON FUNCTION public.export_my_list_owner_data() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.count_custom_list_field_values(uuid, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.delete_custom_list_field(uuid, text, integer) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.export_my_list_owner_data() TO authenticated;
-
-COMMIT;

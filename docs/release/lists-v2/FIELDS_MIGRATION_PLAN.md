@@ -1,13 +1,20 @@
 # Item details: production migration plan (two tables)
 
-**Status: revised file (2026-11-21) awaiting PM approval. Nothing here has been run in production.**
+**Status: third candidate (2026-11-21) awaiting PM approval. Nothing here has been run in production.**
 
-**Revision 2026-11-21.** The first file (md5 `6bda118f34585ccfd449228fa1523b6d`) is withdrawn. On 2026-11-22 02:43 UTC Lovable refused to apply it, before running anything: its migration rules want table grants before row-level security and policies. Prechecks and the fingerprint afterwards confirmed nothing was created. The revised file differs only in this:
+**Revisions, 2026-11-21.** Two earlier files are withdrawn. Lovable refused both before running anything; prechecks and the fingerprint afterwards confirmed nothing was created either time.
+
+| File | md5 | Lovable's refusal (UTC) |
+|---|---|---|
+| First (`9506839`) | `6bda118f34585ccfd449228fa1523b6d` | 2026-11-22 02:43: table grants must come before row-level security and policies |
+| Second (`7e0c2a1`) | `c55705346baa874ce5161e7c04c35585` | 2026-11-22 03:27: the migration tool prohibits explicit `BEGIN`/`COMMIT` |
+
+The third candidate differs from the first only in this:
 - the table `REVOKE`/`GRANT` pair moved to right after the two tables, before row-level security and the policies;
-- the whole file runs in one transaction (`BEGIN;` … `COMMIT;`), so a failure leaves nothing behind and no other session sees the tables before row-level security is on;
+- no transaction statements: Lovable's migration tool supplies the transaction (section 2a);
 - the header says what the file is now.
 
-Every table definition, function body, policy expression and permission is unchanged: the same 35 statements, in the same order apart from the two moved grants. The postcheck's exact-text digest is still `4816778c` (verified on PGlite and on Postgres 16, not assumed).
+Every table definition, function body, policy expression and permission is unchanged: the same 35 statements, in the same order apart from the two moved grants. The postcheck's exact-text digest is still `4816778c` (verified on PGlite and, through Drizzle's own runner, on Postgres 16; not assumed).
 
 **What it adds:**
 - `custom_list_owner_settings`: one row per list, holding that list's field definitions.
@@ -17,11 +24,11 @@ Every table definition, function body, policy expression and permission is uncha
 It changes no existing table, column, policy, function, grant, bucket, Edge Function or Realtime setting.
 
 The SQL is [`db/proposals/lists_v2_owner_fields.sql`](../../../db/proposals/lists_v2_owner_fields.sql), at the commit this plan ships with:
-- 15,490 bytes, 284 lines (ends with one line break)
-- md5 `c55705346baa874ce5161e7c04c35585`
-- the text pasted (the file without its last line break): 15,489 characters, sha256 `8393b833d08e37c49d019a1ddcb0abc7b50dc3c33a0e505f723be133602c1814`
+- 15,738 bytes, 285 lines (ends with one line break)
+- md5 `6a743fdaa98c94b1f11006665f74363f`
+- the text pasted (the file without its last line break): 15,737 characters, sha256 `9d4fde3c558f15c96fbd710a7a61b5444ff94c2b1e383fec034b127f21a53cb4`
 - no backticks, `${`, tabs or non-ASCII characters; three backslashes (in the date pattern `^\d{4}-\d{2}-\d{2}$`)
-- starts with `BEGIN;` (line 35, after the header) and ends with `COMMIT;`
+- no `BEGIN`, `COMMIT`, `ROLLBACK` or other transaction statements (the words appear only inside function bodies, as PL/pgSQL `BEGIN … END`, and in the header's mention of the rollback file)
 
 ## 0. Order
 
@@ -46,7 +53,7 @@ If any of these fails, stop. Nothing has been changed yet.
 - **Mode:** Lovable Build mode, with the standing wording: "Apply this SQL exactly as written, byte for byte… stop and show me the exact error."
 - **Wording:** "Apply this SQL exactly as written, byte for byte, as a database migration. Do not edit, reformat, split, reorder, add to, or "improve" any statement, and do not change any app code. If any statement fails, stop and show me the exact error instead of substituting your own version." Then one blank line, then the file.
 - **Paste method:** type it line by line with Shift+Enter between lines (a plain paste doubles every line break). This replaces the old paste-check number, whose method wasn't written down.
-- **Check before sending (reproducible):** run this in the browser console on the Lovable page. It must print `15489 8393b833d08e37c49d019a1ddcb0abc7b50dc3c33a0e505f723be133602c1814`. Anything else: clear the box and type it again; don't send.
+- **Check before sending (reproducible):** run this in the browser console on the Lovable page. It must print `15737 9d4fde3c558f15c96fbd710a7a61b5444ff94c2b1e383fec034b127f21a53cb4`. Anything else: clear the box and type it again; don't send.
   ```js
   (async () => { const el = document.querySelector('div.ProseMirror[contenteditable="true"][aria-label="Ask Lovable..."]').cloneNode(true);
     el.querySelectorAll('br.ProseMirror-trailingBreak').forEach((b) => b.remove()); el.querySelectorAll('br').forEach((b) => b.replaceWith('\n'));
@@ -54,8 +61,18 @@ If any of these fails, stop. Nothing has been changed yet.
     const h = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sql)))].map((b) => b.toString(16).padStart(2, '0')).join('');
     console.log(sql.length, h); })();
   ```
-  The same method matched exactly on 2026-11-22 for three read-only queries and for the first file (15,041 characters).
-- **One transaction.** The file opens its own transaction and commits it at the end. If Lovable reports any error, nothing was kept. Stop and report it. Don't retry or alter it, and don't use the SQL editor, "Resolve migration ordering" or "Fix all" instead.
+  The same method matched exactly on 2026-11-22 for the read-only queries and for both earlier files (15,041 and 15,489 characters).
+- **If Lovable refuses or reports any error,** stop and report it. Nothing was kept (section 2a), but check with the precheck and fingerprint. Don't retry or alter it, and don't use the SQL editor, "Resolve migration ordering", "Apply migration unchanged" or "Fix all" instead.
+- **Pending migrations:** Lovable applies every pending migration in the same run. Before applying, ask it (Chat mode, read-only) whether any other migration is pending; if one is, stop.
+
+### 2a. Where the one-transaction guarantee comes from
+
+- **Lovable's documentation** ([Database](https://docs.lovable.dev/features/database), read 2026-11-21): Lovable applies migrations with Drizzle; if one statement fails it discards every change from that run and applies nothing; migration SQL must not contain `BEGIN`, `COMMIT` or `ROLLBACK`. It also warns that the older `supabase/migrations/` setup behaves differently, and that its SQL editor does not guarantee one transaction.
+- **This project is on the Drizzle setup.** On `main`, `drizzle.config.ts` points drizzle-kit at `LOVABLE_DB_MIGRATION_URL`, and Lovable committed the five Lists V2 migrations of 2026-11-20 as `drizzle/migrations/0006`–`0010` with journal entries. The production backup of 2026-11-22 includes the `drizzle` schema.
+- **Lovable's own answer** (Chat mode, 2026-11-22 03:39 UTC): the tool is `lov_database--migration`; it writes the file and journal entry and applies pending migrations through drizzle-kit in one transaction; it doesn't split statements into separately committed batches; it refuses `BEGIN`/`COMMIT` because it already wraps the run.
+- **The runner's code.** `main` pins drizzle-kit 0.31.11, drizzle-orm 0.45.3 and the `postgres` driver 3.4.9 (no `pg`). With those, `drizzle-kit migrate` uses drizzle-orm's postgres-js migrator, which runs `begin`, then each migration file as one query (Lovable's files have no statement breakpoints), then the journal insert, then `commit`; any error rolls back.
+- **Checked on a real server** with exactly those versions (`scripts/lab/owner-fields-drizzle.mjs`, section 6). The server log shows that sequence.
+- **Not verifiable from here:** Lovable's hosted runner itself. The guarantee rests on its documentation, its answer and the pinned versions matching what it runs.
 
 ## 3. After (read-only)
 
@@ -111,11 +128,17 @@ These run on top of the existing 13-point checklist.
 
 ## 6. Tested so far (local only)
 
-- **In-process Postgres with every repository migration replayed:** 30 database tests (2026-11-21, revised file).
+- **In-process Postgres with every repository migration replayed:** 30 database tests (2026-11-21, third candidate), applying the file the way the runner does (one transaction around the whole file).
   - Prechecks and postchecks, including that the exact-text check catches doubled line breaks.
-  - One transaction: `BEGIN` first, `COMMIT` last, grants right after the tables and before row-level security; a failure injected after each of the 36 statements leaves no table, function, policy or trigger behind, and the prechecks pass again; a real error (an unknown role in the grant) rolls back too; it also applies when the tool wraps it in its own transaction.
+  - No transaction statements; grants right after the tables and before row-level security. A failure injected after each of the 35 statements leaves no table, function, policy or trigger behind, and the prechecks pass again. A real error (an unknown role in the grant) rolls back too. Control: a `COMMIT` embedded after the grants does leave the tables behind.
   - Owner save and reopen, empty fields, unchanged items, validation, hidden values kept, counted delete, export.
   - Follower, stranger and signed-out privacy; discovery and previews never include values.
   - Park and unpark keep every row; the full rollback refuses while rows exist.
-- **Two sessions on a throwaway Postgres 16 server** (`scripts/lab/owner-fields-visibility.sh`, 2026-11-21): while the file runs, paused after the table grants and again before `COMMIT`, a second session sees neither table, as anon or signed in. A run that fails after the grants leaves nothing behind. Successful runs pass all nine postchecks, digest included. Without `BEGIN`/`COMMIT` the same script fails: a signed-in session could read the empty table before row-level security was on.
+- **Drizzle's own runner on a throwaway Postgres 16 server** (`scripts/lab/owner-fields-drizzle.mjs`, 2026-11-21), with drizzle-kit 0.31.11, drizzle-orm 0.45.3 and `postgres` 3.4.9, a journal like Lovable's, and `drizzle-kit migrate`:
+  - The server log shows: `begin`, the whole file as one query, the journal insert, `commit`.
+  - Paused right after the table grants, and again after the last statement, a second session sees neither table (anon or signed in) and no journal row.
+  - A failure injected after each of the 35 statements: 35/35 rolled back, leaving no table, function, policy, trigger or journal row. The same right after the grants, watched from a second session.
+  - Successful runs pass all nine postchecks, digest `4816778c` included; anon is refused.
+  - Control: a `COMMIT` embedded after the grants, then a failure, leaves 9 objects behind, so the check can tell.
+  - It replaces `owner-fields-visibility.sh`, which used `psql` rather than the real runner.
 - **Lab end-to-end:** the real app against a local copy of the lab data, 26/26, on the first file. That includes park and unpark while the app is running. Not rerun for the revision: no definition changed.
