@@ -38,6 +38,8 @@ The existing deletion steps (auth user, then the rows the cascade can't reach, t
 - Client ids and website redirect URIs are allow-listed in the function's secrets.
 - Tokens and the key are never logged or returned.
 
+**Capabilities probe.** A request with the header `x-afiyeat-probe: capabilities` returns `{capabilities: [...]}` without a session and touches nothing. The previous function answers that request (sent with the publishable key) with 401 without deleting anything, so the app never sends a discard request to a function that would ignore the safeguard.
+
 **b. `mode: "discard_new_account"`** (the setup screen's "Already have an Afiyeat account?")
 
 - Refuses unless `public.social_account_discard_check` (part 2) says the account is a brand-new, untouched Apple/Google account. It is checked before any Apple call **and again immediately before deleting**.
@@ -105,7 +107,7 @@ Deliberately not in `supabase/migrations`. Files: `social_sign_in_account_safety
   - Readiness probe.
   - Discard check: allowed for a fresh Apple or Google account; refused for each reason above, including follows, referrals, recipes and storage files.
   - Rollback guard.
-- **Node:** 25/25 tests for `apple.ts` and `handler.ts`, with a real ES256 key generated in the test and a fake Apple.
+- **Node:** 26/26 tests for `apple.ts` and `handler.ts`, with a real ES256 key generated in the test and a fake Apple.
   - Revoke-before-delete order.
   - Nothing deleted on any Apple failure.
   - Delete-anyway path.
