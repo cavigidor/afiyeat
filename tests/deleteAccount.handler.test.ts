@@ -83,6 +83,21 @@ beforeEach(() => {
   appleFetch.mockClear();
 });
 
+describe('capabilities probe', () => {
+  it('answers without a session and touches nothing', async () => {
+    const handler = createDeleteAccountHandler({
+      createAnonClient: () => { throw new Error('must not authenticate'); },
+      createAdminClient: () => { throw new Error('must not use admin'); },
+      appleConfig: null,
+      fetch: appleFetch,
+    });
+    const res = await handler(new Request('https://x/functions/v1/delete-account', { method: 'POST', headers: { 'x-afiyeat-probe': 'capabilities' } }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ capabilities: ['apple_revocation', 'discard_new_account'] });
+    expect(events).toEqual([]);
+  });
+});
+
 describe('accounts without Apple (unchanged behaviour)', () => {
   it('the original call with no body still deletes, then cleans up rows and files', async () => {
     const res = await call(undefined);

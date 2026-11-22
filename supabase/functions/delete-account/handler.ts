@@ -25,8 +25,18 @@ import { revokeAppleAuthorization, validateReauth, type AppleConfig } from './ap
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+    'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-afiyeat-probe',
 };
+
+/**
+ * What this version supports. The app asks first (header x-afiyeat-probe: capabilities,
+ * sent with the publishable key instead of a user session) before any call that relies on
+ * the new behaviour. The previous version of this function answers that request with 401
+ * "Invalid authorization" WITHOUT deleting anything (the publishable key isn't a user), so
+ * an app that ships before this function is deployed never sends a discard request to a
+ * function that would ignore the safeguard and delete.
+ */
+export const CAPABILITIES = ['apple_revocation', 'discard_new_account'] as const;
 
 // supabase-js clients, typed structurally so this file needs no supabase-js import.
 // Kept loose on purpose: the fakes in tests/deleteAccount.handler.test.ts implement only the
@@ -129,6 +139,10 @@ export function createDeleteAccountHandler(deps: DeleteAccountDeps) {
   return async (req: Request): Promise<Response> => {
     if (req.method === 'OPTIONS') {
       return new Response(null, { headers: corsHeaders });
+    }
+
+    if (req.headers.get('x-afiyeat-probe') === 'capabilities') {
+      return json(200, { capabilities: CAPABILITIES });
     }
 
     try {
