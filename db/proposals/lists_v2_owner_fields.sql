@@ -1,7 +1,8 @@
 -- =====================================================================
--- Afiyeat Lists V2 - PRESET ITEM FIELDS (owner-only) - FOR ISOLATED TESTING
--- Status: approved by the PM for isolated/local testing only (2026-11-20).
--- NOT a migration. NOT applied to production. Do not paste into Lovable.
+-- Afiyeat Lists V2 - PRESET ITEM FIELDS (owner-only) - PRODUCTION MIGRATION
+-- Status: revised file awaiting PM approval for production (2026-11-21).
+-- Not applied anywhere hosted. Apply only with the PM's approval of this
+-- exact file, following docs/release/lists-v2/FIELDS_MIGRATION_PLAN.md.
 --
 -- The two-table part of PR #24 (LV2-DB-1), trimmed to what preset item
 -- fields need:
@@ -23,8 +24,14 @@
 -- nothing, and no existing function (discovery, previews, anonymous view)
 -- reads these tables.
 --
+-- One transaction (BEGIN ... COMMIT): if any statement fails, nothing is
+-- kept, and no other session sees the tables before row-level security
+-- and their policies are in place. Table grants come right after the
+-- tables, before row-level security (Lovable's migration rule, 2026-11-21).
+--
 -- Safe to run twice. Rollback: lists_v2_owner_fields_rollback.sql.
 -- =====================================================================
+BEGIN;
 
 -- ---------------------------------------------------------------------
 -- 1. Validation helpers (pure)
@@ -136,6 +143,11 @@ CREATE TABLE IF NOT EXISTS public.custom_list_item_owner_values (
 );
 CREATE INDEX IF NOT EXISTS custom_list_item_owner_values_list_idx ON public.custom_list_item_owner_values (list_id);
 
+-- Table privileges (before row-level security; see the header).
+REVOKE ALL ON public.custom_list_owner_settings, public.custom_list_item_owner_values FROM PUBLIC, anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.custom_list_owner_settings, public.custom_list_item_owner_values TO authenticated;
+-- Not added to supabase_realtime: nothing broadcasts these rows.
+
 -- ---------------------------------------------------------------------
 -- 3. Integrity triggers
 -- ---------------------------------------------------------------------
@@ -215,10 +227,6 @@ CREATE POLICY "Owner manages item values" ON public.custom_list_item_owner_value
   USING (user_id = auth.uid() AND public.lv2_owns_list(list_id))
   WITH CHECK (user_id = auth.uid() AND public.lv2_owns_list(list_id));
 
-REVOKE ALL ON public.custom_list_owner_settings, public.custom_list_item_owner_values FROM PUBLIC, anon;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.custom_list_owner_settings, public.custom_list_item_owner_values TO authenticated;
--- Not added to supabase_realtime: nothing broadcasts these rows.
-
 -- ---------------------------------------------------------------------
 -- 5. Functions (invoker rights: they can do nothing the caller's own
 --    row-level security does not already allow)
@@ -272,3 +280,5 @@ REVOKE ALL ON FUNCTION public.export_my_list_owner_data() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.count_custom_list_field_values(uuid, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.delete_custom_list_field(uuid, text, integer) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.export_my_list_owner_data() TO authenticated;
+
+COMMIT;

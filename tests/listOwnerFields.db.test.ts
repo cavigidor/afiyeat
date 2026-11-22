@@ -109,14 +109,100 @@ describe('the production plan\'s read-only checks', () => {
     for (const c of postcheck) expect(c.ok, c.check_name).toBe(true);
   });
   it('the exact-text check catches a copy whose line breaks were changed in transit', async () => {
-    const t = await db.transaction(async (tx) => {
-      await tx.exec(SQL.replace(/\n/g, '\n\n'));
-      const r = (await tx.query<{ check_name: string; ok: boolean }>(POSTCHECK)).rows;
-      await tx.rollback();
-      return r;
-    });
-    expect(t.find((c) => c.check_name.startsWith('applied exactly'))?.ok).toBe(false);
+    // Its own database: the file commits its own transaction, so it can't be tried and rolled back here.
+    const other = await replayMigrations();
+    try {
+      await other.exec(SQL.replace(/\n/g, '\n\n'));
+      const r = (await other.query<{ check_name: string; ok: boolean }>(POSTCHECK)).rows;
+      expect(r.find((c) => c.check_name.startsWith('applied exactly'))?.ok).toBe(false);
+    } finally { await other.close(); }
+  }, 60_000);
+});
+
+// Top-level statements of the file, split where a line ends a statement outside a $$ body.
+function statements(sql: string) {
+  const out: string[] = [];
+  let cur: string[] = [];
+  let inBody = false;
+  for (const line of sql.split('\n')) {
+    cur.push(line);
+    if ((line.match(/\$\$/g) ?? []).length % 2 === 1) inBody = !inBody;
+    if (!inBody && !line.startsWith('--') && line.trimEnd().endsWith(';')) { out.push(cur.join('\n')); cur = []; }
+  }
+  out.push(cur.join('\n'));
+  return out;
+}
+
+describe('one transaction (revised file, 2026-11-21)', () => {
+  const NEW_FUNCTIONS = `SELECT p.oid::regprocedure::text AS f FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace
+    AND (p.proname LIKE 'lv2\\_%' OR p.proname IN ('count_custom_list_field_values', 'delete_custom_list_field', 'export_my_list_owner_data'))`;
+  const leftovers = async (d: PGlite) => ({
+    tables: (await d.query(`SELECT c.relname FROM pg_class c WHERE c.relnamespace = 'public'::regnamespace AND c.relname = ANY($1)`, [NEW_TABLES])).rows,
+    functions: (await d.query(NEW_FUNCTIONS)).rows,
+    policies: (await d.query(`SELECT policyname FROM pg_policies WHERE tablename = ANY($1)`, [NEW_TABLES])).rows,
+    triggers: (await d.query(`SELECT tgname FROM pg_trigger WHERE tgname IN ('lv2_check_owner_values', 'lv2_guard_field_removal')`)).rows,
   });
+  const nothing = { tables: [], functions: [], policies: [], triggers: [] };
+
+  it('opens with BEGIN and ends with COMMIT, with grants after the tables and before row-level security', () => {
+    const s = statements(SQL).map((x) => x.split('\n').filter((l) => l.trim() && !l.startsWith('--')).join('\n')).filter(Boolean);
+    expect(s[0]).toBe('BEGIN;');
+    expect(s[s.length - 1]).toBe('COMMIT;');
+    const at = (p: string) => s.findIndex((x) => x.startsWith(p));
+    const lastTable = Math.max(...s.map((x, i) => (/^CREATE (TABLE|INDEX)/.test(x) ? i : -1)));
+    expect(at('REVOKE ALL ON public.custom_list_owner_settings')).toBe(lastTable + 1);
+    expect(at('GRANT SELECT, INSERT, UPDATE, DELETE ON public.custom_list_owner_settings')).toBe(lastTable + 2);
+    expect(at('GRANT SELECT, INSERT, UPDATE, DELETE')).toBeLessThan(at('ALTER TABLE'));
+    expect(at('GRANT SELECT, INSERT, UPDATE, DELETE')).toBeLessThan(at('CREATE POLICY'));
+    expect(SQL).not.toMatch(/Do not paste into Lovable|NOT a migration/);
+  });
+
+  it('a failure after any statement leaves nothing behind, and the prechecks still pass', async () => {
+    const fresh = await replayMigrations();
+    try {
+      const before = await leftovers(fresh);
+      expect(before).toEqual(nothing);
+      const parts = statements(SQL);
+      const commit = parts.findIndex((p) => /^COMMIT;$/m.test(p));
+      let tried = 0;
+      // Fail after BEGIN, after each statement, and just before COMMIT.
+      for (let cut = 1; cut <= commit; cut++) {
+        const broken = [...parts.slice(0, cut), 'SELECT 1/0; -- injected failure', ...parts.slice(cut)].join('\n');
+        let err: unknown = null;
+        try { await fresh.exec(broken); } catch (e) { err = e; }
+        expect(err, `failure injected after statement ${cut}`).toBeTruthy();
+        await fresh.exec('ROLLBACK'); // what the session does on error (or on disconnect)
+        expect(await leftovers(fresh), `after statement ${cut}`).toEqual(nothing);
+        tried++;
+      }
+      expect(tried).toBeGreaterThanOrEqual(36);
+      const pre = (await fresh.query<{ ok: boolean }>(PRECHECK)).rows;
+      expect(pre.map((c) => c.ok)).toEqual([true, true, true, true, true, true]);
+      // ...and the real file still applies cleanly afterwards.
+      await fresh.exec(SQL);
+      for (const c of (await fresh.query<{ check_name: string; ok: boolean }>(POSTCHECK)).rows) expect(c.ok, c.check_name).toBe(true);
+    } finally { await fresh.close(); }
+  }, 120_000);
+
+  it('a real statement error (not an injected one) also rolls back everything before it', async () => {
+    const fresh = await replayMigrations();
+    try {
+      // The privileges block names a role that does not exist: it fails after both tables were created.
+      const broken = SQL.replace('TO authenticated;\n-- Not added to supabase_realtime', 'TO no_such_role;\n-- Not added to supabase_realtime');
+      expect(broken).not.toBe(SQL);
+      await refused(fresh.exec(broken), /no_such_role/);
+      await fresh.exec('ROLLBACK');
+      expect(await leftovers(fresh)).toEqual(nothing);
+    } finally { await fresh.close(); }
+  }, 60_000);
+
+  it('also applies when the tool runs it inside its own transaction', async () => {
+    const fresh = await replayMigrations();
+    try {
+      await fresh.exec(`BEGIN;\n${SQL}\nCOMMIT;`); // the inner BEGIN only warns; the file's COMMIT ends it
+      for (const c of (await fresh.query<{ check_name: string; ok: boolean }>(POSTCHECK)).rows) expect(c.ok, c.check_name).toBe(true);
+    } finally { await fresh.close(); }
+  }, 60_000);
 });
 
 describe('applying it', () => {
