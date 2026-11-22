@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "13.0.5"
   }
   public: {
     Tables: {
@@ -205,6 +205,7 @@ export type Database = {
           reporter_id: string
           reviewed_at: string | null
           status: string
+          via_anonymous: boolean
         }
         Insert: {
           alerted_at?: string | null
@@ -219,6 +220,7 @@ export type Database = {
           reporter_id: string
           reviewed_at?: string | null
           status?: string
+          via_anonymous?: boolean
         }
         Update: {
           alerted_at?: string | null
@@ -233,6 +235,7 @@ export type Database = {
           reporter_id?: string
           reviewed_at?: string | null
           status?: string
+          via_anonymous?: boolean
         }
         Relationships: []
       }
@@ -264,6 +267,45 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "custom_list_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_list_item_owner_values: {
+        Row: {
+          item_id: string
+          list_id: string
+          updated_at: string
+          user_id: string
+          values: Json
+        }
+        Insert: {
+          item_id: string
+          list_id: string
+          updated_at?: string
+          user_id: string
+          values?: Json
+        }
+        Update: {
+          item_id?: string
+          list_id?: string
+          updated_at?: string
+          user_id?: string
+          values?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_list_item_owner_values_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: true
+            referencedRelation: "custom_list_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_list_item_owner_values_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "custom_lists"
             referencedColumns: ["id"]
           },
         ]
@@ -359,6 +401,35 @@ export type Database = {
           },
         ]
       }
+      custom_list_owner_settings: {
+        Row: {
+          fields: Json
+          list_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          fields?: Json
+          list_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          fields?: Json
+          list_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_list_owner_settings_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: true
+            referencedRelation: "custom_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       custom_list_statuses: {
         Row: {
           created_at: string
@@ -439,6 +510,7 @@ export type Database = {
         Row: {
           color: string
           created_at: string
+          discovery_token: string
           icon: string
           id: string
           name: string
@@ -454,10 +526,12 @@ export type Database = {
           status_todo_label: string
           updated_at: string
           user_id: string
+          visibility: string
         }
         Insert: {
           color?: string
           created_at?: string
+          discovery_token?: string
           icon?: string
           id?: string
           name: string
@@ -473,10 +547,12 @@ export type Database = {
           status_todo_label?: string
           updated_at?: string
           user_id: string
+          visibility?: string
         }
         Update: {
           color?: string
           created_at?: string
+          discovery_token?: string
           icon?: string
           id?: string
           name?: string
@@ -492,6 +568,7 @@ export type Database = {
           status_todo_label?: string
           updated_at?: string
           user_id?: string
+          visibility?: string
         }
         Relationships: []
       }
@@ -1328,6 +1405,10 @@ export type Database = {
         }[]
       }
       auth_user_id_by_email: { Args: { p_email: string }; Returns: string }
+      can_view_custom_list: {
+        Args: { p_author?: string; p_list_id: string }
+        Returns: boolean
+      }
       can_view_profile: { Args: { profile_user_id: string }; Returns: boolean }
       claim_device_token: {
         Args: { p_platform: string; p_token: string }
@@ -1342,12 +1423,47 @@ export type Database = {
         }
         Returns: Json
       }
+      count_custom_list_field_values: {
+        Args: { p_key: string; p_list_id: string }
+        Returns: number
+      }
+      custom_list_anonymous_view: { Args: { p_list_id: string }; Returns: Json }
+      delete_custom_list_field: {
+        Args: { p_expected_count: number; p_key: string; p_list_id: string }
+        Returns: number
+      }
+      export_my_list_owner_data: { Args: never; Returns: Json }
       generate_referral_code: { Args: never; Returns: string }
-      get_explore_lists: {
+      get_discoverable_list: { Args: { p_token: string }; Returns: Json }
+      get_discovery_places: {
         Args: { p_mode?: string }
+        Returns: {
+          address: string
+          apple_place_id: string
+          avg_rating: number
+          category: string
+          contributor_count: number
+          latitude: number
+          longitude: number
+          name: string
+          place_id: string
+          price_level: number
+          rating_count: number
+          saved_count: number
+          type_names: string[]
+        }[]
+      }
+      get_explore_lists: {
+        Args: {
+          p_limit?: number
+          p_mode?: string
+          p_offset?: number
+          p_query?: string
+        }
         Returns: {
           avatar_color: string
           avatar_emoji: string
+          discovery_token: string
           display_name: string
           is_anonymous: boolean
           item_count: number
@@ -1374,6 +1490,7 @@ export type Database = {
           rating_count: number
         }[]
       }
+      get_list_discovery_preview: { Args: { p_list_id: string }; Returns: Json }
       get_passport_summary: { Args: never; Returns: Json }
       get_place_comments: {
         Args: { p_mode?: string; p_place_id: string }
@@ -1418,6 +1535,13 @@ export type Database = {
         Args: { _list_id: string; _user_id: string }
         Returns: boolean
       }
+      lv2_date_ok: { Args: { t: string }; Returns: boolean }
+      lv2_field_key_ok: { Args: { k: string }; Returns: boolean }
+      lv2_fields_ok: { Args: { f: Json }; Returns: boolean }
+      lv2_options_ok: { Args: { o: Json }; Returns: boolean }
+      lv2_owns_list: { Args: { p_list_id: string }; Returns: boolean }
+      lv2_value_fits: { Args: { def: Json; val: Json }; Returns: boolean }
+      lv2_values_ok: { Args: { v: Json }; Returns: boolean }
       moderation_content_owner: {
         Args: { p_id: string; p_type: string }
         Returns: string
@@ -1467,6 +1591,10 @@ export type Database = {
         }[]
       }
       purge_expired_place_cache: { Args: never; Returns: undefined }
+      report_discoverable_list: {
+        Args: { p_description?: string; p_reason: string; p_token: string }
+        Returns: string
+      }
       seed_default_folders: { Args: { p_user_id: string }; Returns: undefined }
       send_daily_prompt: { Args: never; Returns: undefined }
       send_good_morning_treat: { Args: never; Returns: undefined }
