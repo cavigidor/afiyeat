@@ -1,0 +1,59 @@
+# Minimal CI (proposal). Checks only: no deployment, no secrets, no Supabase or Lovable access, read-only token.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: App - typecheck, lint, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test --if-present
+      - run: npm run build
+
+  e0:
+    name: E0 - schema, detection and local Postgres suites (only where e0/ exists)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0              # the suites read origin/main and origin/stack/* from git
+          persist-credentials: false
+      - id: has
+        run: echo "e0=$([ -f e0/package.json ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
+      - if: steps.has.outputs.e0 == 'yes'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: e0/package-lock.json
+      - if: steps.has.outputs.e0 == 'yes'
+        working-directory: e0
+        run: |
+          npm ci
+          npm test
+          npm run test:baseline
+          npm run test:concurrency     # starts a socket-only Postgres from the runner's preinstalled binaries
+          npm run test:rehearsal
