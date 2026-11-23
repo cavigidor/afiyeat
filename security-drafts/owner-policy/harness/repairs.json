@@ -1,0 +1,12 @@
+{
+  "_about": "Files on main that do not replay on an empty database, and the mechanical rewrites applied to them when building an isolated backend. Every other file is applied exactly as committed. Rules: R1 CREATE TABLE -> IF NOT EXISTS; R2 CREATE [UNIQUE] INDEX -> IF NOT EXISTS; R3 CREATE POLICY is preceded by DROP POLICY IF EXISTS (same name, same table); R4 ADD COLUMN -> IF NOT EXISTS; R5 CREATE TRIGGER is preceded by DROP TRIGGER IF EXISTS; R6:<fn> every overload of public.<fn> is dropped before the file recreates it (return type changed).",
+  "20260714024532_0be312c4-98d2-48a2-b00a-479f474c141f.sql": ["R1", "R2", "R3", "R5"],
+  "20260717021922_fix_get_explore_places_numeric_types.sql": ["R6:get_explore_places"],
+  "20260730160211_183509f4-c790-48ce-b85d-12b0ca0bb1f4.sql": ["R3"],
+  "20260730220000_explore_include_no_place_id_and_hide_private_names.sql": ["R6:get_explore_places", "R6:get_place_comments"],
+  "20260910013333_3ed68ec5-637e-4fbc-8aef-63a8704a6639.sql": ["R1", "R2", "R3", "R4"],
+  "20260921012415_81126387-eca4-41d7-8c45-3730f3654ece.sql": ["R1", "R2", "R3", "R5"],
+  "20260921012441_c9e1fc3f-43f7-431e-a2bd-a03a7d2485dd.sql": ["R2", "R3", "R4"],
+  "20260921012558_24d687b6-efa7-47db-a2db-dad68ea0aef8.sql": ["R1", "R2", "R3", "R5"],
+  "20260921012701_a5e5d79b-2835-49ba-b144-66af6f71417a.sql": ["R1", "R2", "R3", "R4", "R5"]
+}
