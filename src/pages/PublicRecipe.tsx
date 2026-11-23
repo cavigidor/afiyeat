@@ -12,6 +12,7 @@ import { ShareButton } from '@/components/sharing/ShareButton';
 import { JoinAfiyeatCta, OwnerByline, SharedNotAvailable } from '@/components/sharing/SharedContentBits';
 import { useSignedImageUrl } from '@/hooks/useSignedImageUrl';
 import { SITE_URL } from '@/lib/site';
+import { RECIPES_PATH } from '@/lib/navigation';
 import { fetchRecipePreview, isUuid, ownerName, type RecipePreview } from '@/lib/sharedPreview';
 
 function toStringArray(value: unknown): string[] {
@@ -144,7 +145,7 @@ export default function PublicRecipe() {
                         displayName={ownerName(recipe.owner)}
                         contentType="recipe"
                         contentId={recipe.id}
-                        onBlocked={() => navigate('/foodie', { replace: true })}
+                        onBlocked={() => navigate(RECIPES_PATH, { replace: true })}
                       />
                     )}
                   </div>

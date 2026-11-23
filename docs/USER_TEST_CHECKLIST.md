@@ -41,14 +41,25 @@ Run this on the **TestFlight build** (see RELEASE_CHECKLIST.md §D), as a user w
 - [ ] Shared list with B: add a place, and B sees it. B adds a comment, and A sees it.
 
 ## 6. Recipes
-- [ ] Foodie → Add Recipe by typing: it saves.
+- [ ] Explore → Food → **Recipes** → Add Recipe by typing: it saves.
 - [ ] **Scan Recipe** the first time shows **"Scan with AI"** with Continue / Type it in instead.
   - [ ] "Type it in instead" opens an empty recipe.
   - [ ] Continue → pick a recipe photo → the form fills in, and **Public is off** by default.
 - [ ] The second scan skips the permission screen.
 
-## 7. Friends and Explore
-- [ ] Follow B from B's profile; B's places show on the Friends tab map.
+## 7. Home, navigation, Friends and Explore
+- [ ] The tab bar reads **Home · Explore · Lists · Activity · You**, and the app opens on Home.
+- [ ] Home: tapping **Coffee** opens Explore with Coffee selected. Switch to Home and back to Explore: Coffee is still selected.
+- [ ] Home with location never allowed: **no permission pop-up**; the section is "Popular on Afiyeat" and events show as a single "What's on near you" row.
+- [ ] Home as a new account that follows nobody: "From your circle" shows **Find people**, and no empty sections appear.
+- [ ] Home search bar → type a restaurant: Places results appear; tap one → it saves to My Restaurants (address and pin show). People and Lists tabs find B and B's lists.
+- [ ] Old links: afiyeat.com/foodie opens Explore → Food → Recipes.
+- [ ] Activity: B requests to follow private A → A's Activity tab shows a badge; Accept there clears it (and Profile's banner).
+- [ ] B adds an item and a comment on a shared list → it appears in A's Activity; tapping it opens that shared list with **Lists** selected in the tab bar, and Back returns to Activity.
+- [ ] Lists → Shared → a list → Back returns to Lists → Shared. Friends no longer has a Shared Lists tab.
+- [ ] Home → Popular → **See all** opens Explore on **All**.
+- [ ] Lists → Shared / Discover tabs show shared lists and other people's lists.
+- [ ] Follow B from B's profile; B's places show on the Friends map (Activity → Find people).
 - [ ] Make B private. As A (if you don't follow B), B's Explore comments show as **Anonymous** with no notes, and B's lists aren't listed.
 - [ ] Explore → places map and list load. Tapping a place shows details and "Add to a List".
 - [ ] Explore → Events: map pins. Moving the map shows **Search this area**.

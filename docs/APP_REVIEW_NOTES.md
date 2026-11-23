@@ -51,10 +51,11 @@ Use the demo account above with "Sign In" (email and password). Sign-up needs a 
 
 WHAT THE APP DOES
 Afiyeat lets people save restaurants they want to try or have been to, see them on a map, keep other lists (coffee shops, books, movies), save recipes, and share with friends.
-- Foodie tab: recipes. "Scan Recipe" reads a recipe from a photo (see AI below).
-- My Lists tab: "My Restaurants" (To Go / Been There, map, ratings) and other lists.
-- Friends tab: people you follow and shared lists.
-- Explore tab: places others have been, and nearby events.
+- Home tab: popular places, what people you follow saved, events this week, and lists to explore. The search bar finds places, people and lists.
+- Explore tab: Food, Coffee, Drinks and Events. Food also holds Recipes; "Scan Recipe" reads a recipe from a photo (see AI below).
+- Lists tab: "My Restaurants" (To Go / Been There, map, ratings) and other lists, shared lists, and lists by other people.
+- Activity tab: follow requests, new followers and shared-list updates; "Find people" to follow friends.
+- You tab: profile, privacy, Passport, support and account deletion.
 
 USER-GENERATED CONTENT SAFETY (Guideline 1.2)
 - Terms: sign-up requires agreeing to the Terms of Service, which state zero tolerance for objectionable content and abusive users.

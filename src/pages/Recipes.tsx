@@ -88,7 +88,16 @@ async function fetchRecipesFor(userId: string, activeTab: string): Promise<Recip
   return recipesWithProfiles;
 }
 
-export default function Recipes() {
+interface RecipesProps {
+  /**
+   * Rendered inside another screen (Explore -> Food -> Recipes) rather
+   * than as a page of its own: no page container, and the heading is left
+   * to the host screen (kept for screen readers).
+   */
+  embedded?: boolean;
+}
+
+export default function Recipes({ embedded = false }: RecipesProps) {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -212,6 +221,8 @@ export default function Recipes() {
       }
     });
 
+  const Root = embedded ? 'div' : 'main';
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -222,11 +233,13 @@ export default function Recipes() {
 
   return (
     <>
-      <main className="container py-4 sm:py-8 px-4 sm:px-6 lg:px-8">
+      <Root className={embedded ? undefined : 'container py-4 sm:py-8 px-4 sm:px-6 lg:px-8'}>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold">Recipes</h1>
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-64">
+          <h1 className={embedded ? 'sr-only' : 'text-2xl sm:text-3xl font-bold'}>Recipes</h1>
+          {/* On phones the search gets its own row - three controls side by
+              side squeezed the field down to just its icon. */}
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            <div className="relative basis-full sm:basis-auto flex-1 sm:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search recipes, ingredients..."
@@ -235,7 +248,7 @@ export default function Recipes() {
                 className="pl-9"
               />
             </div>
-            <Button variant="outline" onClick={startScan} disabled={scanning}>
+            <Button variant="outline" className="flex-1 sm:flex-initial" onClick={startScan} disabled={scanning}>
               {scanning ? (
                 <Spinner className="h-4 w-4 mr-2 animate-spin" />
               ) : (
@@ -260,7 +273,7 @@ export default function Recipes() {
                 setAddDialogOpen(true);
               }}
             />
-            <Button onClick={() => { setScanInitialData(null); setAddDialogOpen(true); }}>
+            <Button className="flex-1 sm:flex-initial" onClick={() => { setScanInitialData(null); setAddDialogOpen(true); }}>
               <Plus className="h-4 w-4 mr-2" />
               Add Recipe
             </Button>
@@ -350,7 +363,7 @@ export default function Recipes() {
             ))}
           </div>
         )}
-      </main>
+      </Root>
 
       <AddRecipeDialog
         open={addDialogOpen}

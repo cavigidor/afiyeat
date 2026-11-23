@@ -320,6 +320,26 @@ All colors MUST be HSL.
   .mb-safe {
     margin-bottom: env(safe-area-inset-bottom, 0px);
   }
+
+  /* Horizontal discovery rails (Home, Explore): swipeable rows of cards
+     with no visible scrollbar, snapping card edges into place like iOS.
+     overscroll-x-contain stops a hard swipe at the end of a rail from
+     turning into a browser back-swipe. */
+  .rail {
+    display: flex;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .rail::-webkit-scrollbar {
+    display: none;
+  }
+  .rail > * {
+    scroll-snap-align: start;
+    flex-shrink: 0;
+  }
 }
 
 /* Keeps page content clear of the fixed bottom tab bar (see

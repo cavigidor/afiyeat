@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CalendarDays, MapPin, Ticket, ExternalLink } from 'lucide-react';
 import { openExternalUrl } from '@/lib/externalLink';
+import { formatEventDate, formatEventTime } from '@/lib/events';
 
 export interface TicketmasterEvent {
   id: string;
@@ -23,31 +24,6 @@ export interface TicketmasterEvent {
   priceMin: number | null;
   priceMax: number | null;
   priceCurrency: string | null;
-}
-
-// Ticketmaster gives date and time as separate venue-local strings rather
-// than a single instant - building Date objects from just the numeric
-// parts (not a combined ISO string) means we display the wall-clock time
-// Ticketmaster gave us as-is, instead of accidentally shifting it by the
-// viewer's own device timezone.
-function formatEventDate(localDate: string | null): string | null {
-  if (!localDate) return null;
-  const [y, m, d] = localDate.split('-').map(Number);
-  if (!y || !m || !d) return null;
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
-function formatEventTime(localTime: string | null): string | null {
-  if (!localTime) return null;
-  const [h, min] = localTime.split(':').map(Number);
-  if (h == null || min == null) return null;
-  const d = new Date();
-  d.setHours(h, min, 0, 0);
-  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
 function formatPrice(event: TicketmasterEvent): string | null {
